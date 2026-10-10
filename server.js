@@ -12,6 +12,10 @@ app.get("/api/health", (req, res) => {
     res.json({ status: "ok", app: "CrowdClear" });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`CrowdClear running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`CrowdClear running at http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;
