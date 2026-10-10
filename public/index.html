@@ -27,7 +27,7 @@
 		</section>
 
 		<section id="game" aria-label="Stadium drill">
-            <div class="drill-heading"><h2 id="mode-title">Guided practice</h2><button id="stop-btn" class="secondary">Restart practice</button></div>
+            <div class="drill-heading"><h2 id="mode-title">Guided practice</h2><button id="vr-btn" class="secondary" hidden>Enter headset view</button><button id="stop-btn" class="secondary">Restart practice</button></div>
 			<div id="hud">
 				<span id="evacuated">Evacuated: 0</span>
 				<span id="timer">Practice · no time limit</span>
@@ -126,11 +126,23 @@
 					color="#2ecc71"
 				></a-box>
 
-				<a-entity
-					camera
-					position="0 22 18"
-                    rotation="-42 0 0"
-				></a-entity>
+				<a-entity id="rig">
+					<a-entity
+						id="camera"
+						camera
+						position="0 22 18"
+						rotation="-42 0 0"
+					></a-entity>
+					<a-entity laser-controls="hand: left" raycaster="objects: .vr-control; far: 4"></a-entity>
+					<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 4"></a-entity>
+					<a-entity id="vr-post" visible="false">
+						<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" color="#3a4250"></a-box>
+						<a-entity id="vr-panel" position="-0.75 1.25 -0.55" rotation="-15 50 0">
+							<a-plane width="1.2" height="0.9" color="#182230"></a-plane>
+							<a-text id="vr-text" position="-0.55 0.42 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
+						</a-entity>
+					</a-entity>
+				</a-entity>
                 <a-text value="A" position="-8 3.5 -11" align="center" width="8"></a-text>
                 <a-text value="B" position="0 3.5 -11" align="center" width="8"></a-text>
                 <a-text value="C" position="8 3.5 -11" align="center" width="8"></a-text>

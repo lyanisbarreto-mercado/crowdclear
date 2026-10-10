@@ -82,6 +82,7 @@ function refresh() {
   place(figures, state);
   el('ghost-crowd').setAttribute('visible', !!ghost);
   if (ghost) place(ghostFigures, ghost);
+  syncHeadset();
 }
 function fresh(nextMode) {
   mode = nextMode;
@@ -211,6 +212,59 @@ el('redirect').addEventListener('click', () => perform('redirect'));
 el('compare-form').addEventListener('submit', event => {
   event.preventDefault();
   compare(Number(el('compare-action').value), Number(el('compare-time').value));
+});
+// In a headset the page is out of sight: the rig lifts the player onto a raised command post, an in-scene
+// panel mirrors the side panel, and controller clicks press the page's own buttons so both inputs share handlers.
+// ponytail: post and panel positions are first guesses; tune them on the headset.
+const VR_POST = '0 6 13';
+const VR_BUTTONS = ['open-exit', 'redirect', 'drill-btn', 'stop-btn'];
+const shown = button => !button.closest('[hidden]');
+let vrButtons = [];
+let laptopPose = null;
+function syncHeadset() {
+  if (!laptopPose) return;
+  const timeline = el('review').hidden ? [] : [...el('review-timeline').children].map(item => item.textContent);
+  el('vr-text').setAttribute('value', [...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
+    ...timeline, el('evacuated').textContent, el('timer').textContent].join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
+  vrButtons.forEach(({ source, button }) => {
+    button.setAttribute('visible', shown(source));
+    button.setAttribute('material', 'color', source.disabled ? '#4a5260' : '#2f7de1');
+    button.setAttribute('text', 'value', source.textContent);
+  });
+}
+function createVrButtons() {
+  vrButtons = VR_BUTTONS.map((id, i) => {
+    const source = el(id);
+    const button = document.createElement('a-entity');
+    button.classList.add('vr-control');
+    button.setAttribute('geometry', { primitive: 'plane', width: 0.55, height: 0.12 });
+    button.setAttribute('position', `${i % 2 ? 0.29 : -0.29} ${-0.24 - Math.floor(i / 2) * 0.15} 0.01`);
+    button.setAttribute('text', { align: 'center', width: 0.5, wrapCount: 22, color: '#ffffff' });
+    // The raycaster can still hit an invisible button, so check the page button is actually showing.
+    button.addEventListener('click', () => { if (shown(source)) source.click(); });
+    el('vr-panel').append(button);
+    return { source, button };
+  });
+}
+window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { el('vr-btn').hidden = !ok; }, () => {});
+el('vr-btn').addEventListener('click', () => scene.enterVR());
+scene.addEventListener('enter-vr', () => {
+  // Laptop fullscreen (A-Frame's "f" key) also emits enter-vr; only a real XR session moves the player.
+  if (!scene.xrSession) return;
+  if (!vrButtons.length) createVrButtons();
+  const camera = el('camera').object3D;
+  laptopPose = { position: camera.position.clone(), rotation: camera.rotation.clone() };
+  el('rig').setAttribute('position', VR_POST);
+  el('vr-post').setAttribute('visible', true);
+  syncHeadset();
+});
+scene.addEventListener('exit-vr', () => {
+  if (!laptopPose) return;
+  el('rig').setAttribute('position', '0 0 0');
+  el('vr-post').setAttribute('visible', false);
+  el('camera').object3D.position.copy(laptopPose.position);
+  el('camera').object3D.rotation.copy(laptopPose.rotation);
+  laptopPose = null;
 });
 function tick() {
   if (mode === 'compare') {
