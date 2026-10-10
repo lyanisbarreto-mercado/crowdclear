@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+<!-- @format -->
+
+<!doctype html>
 <!-- @format -->
 
 <html lang="en">
@@ -16,118 +18,179 @@
 			<p>Emergency Evacuation Training</p>
 		</header>
 
-	<main>
-		<section id="intro">
-			<h2>Stadium Evacuation Drill</h2>
-			<p>You are coordinating a stadium evacuation. Practice opening an exit and directing people toward it, then try an independent drill.</p>
-            <p class="muted">A simulated training prototype. Results are not real-world evacuation predictions.</p>
-			<button id="start-btn">Begin guided practice</button>
+		<main>
+			<section id="intro">
+				<h2>Stadium Evacuation Drill</h2>
+				<p>
+					You are coordinating a stadium evacuation. Practice opening an exit
+					and directing people toward it, then try an independent drill.
+				</p>
+				<p class="muted">
+					A simulated training prototype. Results are not real-world evacuation
+					predictions.
+				</p>
+				<button id="start-btn">Begin guided practice</button>
+			</section>
 
-		</section>
+			<section id="game" aria-label="Stadium drill">
+				<div class="drill-heading">
+					<h2 id="mode-title">Guided practice</h2>
+					<button id="stop-btn" class="secondary">Restart practice</button>
+				</div>
+				<div id="hud">
+					<span id="evacuated">Evacuated: 0</span>
+					<span id="timer">Practice · no time limit</span>
+					<span id="remaining">Remaining: 30</span>
+				</div>
 
-		<section id="game" aria-label="Stadium drill">
-            <div class="drill-heading"><h2 id="mode-title">Guided practice</h2><button id="stop-btn" class="secondary">Restart practice</button></div>
-			<div id="hud">
-				<span id="evacuated">Evacuated: 0</span>
-				<span id="timer">Practice · no time limit</span>
-                <span id="remaining">Remaining: 30</span>
-			</div>
+				<div class="exit-status" aria-label="Exit status">
+					<span id="status-a">Exit A · OPEN</span
+					><span id="status-b">Exit B · CLOSED</span
+					><span id="status-c">Exit C · OPEN</span>
+				</div>
+				<div class="play-layout">
+					<aside id="instruction" aria-label="Current task">
+						<p id="step-label" class="eyebrow">TASK 1 OF 2</p>
+						<h3 id="task-title">Open an alternative route</h3>
+						<p id="task-copy">
+							Open Exit B to give the crowd another route. The highlighted
+							button controls the closed exit in the middle.
+						</p>
+						<div id="actions">
+<fieldset id="exit-controls-a"><legend>Exit A</legend>
+<button id="clear-hazard-a" hidden>Clear hazard at A</button>
+<button id="open-exit-a">Open Exit A<span class="completion-check" id="check-open-exit-a" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-a">Redirect crowd to A<span class="completion-check" id="check-redirect-a" aria-hidden="true" hidden> ✓</span></button>
+</fieldset>
+<fieldset id="exit-controls-b"><legend>Exit B</legend>
+<button id="clear-hazard-b" hidden>Clear hazard at B</button>
+<button id="open-exit-b">Open Exit B<span class="completion-check" id="check-open-exit-b" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-b">Redirect crowd to B<span class="completion-check" id="check-redirect-b" aria-hidden="true" hidden> ✓</span></button>
+</fieldset>
+<fieldset id="exit-controls-c"><legend>Exit C</legend>
+<button id="clear-hazard-c" hidden>Clear hazard at C</button>
+<button id="open-exit-c">Open Exit C<span class="completion-check" id="check-open-exit-c" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-c">Redirect crowd to C<span class="completion-check" id="check-redirect-c" aria-hidden="true" hidden> ✓</span></button>
+</fieldset>
+</div>
+<p id="feedback" role="status" aria-live="polite">
+							Your task stays here until you complete it.
+						</p>
+						<button id="drill-btn" hidden>Start timed drill</button>
+						<p class="muted">
+							The fixed overhead view lets you watch all three routes.
+						</p>
+					</aside>
+					<div class="scene-wrap">
+<section id="results" hidden aria-labelledby="results-title">
+  <div class="result-card">
+    <h2 id="results-title">Drill Results</h2>
+    <dl><div><dt>Evacuated</dt><dd id="result-evacuated"></dd></div>
+    <div><dt>Time remaining</dt><dd id="result-time"></dd></div>
+    <div><dt>Open exits</dt><dd id="result-exits"></dd></div>
+    <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div></dl>
+    <p class="muted">Score = (evacuated + whole seconds remaining) × open exits</p>
+  </div>
+  <h3 id="result-message"></h3><p id="result-tip"></p>
+</section>
+						<a-scene
+							embedded
+							xr-mode-ui="enabled: false"
+							renderer="antialias: true"
+							background="color: #182230"
+						>
+							<a-sky color="#182230"></a-sky>
+							<a-plane
+								rotation="-90 0 0"
+								width="24"
+								height="24"
+								color="#555b63"
+							></a-plane>
 
-            <div class="exit-status" aria-label="Exit status">
-                <span id="status-a">Exit A · OPEN</span><span id="status-b">Exit B · CLOSED</span><span id="status-c">Exit C · OPEN</span>
-            </div>
-            <div class="play-layout">
-            <aside id="instruction" aria-label="Current task">
-                <p id="step-label" class="eyebrow">TASK 1 OF 2</p>
-                <h3 id="task-title">Open an alternative route</h3>
-                <p id="task-copy">Open Exit B to give the crowd another route. The highlighted button controls the closed exit in the middle.</p>
-                <div id="actions">
-                    <button id="open-exit">Open Exit B</button>
-                    <button id="redirect" disabled>Redirect crowd to B</button>
-                </div>
-                <p id="feedback" role="status" aria-live="polite">Your task stays here until you complete it.</p>
-                <button id="drill-btn" hidden>Start timed drill</button>
-                <p class="muted">The fixed overhead view lets you watch all three routes.</p>
-            </aside>
-            <div class="scene-wrap">
+							<a-box
+								position="0 1.5 -12"
+								width="24"
+								height="3"
+								depth="0.3"
+								color="#8a929d"
+							></a-box>
 
-			<a-scene embedded xr-mode-ui="enabled: false" renderer="antialias: true" background="color: #182230">
-				<a-sky color="#182230"></a-sky>
-				<a-plane
-					rotation="-90 0 0"
-					width="24"
-					height="24"
-					color="#555b63"
-				></a-plane>
+							<a-box
+								position="-12 1.5 0"
+								width="0.3"
+								height="3"
+								depth="24"
+								color="#8a929d"
+							></a-box>
 
-				<a-box
-					position="0 1.5 -12"
-					width="24"
-					height="3"
-					depth="0.3"
-					color="#8a929d"
-				></a-box>
+							<a-box
+								position="12 1.5 0"
+								width="0.3"
+								height="3"
+								depth="24"
+								color="#8a929d"
+							></a-box>
 
-				<a-box
-					position="-12 1.5 0"
-					width="0.3"
-					height="3"
-					depth="24"
-					color="#8a929d"
-				></a-box>
+							<a-box
+								id="exit-a"
+								position="-8 1 -11.7"
+								width="3"
+								height="2"
+								depth="0.2"
+								color="#2ecc71"
+							></a-box>
 
-				<a-box
-					position="12 1.5 0"
-					width="0.3"
-					height="3"
-					depth="24"
-					color="#8a929d"
-				></a-box>
+							<a-box
+								id="exit-b"
+								position="0 1 -11.7"
+								width="3"
+								height="2"
+								depth="0.2"
+								color="#e74c3c"
+							></a-box>
 
-				<a-box
-					id="exit-a"
-					position="-8 1 -11.7"
-					width="3"
-					height="2"
-					depth="0.2"
-					color="#2ecc71"
-				></a-box>
+							<a-box
+								id="exit-c"
+								position="8 1 -11.7"
+								width="3"
+								height="2"
+								depth="0.2"
+								color="#2ecc71"
+							></a-box>
 
-				<a-box
-					id="exit-b"
-					position="0 1 -11.7"
-					width="3"
-					height="2"
-					depth="0.2"
-					color="#e74c3c"
-				></a-box>
+							<a-entity camera position="0 22 18" rotation="-42 0 0"></a-entity>
+							<a-text
+								value="A"
+								position="-8 3.5 -11"
+								align="center"
+								width="8"
+							></a-text>
+							<a-text
+								value="B"
+								position="0 3.5 -11"
+								align="center"
+								width="8"
+							></a-text>
+							<a-text
+								value="C"
+								position="8 3.5 -11"
+								align="center"
+								width="8"
+							></a-text>
+							<a-box id="hazard-marker" visible="false" position="0 0.6 -10.5" width="2.8" height="1.2" depth="1" color="#e6da78"></a-box>
+<a-text id="hazard-label" visible="false" value="HAZARD" position="0 4.5 -11" align="center" width="10" color="#e6da78"></a-text>
+<a-entity id="crowd"></a-entity>
+						</a-scene>
+						<p class="scene-caption">
+							Crowd figures are simplified. Exit labels show each route; the yellow obstruction marks the hazard.
+						</p>
+					</div>
+				</div>
+			</section>
 
-				<a-box
-					id="exit-c"
-					position="8 1 -11.7"
-					width="3"
-					height="2"
-					depth="0.2"
-					color="#2ecc71"
-				></a-box>
-
-				<a-entity
-					camera
-					position="0 22 18"
-                    rotation="-42 0 0"
-				></a-entity>
-                <a-text value="A" position="-8 3.5 -11" align="center" width="8"></a-text>
-                <a-text value="B" position="0 3.5 -11" align="center" width="8"></a-text>
-                <a-text value="C" position="8 3.5 -11" align="center" width="8"></a-text>
-                <a-entity id="crowd"></a-entity>
-            </a-scene>
-            <p class="scene-caption">Crowd figures are simplified. Blue figures are directed toward Exit B.</p>
-            </div>
-            </div>
-		</section>
-
-        <script src="/simulation.js"></script>
-        <script src="/game.js"></script>
-	</main>
-</body>
+			<script src="/simulation.js"></script>
+			<script src="/review.js"></script>
+<script src="/game.js"></script>
+		</main>
+	</body>
 </html>

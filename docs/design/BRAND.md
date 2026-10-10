@@ -62,3 +62,12 @@ Completion comes from confirmed game state, not a button click alone. A failed, 
 Practice has no countdown pressure or score penalty. Start the timed independent drill only after both tasks are complete and the player chooses Start Drill. Resetting practice restores the initial scene and first task. Tutorial actions are kept separate from the scored drill and its replay.
 
 Next visible checkpoint: try these two tasks in the laptop prototype and check whether the crowd's response makes each interaction understandable.
+
+## Accepted drill and results changes
+
+- Each timed drill chooses one hazard-blocked exit (A, B, or C) at its start. Keep that scenario on the run for reproducible replay. Other exits begin open.
+- Each exit has Clear hazard, Open exit, and Redirect crowd controls. Clearing is immediate, as Carol requested; the door remains closed until opened. A hazard-blocked exit cannot open or receive redirection.
+- The tutorial remains a predictable two-task Exit B practice. Completed controls retain a yellow checkmark and an accessible completed label until reset.
+- Results replace the scene at drill completion with evacuated people, whole seconds remaining, usable open exits, total score, and encouraging feedback.
+- Score formula: (evacuated + whole seconds remaining) × usable open exits. Thus 30 evacuated, 45 seconds, and 3 open exits gives 225. The sketch's 165 does not match that breakdown; display the formula explicitly.
+- Every outcome receives praise or an improvement tip. An incomplete evacuation invites another attempt and explains a specific action to try; no failure labels.

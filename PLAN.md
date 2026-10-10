@@ -95,3 +95,16 @@ Trial: run `npm start`; open localhost; begin practice; try redirect before open
 - Execution host uses Node 25.9.0; CI remains configured for Node 24. A fresh Node 24 CI run and visual/device checks remain pending.
 - Preserved original local work in Git stash `crowdclear-before-reconciliation` and `/tmp/crowdclear-reconcile-backup`. Finder metadata is restored locally and remains ignored. Installed dependencies were preserved locally while the teammate’s commit removed them from tracking.
 - Integrated application edits remain uncommitted for review; no push or deployment performed.
+
+## Immediate hazard and score checkpoint
+
+Carol approved immediate hazard clearing. Implemented on the current `Lyanis'-tasks` checkout, preserving the existing per-exit HTML edits and leaving draft duplicate files untouched.
+
+- Drill start randomly selects one blocked exit; the run stores `blockedExit` and targeted commands. Clearing removes the hazard immediately; opening remains separate. All three exits have clear/open/redirect controls and visible status.
+- Tutorial completion shows persistent yellow checks; reset clears them. Practice remains untimed with the original two action gates.
+- Results show actual counts, remaining time, usable open exits, a transparent score formula, and supportive feedback. Ghost comparison and full command-timeline review remain future work.
+- `npm test`: 14 tests pass, covering HTTP assets, hazards at all exits, blocked-route protection, targeted command reproducibility, results scoring, tutorial gates/checks/reset, and existing simulation behavior.
+- Test discovery explicitly includes `test/*.test.js` and `tests/*.test.js`, leaving draft duplicate `test 2.js` files untouched and outside the runnable suite.
+- Local preview HTTP request returned 200. Chrome visual inspection was blocked because Computer Use was not approved for Chrome; browser layout and headset behavior remain unverified. No commit or push performed.
+
+Next: Carol reviews tutorial checkmarks, per-exit controls, and the results composition at localhost; pause for feedback before the next visible milestone.

@@ -37,24 +37,50 @@ function refresh() {
   el('timer').textContent = mode === 'drill' || mode === 'finished'
     ? `Time remaining: ${Math.ceil(stats.seconds)} seconds` : 'Practice · no time limit';
   for (const exit of ['A', 'B', 'C']) {
-    el(`status-${exit.toLowerCase()}`).textContent = `Exit ${exit} · ${state.open[exit] ? 'OPEN' : 'CLOSED'} · ${stats.queues[exit]} heading here`;
+    const suffix = exit.toLowerCase();
+    el(`exit-controls-${suffix}`).hidden = mode === 'practice' && exit !== 'B';
+    const hazard = state.hazard === exit;
+    const status = hazard ? 'HAZARD · clear before opening' : state.open[exit] ? 'OPEN' : 'CLOSED';
+    el(`status-${suffix}`).textContent = `Exit ${exit} · ${status} · ${stats.queues[exit]} heading here`;
+    el(`exit-${suffix}`).setAttribute('color', hazard ? '#e6da78' : state.open[exit] ? '#2ecc71' : '#e74c3c');
+    const active = mode === 'practice' || mode === 'drill';
+    const available = active && (mode !== 'practice' || exit === 'B');
+    const clear = el(`clear-hazard-${suffix}`);
+    clear.hidden = mode === 'practice';
+    clear.disabled = !available || !hazard;
+    const open = el(`open-exit-${suffix}`);
+    const redirect = el(`redirect-${suffix}`);
+    open.hidden = mode === 'practice' && exit !== 'B';
+    redirect.hidden = mode === 'practice' && exit !== 'B';
+    open.disabled = !available || state.open[exit] || hazard;
+    redirect.disabled = !available || !state.open[exit] || hazard || state.lastRedirect === exit || stats.remaining === 0;
+    open.classList.toggle('task-target', mode === 'practice' && practiceStep === 0 && exit === 'B');
+    redirect.classList.toggle('task-target', mode === 'practice' && practiceStep === 1 && exit === 'B');
+    for (const kind of ['open-exit', 'redirect']) {
+      const complete = mode === 'practice' && exit === 'B' && practiceStep >= (kind === 'open-exit' ? 1 : 2);
+      el(`check-${kind}-${suffix}`).hidden = !complete;
+      el(`${kind}-${suffix}`).setAttribute('aria-label', `${kind === 'open-exit' ? 'Open Exit' : 'Redirect crowd to'} ${exit}${complete ? ', completed' : ''}`);
+    }
   }
-  el('exit-b').setAttribute('color', state.open.B ? '#2ecc71' : '#e74c3c');
-  const active = mode === 'practice' || mode === 'drill';
-  el('open-exit').disabled = !active || state.open.B;
-  el('redirect').disabled = !active || !state.open.B || state.redirected;
-  el('open-exit').classList.toggle('task-target', mode === 'practice' && practiceStep === 0);
-  el('redirect').classList.toggle('task-target', mode === 'practice' && practiceStep === 1);
+  el('hazard-marker').setAttribute('visible', !!state.hazard);
+  el('hazard-label').setAttribute('visible', !!state.hazard);
+  if (state.hazard) {
+    const x = { A: -8, B: 0, C: 8 }[state.hazard];
+    el('hazard-marker').setAttribute('position', `${x} 0.6 -10.5`);
+    el('hazard-label').setAttribute('position', `${x} 4.5 -11`);
+  }
   figures.forEach(({ figure, body }, i) => {
     const person = state.people[i];
     figure.setAttribute('visible', !person.evacuated);
     figure.setAttribute('position', `${person.x} 0 ${person.z}`);
-    body.setAttribute('color', person.exit === 'B' ? '#76bcff' : '#f1d673');
+    body.setAttribute('color', { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit]);
   });
 }
 function fresh(nextMode) {
   mode = nextMode;
-  state = sim.createState();
+  state = sim.createState(nextMode === 'drill' ? { blockedExit: ['A', 'B', 'C'][Math.floor(Math.random() * 3)] } : {});
+  el('results').hidden = true;
+  scene.hidden = false;
   accumulator = 0;
   previousTime = null;
   practiceStep = 0;
@@ -66,24 +92,30 @@ function fresh(nextMode) {
     instructions('TASK 1 OF 2', 'Open an alternative route', 'Open Exit B to give the crowd another route. Use the highlighted control for the closed exit in the middle.');
     el('feedback').textContent = 'No timer is running. Complete the task when you are ready.';
   } else {
-    instructions('INDEPENDENT DRILL', 'Reduce the queue', 'Most people are heading to Exit A. Open Exit B, then redirect part of the crowd to spread the flow.');
+    instructions('INDEPENDENT DRILL', 'Restore the blocked route', `A hazard blocks Exit ${state.hazard}. Clear it, open the exit, and direct people toward available routes. You can also use the other open exits.`);
     el('feedback').textContent = 'A fresh drill has started. Your practice actions have been cleared.';
   }
   createFigures();
   refresh();
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
-function perform(action) {
+function perform(action, target = 'B') {
   if (mode !== 'practice' && mode !== 'drill') return;
-  if (!sim.act(state, action)) return;
-  if (action === 'open-exit') {
-    el('feedback').textContent = 'Exit B is open. People still need direction to use the new route.';
+  if (mode === 'practice' && (target !== 'B' || (action !== 'open-exit' && action !== 'redirect'))) return;
+  if (!sim.act(state, action, target)) {
+    el('feedback').textContent = `You can try another route. Clear any hazard and open Exit ${target} before directing people there.`;
+    return;
+  }
+  if (action === 'clear-hazard') {
+    el('feedback').textContent = `Nice work! The hazard at Exit ${target} is cleared. You can open that exit now.`;
+  } else if (action === 'open-exit') {
+    el('feedback').textContent = `Good work! Exit ${target} is open. Direct people toward the new route.`;
     if (mode === 'practice' && practiceStep === 0 && state.open.B) {
       practiceStep = 1;
       instructions('TASK 2 OF 2', 'Direct people to the new route', 'Redirect the crowd to Exit B. Watch the blue figures move toward the middle exit.');
     }
   } else {
-    el('feedback').textContent = 'Part of the crowd is now heading to Exit B. Watch the blue figures take the new route.';
+    el('feedback').textContent = `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
       instructions('PRACTICE COMPLETE', 'You have tried both actions', 'Opening an exit makes a route available; redirecting sends people toward it. Watch the response, then start a fresh timed drill when ready.');
@@ -96,8 +128,10 @@ function perform(action) {
 function finish() {
   mode = 'finished';
   const stats = sim.stats(state);
-  instructions('DRILL COMPLETE', 'Your first drill is finished', `${stats.evacuated} of ${state.people.length} people evacuated; ${stats.remaining} remain. Decision review and comparison replay are coming in the next checkpoints.`);
-  el('feedback').textContent = 'These results describe this simplified simulation only.';
+  instructions('DRILL COMPLETE', 'Your first drill is finished', `${stats.evacuated} of ${state.people.length} people evacuated; ${stats.remaining} remain. See your score and a practice tip in the results panel.`);
+  window.CrowdReview.show(state, stats);
+  scene.hidden = true;
+  el('feedback').textContent = 'Every drill is a chance to improve. Try another hazard scenario when you are ready.';
   el('drill-btn').textContent = 'Try another drill';
   el('drill-btn').hidden = false;
   refresh();
@@ -105,8 +139,11 @@ function finish() {
 el('start-btn').addEventListener('click', () => fresh('practice'));
 el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
-el('open-exit').addEventListener('click', () => perform('open-exit'));
-el('redirect').addEventListener('click', () => perform('redirect'));
+for (const exit of ['A', 'B', 'C']) {
+  for (const action of ['clear-hazard', 'open-exit', 'redirect']) {
+    el(`${action}-${exit.toLowerCase()}`).addEventListener('click', () => perform(action, exit));
+  }
+}
 function frame(now) {
   if (previousTime === null) previousTime = now;
   const delta = (now - previousTime) / 1000;

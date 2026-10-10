@@ -12,7 +12,7 @@ Carol owns UX/UI. Teammate owns feature integration. Either can help the other, 
 - [ ] Capture URLs / test notes for the platform items marked complete in CHECKLIST: Render, headset input/audio, Neon, and Presage. These are reported complete there; their evidence is not yet recorded in PLAN.
 - [ ] Agree the next handoff: Carol supplies a review-screen layout and copy; teammate supplies the run data that fills it.
 
-## Carol · UX/UI
+## Lyanis · UX/UI
 
 - [ ] **First priority: try the current practice.** Can a new player identify Exit B, perform both tasks, understand the crowd response, and start a fresh drill without help? Record the three most important fixes.
 - [ ] Refine briefing and tutorial wording: one instruction at a time, clear action feedback, no Next button to bypass interactive tasks.
@@ -24,7 +24,7 @@ Carol owns UX/UI. Teammate owns feature integration. Either can help the other, 
 
 Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-draft.md`. Own visual markup in `public/index.html` during an agreed editing window.
 
-## Teammate · feature integration
+## Colin · feature integration
 
 - [ ] **First priority: expose a completed run.** Connect drill completion to review with initial state, simulation version, tick-stamped actions, and computed results. Keep tutorial activity out of scored runs.
 - [ ] Implement review in `public/review.js`: populate Carol's layout from actual run data; handle no actions, time expiry, and early completion.
