@@ -1,12 +1,13 @@
 <!-- @format -->
 
+<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>CrowdClear</title>
 		<link rel="stylesheet" href="/styles.css" />
-		<script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+		<script src="/aframe/aframe-v1.8.0.min.js"></script>
 	</head>
 
 	<body>
@@ -14,7 +15,6 @@
 			<h1>CrowdClear</h1>
 			<p>Emergency Evacuation Training</p>
 		</header>
-	</body>
 
 	<main>
 		<section id="intro">
@@ -27,7 +27,8 @@
 		<section id="game">
 			<div id="hud">
 				<span id="evacuated">Evacuated: 0</span>
-				<span id="timer">Timer: 120 seconds</span>
+				<span id="timer">Timer: 90 seconds</span>
+				<span id="status" role="status"></span>
 			</div>
 
 			<div id="actions">
@@ -99,11 +100,11 @@
 					camera
 					position="0 1.7 10"
 					look-controls
-					wasd-controls
 				></a-entity>
 			</a-scene>
 		</section>
 
         <script src="/game.js"></script>
 	</main>
+	</body>
 </html>

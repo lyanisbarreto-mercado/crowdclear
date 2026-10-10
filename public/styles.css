@@ -30,8 +30,7 @@ header h1 {
 
 #intro, #game {
   background: #2d3c4f;
-  stroke-color: yellow;
-  stroke-width: 5px;
+  border: 5px solid yellow;
   padding: 20px;
   border-radius: 12px;
   margin-bottom: 16px;
@@ -57,11 +56,12 @@ button {
   margin-bottom: 12px;
 }
 
-a-scene {
+/* #game beats A-Frame's injected `a-scene { height: 100% }`, which collapses to 0 here */
+#game a-scene {
   width: 100%;
   height: 480px;
 }
 
 @media (max-width: 600px) {
-  a-scene { height: 350px; }
+  #game a-scene { height: 350px; }
 }
