@@ -30,9 +30,9 @@ Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). I
 ## Hours 12–22 · Full loop
 
 - [ ] Emergency round: incident blocks the familiar exit at a fixed tick
-- [ ] Review screen: evacuated before deadline, max queue, time to redirect, command timeline
-- [ ] Ghost replay: edit one command, re-run both from the same initial state, faded original vs solid alternative
-- [ ] Determinism check: re-simulated original matches its saved result
+- [ ] Review screen: evacuated before deadline, max queue, time to redirect, command timeline (outcome, clearance time, and timestamped command timeline done; max queue not computed)
+- [x] Ghost replay: edit one command, re-run both from the same initial state, faded original vs solid alternative (laptop browser verified; headset pending)
+- [ ] Determinism check: re-simulated original matches its saved result (runs on every comparison against the in-memory record; re-check once Neon save exists)
 - [ ] **Gate · Loop works live:** start to replay runs on the published URL
 
 ## Hours 22–28 · Clarity and stretch

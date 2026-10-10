@@ -2,15 +2,15 @@
 
 Working deadline: **October 11, 10 a.m. Eastern local time**. Aim for a submission-ready package by 9 a.m.
 
-Carol owns UX/UI. Teammate owns feature integration. Either can help the other, but name one owner for each task before starting. This file assigns work; [PLAN.md](PLAN.md) tracks milestone decisions and evidence; [CHECKLIST.md](CHECKLIST.md) retains the original technical requirements.
+Carol owns UX/UI. Colin owns feature integration. Either can help the other, but name one owner for each task before starting. This file assigns work; [PLAN.md](PLAN.md) tracks milestone decisions and evidence; [CHECKLIST.md](CHECKLIST.md) retains the original technical requirements.
 
 ## Start here together
 
 - [ ] Get the reconciled changes onto a shared commit so both computers run the same version; preserve current uncommitted work before pulling.
-- [ ] Run `npm test` and the local app on both computers. Latest recorded combined result: 9 passing tests.
+- [ ] Run `npm test` and the local app on both computers. Latest recorded result: 16 passing tests (Colin, Oct 10, commit `fdd8b3e`).
 - [ ] Confirm the event portal, live app URL, and which teammate will submit on Devpost.
 - [ ] Capture URLs / test notes for the platform items marked complete in CHECKLIST: Render, headset input/audio, Neon, and Presage. These are reported complete there; their evidence is not yet recorded in PLAN.
-- [ ] Agree the next handoff: Carol supplies a review-screen layout and copy; teammate supplies the run data that fills it.
+- [ ] Agree the next handoff: Carol supplies a review-screen layout and copy; Colin supplies the run data that fills it.
 
 ## Carol · UX/UI
 
@@ -24,12 +24,12 @@ Carol owns UX/UI. Teammate owns feature integration. Either can help the other, 
 
 Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-draft.md`. Own visual markup in `public/index.html` during an agreed editing window.
 
-## Teammate · feature integration
+## Colin · feature integration
 
-- [ ] **First priority: expose a completed run.** Connect drill completion to review with initial state, simulation version, tick-stamped actions, and computed results. Keep tutorial activity out of scored runs.
-- [ ] Implement review in `public/review.js`: populate Carol's layout from actual run data; handle no actions, time expiry, and early completion.
-- [ ] Implement alternative replay using the same simulation and starting state. Change one action's timing while retaining every other input. Verify the original reproduces its recorded result.
-- [ ] Wire Carol's comparison controls to replay; connect original/alternative visuals and reset behavior.
+- [x] **First priority: expose a completed run.** Connect drill completion to review with initial state, simulation version, tick-stamped actions, and computed results. Keep tutorial activity out of scored runs.
+- [ ] Implement review in `public/review.js`: populate Carol's layout from actual run data; handle no actions, time expiry, and early completion. *Data, text, and all three cases done on a baseline layout; waiting on Carol's layout. Hooks listed in PLAN.md.*
+- [x] Implement alternative replay using the same simulation and starting state. Change one action's timing while retaining every other input. Verify the original reproduces its recorded result.
+- [ ] Wire Carol's comparison controls to replay; connect original/alternative visuals and reset behavior. *Baseline controls wired (action select, time input, replay button); original is a low-poly wireframe ghost, alternative solid. Swap in Carol's controls when ready.*
 - [ ] Connect Neon save/load if required for the agreed demo or track. Prove save → reopen → replay; validate writes, keep secrets server-side, and show failed saves honestly.
 - [ ] Integrate shared laptop/headset action handlers after the laptop loop works. Test actual headset input and ensure practice instructions/actions remain usable in VR.
 - [ ] Maintain passing smoke, tutorial, and simulation tests. Verify CI on Node 24 and check the deployed build after authorized deployment.
@@ -47,7 +47,7 @@ Primary files: `public/game.js`, `public/simulation.js`, `public/review.js`, `se
 | Submission ready | Final story and visual assets | Verified repository/app links and technical claims | Both review the package before submission |
 
 - [ ] At each checkpoint, run the journey together; Carol gives feedback before moving to the next visible milestone.
-- [ ] Before wiring review, agree the result fields and element IDs. Preserve current IDs used by game code; add classes for styling. Teammate confirms any renamed hooks and updates the code/tests with them.
+- [ ] Before wiring review, agree the result fields and element IDs. Preserve current IDs used by game code; add classes for styling. Colin confirms any renamed hooks and updates the code/tests with them.
 - [ ] Take turns editing `public/index.html`. Announce the file handoff before starting; avoid simultaneous edits to shared files.
 - [ ] Share focused commits frequently. Prefer separate task branches for concurrent work, integrating onto `main`; never overwrite another person's unfinished edits.
 - [ ] If helping across roles, temporarily transfer a specific task/file and its acceptance condition. Return it explicitly when done.
@@ -56,7 +56,7 @@ Primary files: `public/game.js`, `public/simulation.js`, `public/review.js`, `se
 
 - [ ] Freeze new features by 8:30 a.m.; fix only blockers and capture the stable demo.
 - [ ] Run start → practice → drill → review → comparison → restart on the actual demo device.
-- [ ] Carol checks copy/assets; teammate checks tests, live URL, repository visibility, and any claimed integrations.
+- [ ] Carol checks copy/assets; Colin checks tests, live URL, repository visibility, and any claimed integrations.
 - [ ] Attach the demo video, include all teammates, select eligible prizes, and review every required submission field.
 - [ ] Named submitter submits by the 9:30 a.m. target and saves confirmation before the 10 a.m. deadline.
 

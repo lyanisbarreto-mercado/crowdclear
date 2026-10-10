@@ -39,8 +39,8 @@ Baseline source inspection on October 10, 2026, before checkpoint 2 implementati
 | --- | --- | --- | --- | --- |
 | 1. Experience direction | Read the journey and proposed screen layout in `docs/design/BRAND.md` | Is the staff role clear? Which information should command attention? | Agree core journey, target device, deadline, and feedback mode | Accepted; action-based tutorial confirmed |
 | 2. First playable drill | Complete guided exit-opening and redirect tasks; start the independent drill and see routing change | Does performing each task teach the interaction? Can you tell why the action helped? | Tutorial advances only on successful state changes; practice is untimed; crowd routes change; timer and reset work; keyboard controls have labels; simulation checks pass | Implemented; nine combined automated checks pass; browser/device review pending |
-| 3. Decision review | Finish a round; see actions in time order and results | Does feedback explain cause and effect without implying real-world safety? | Displayed results derive from the run; empty and interrupted runs handled | Not built |
-| 4. Signature replay | Change one action's timing; play original and alternative together | Can you distinguish both crowds and understand the difference? | Same seed and commands reproduce results; both comparisons use the same simulation | Not built |
+| 3. Decision review | Finish a round; see actions in time order and results | Does feedback explain cause and effect without implying real-world safety? | Displayed results derive from the run; empty and interrupted runs handled | Implemented on a baseline layout; laptop browser verified; awaiting Carol's layout and feedback |
+| 4. Signature replay | Change one action's timing; play original and alternative together | Can you distinguish both crowds and understand the difference? | Same seed and commands reproduce results; both comparisons use the same simulation | Implemented; original replay reproduced exactly in tests and browser; awaiting Carol's feedback |
 | 5. Complete demo | Try start → drill → review → replay on the intended demo device | Check readability, signposting, sound/captions, and comfort | Actual device/browser checks; save/reopen if persistence is included; live URL verification after authorized deploy | Not built |
 | 6. Devpost readiness | Review truthful submission copy, screenshots, and demo sequence | Does the story match the product you can demonstrate? | Event requirements checked; each claim supported; assets ready; submission confirmation recorded only after authorized submit | Draft only |
 
@@ -55,7 +55,7 @@ Baseline source inspection on October 10, 2026, before checkpoint 2 implementati
 
 ## Next action
 
-Checkpoint 2 is implemented locally. Pause for Carol to try the practice and drill and provide feedback. Visual browser QA is pending. HTTP serving has now passed the teammate’s smoke tests after reconciliation. Carol can run `npm start` and visit `http://localhost:3000`. Event portal confirmation remains outstanding for event-specific submission work. Keep this file as the single status source; original roadmap hours are reference estimates, not elapsed progress.
+Checkpoints 3 and 4 are implemented locally (commit `fdd8b3e`, not pushed). Carol: run `npm start`, open `http://localhost:3000`, finish practice and a drill, read the review, then re-time one action and press Replay. Feedback that matters: does the review explain why the result happened, and can you tell the two crowds apart? Then send the review/comparison layout using the hooks below. Event portal confirmation remains outstanding.
 
 ## Delivery targets (Eastern local time)
 
@@ -95,3 +95,12 @@ Trial: run `npm start`; open localhost; begin practice; try redirect before open
 - Execution host uses Node 25.9.0; CI remains configured for Node 24. A fresh Node 24 CI run and visual/device checks remain pending.
 - Preserved original local work in Git stash `crowdclear-before-reconciliation` and `/tmp/crowdclear-reconcile-backup`. Finder metadata is restored locally and remains ignored. Installed dependencies were preserved locally while the teammate’s commit removed them from tracking.
 - Integrated application edits remain uncommitted for review; no push or deployment performed.
+
+## Checkpoints 3 and 4 implementation evidence (Colin, October 10)
+
+- Run record (`lastRun` in `public/game.js`): `{ version, initial, commands: [{ tick, action }], result: { evacuated, remaining, ticks } }`. One tick is 0.1 s. Only a finished timed drill creates one; practice never does.
+- Hooks for Carol's layout. Keep these IDs and style with classes. `#review` wraps the review. `#review-timeline` is an `<ol>` with one `<li>` per action, or "No actions taken". `#compare-form`, `#compare-action` (select), and `#compare-time` (seconds) drive the comparison. `#compare-result` holds the result, one sentence per line. The outcome sentence goes in `#task-copy` under the `#task-title` "Decision review".
+- In the current simulation every run clears before 90 s, so clearance time is the meaningful result. Measured: no action clears in 45.9 s; opening and redirecting at 0 s clears in 25.2 s; acting at 40 and 45 s clears in 48.3 s, worse than doing nothing, because redirected people walk back across the lobby. The time-expiry path is unit-tested but cannot happen in play yet.
+- The comparison re-times one action and keeps every other action's tick. The original replays as low-poly wireframe ghost figures and the alternative as solid figures; the HUD shows both counts. Moving a redirect before Exit B opens makes it fail, and the result text says so.
+- `npm test`: 16 pass. Browser check (Playwright Chromium, 1366×850): practice, then a drill with Exit B opened at 0 s and redirect at 4.5 s, reviewed as "All 30 people evacuated in 27.6 s". Re-timing the redirect to 20 s gave "Your original run replayed exactly" and "The alternative cleared the venue 8.3 s later." No console errors besides the missing favicon.
+- Known gaps. From the default overhead camera the wireframe/solid difference is hard to see at figure size, so the crowds mostly separate by position, color, HUD, and caption; Carol to judge. Max queue is not computed. Headset not checked. Not pushed or deployed.
