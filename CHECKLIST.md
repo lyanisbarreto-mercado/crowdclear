@@ -1,5 +1,7 @@
 # CrowdClear checklist
 
+Current progress and revised designer-led checkpoints are tracked in [PLAN.md](PLAN.md). The items below preserve the broader original target; do not mark a compound requirement complete from a partial implementation.
+
 Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). If a gate isn't met on time, cut scope from the next phase rather than pushing the gate back.
 
 ## Hours 0–2 · Prove the platform
@@ -16,8 +18,8 @@ Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). I
 
 - [ ] Lobby: floor, walls, three marked exits, ~30 crowd figures, fixed command position (started: floor, walls, 3 exits, fixed camera)
 - [ ] `simulation.js`: grid, one flow field per open exit, exit release rate, fixed ticks, `step(state, commands)` with no rendering code
-- [ ] Action: open an alternative exit
-- [ ] Action: redirect a marked crowd group via directional markers
+- [x] Laptop action: open Exit B (automated action checks pass; visual QA pending)
+- [ ] Action: redirect a marked crowd group via directional markers (button-based redirection implemented; in-scene selection/markers pending)
 - [ ] Desktop clicks and VR controller selection share the same handlers; controls and instructions live inside the 3D scene
 - [ ] `schema.sql`: `runs`, `commands`, `measurements`
 - [ ] Save/load API: validated input, per-session write token, stable event IDs, non-blocking batched uploads

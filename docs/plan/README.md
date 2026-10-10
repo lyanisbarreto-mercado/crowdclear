@@ -1,6 +1,6 @@
 # CrowdClear plan
 
-Source: *CrowdClear: Command Under Pressure* (Oct 10, 2026 · @Colin), converted from the original `.docx`. This doc set is now the source of truth.
+Source: *CrowdClear: Command Under Pressure* (Oct 10, 2026 · @Colin), converted from the original `.docx`. The original concept is preserved here; [PLAN.md](../../PLAN.md) tracks current decisions and verification.
 
 ## The idea
 
@@ -22,3 +22,7 @@ This is a 36-hour build, so the plan uses the collapsed form (README + overview 
 2. `00-overview.md`, for what is being built and how the parts connect.
 3. `09-roadmap.md`, for the order of work and the gates.
 4. `CHECKLIST.md`, for current status.
+
+## Current designer-led checkpoints
+
+See [PLAN.md](../../PLAN.md), [experience direction](../design/BRAND.md), and [submission draft](../submission-draft.md). The original roadmap and CHECKLIST describe the broader target; unchecked or historical items do not establish working integrations.

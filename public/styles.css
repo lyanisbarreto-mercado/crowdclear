@@ -56,12 +56,48 @@ button {
   margin-bottom: 12px;
 }
 
-/* #game beats A-Frame's injected `a-scene { height: 100% }`, which collapses to 0 here */
+
+/* Scoped selector overrides A-Frame’s injected scene height. */
 #game a-scene {
-  width: 100%;
+  width: 90%;
   height: 480px;
 }
 
 @media (max-width: 600px) {
   #game a-scene { height: 350px; }
+}
+/* Laptop practice layout. Retain the scene's original 90% width. */
+[hidden] { display: none !important; }
+header, main { max-width: 1440px; margin-inline: auto; }
+header { text-align: left; }
+header p { color: #c5d0df; }
+h2, h3 { margin-top: 0; }
+#intro { max-width: 760px; }
+#intro p { line-height: 1.6; }
+.drill-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.drill-heading h2 { margin: 0; }
+#hud { margin-top: 20px; }
+#hud span, .exit-status span { padding: 10px 14px; border-radius: 8px; background: #182230; }
+.exit-status { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; font-size: 0.9rem; }
+.play-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 24px; }
+#instruction { background: #182230; border: 1px solid #6a7789; padding: 20px; border-radius: 12px; }
+#instruction p { line-height: 1.6; }
+.eyebrow { color: #e6da78; font-size: 0.8rem; letter-spacing: 0.08em; font-weight: 700; }
+#actions { flex-direction: column; }
+button { background: #e4dc7b; color: #182230; font-size: 0.95rem; min-height: 44px; }
+button:disabled { background: #354357; color: #c0cada; cursor: default; }
+button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+button.task-target { outline: 2px solid #e4dc7b; outline-offset: 4px; }
+button.secondary { color: #f4f7fb; background: #182230; border: 1px solid #6a7789; }
+#feedback { border-top: 1px solid #596679; padding-top: 14px; color: #e6da78; }
+.muted, .scene-caption { color: #c5d0df; font-size: 0.85rem; }
+.scene-wrap { min-width: 0; }
+a-scene { margin-inline: auto; border-radius: 12px; overflow: hidden; }
+.scene-caption { text-align: center; line-height: 1.5; }
+@media (max-width: 850px) {
+  .play-layout { grid-template-columns: 1fr; }
+  #actions { flex-direction: row; }
+  header, main { padding: 16px; }
+  #game { padding: 16px; }
+  .drill-heading { align-items: start; }
 }

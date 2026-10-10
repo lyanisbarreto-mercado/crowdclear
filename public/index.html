@@ -1,6 +1,6 @@
+<!DOCTYPE html>
 <!-- @format -->
 
-<!DOCTYPE html>
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
@@ -19,24 +19,39 @@
 	<main>
 		<section id="intro">
 			<h2>Stadium Evacuation Drill</h2>
-			<p>Help evacuate and open an alternative exit</p>
-			<button id="start-btn">Start Drill</button>
-            <button id="stop-btn">Reset Drill</button>
+			<p>You are coordinating a stadium evacuation. Practice opening an exit and directing people toward it, then try an independent drill.</p>
+            <p class="muted">A simulated training prototype. Results are not real-world evacuation predictions.</p>
+			<button id="start-btn">Begin guided practice</button>
+
 		</section>
 
-		<section id="game">
+		<section id="game" aria-label="Stadium drill">
+            <div class="drill-heading"><h2 id="mode-title">Guided practice</h2><button id="stop-btn" class="secondary">Restart practice</button></div>
 			<div id="hud">
 				<span id="evacuated">Evacuated: 0</span>
-				<span id="timer">Timer: 90 seconds</span>
-				<span id="status" role="status"></span>
+				<span id="timer">Practice · no time limit</span>
+                <span id="remaining">Remaining: 30</span>
 			</div>
 
-			<div id="actions">
-				<button id="open-exit">Open Exit</button>
-				<button id="redirect">Redirect Crowd</button>
-			</div>
+            <div class="exit-status" aria-label="Exit status">
+                <span id="status-a">Exit A · OPEN</span><span id="status-b">Exit B · CLOSED</span><span id="status-c">Exit C · OPEN</span>
+            </div>
+            <div class="play-layout">
+            <aside id="instruction" aria-label="Current task">
+                <p id="step-label" class="eyebrow">TASK 1 OF 2</p>
+                <h3 id="task-title">Open an alternative route</h3>
+                <p id="task-copy">Open Exit B to give the crowd another route. The highlighted button controls the closed exit in the middle.</p>
+                <div id="actions">
+                    <button id="open-exit">Open Exit B</button>
+                    <button id="redirect" disabled>Redirect crowd to B</button>
+                </div>
+                <p id="feedback" role="status" aria-live="polite">Your task stays here until you complete it.</p>
+                <button id="drill-btn" hidden>Start timed drill</button>
+                <p class="muted">The fixed overhead view lets you watch all three routes.</p>
+            </aside>
+            <div class="scene-wrap">
 
-			<a-scene embedded>
+			<a-scene embedded xr-mode-ui="enabled: false" renderer="antialias: true" background="color: #182230">
 				<a-sky color="#182230"></a-sky>
 				<a-plane
 					rotation="-90 0 0"
@@ -98,13 +113,21 @@
 
 				<a-entity
 					camera
-					position="0 1.7 10"
-					look-controls
+					position="0 22 18"
+                    rotation="-42 0 0"
 				></a-entity>
-			</a-scene>
+                <a-text value="A" position="-8 3.5 -11" align="center" width="8"></a-text>
+                <a-text value="B" position="0 3.5 -11" align="center" width="8"></a-text>
+                <a-text value="C" position="8 3.5 -11" align="center" width="8"></a-text>
+                <a-entity id="crowd"></a-entity>
+            </a-scene>
+            <p class="scene-caption">Crowd figures are simplified. Blue figures are directed toward Exit B.</p>
+            </div>
+            </div>
 		</section>
 
+        <script src="/simulation.js"></script>
         <script src="/game.js"></script>
 	</main>
-	</body>
+</body>
 </html>

@@ -1,10 +1,12 @@
 # CrowdClear
 
-Evacuation training game for venue staff. Spot congestion in a stadium lobby, open an alternative exit, redirect the crowd, then review your decisions and replay an alternative as a ghost. Runs in the browser and in VR (WebXR) with A-Frame; Express stores sessions in Neon Postgres.
+Laptop-first evacuation training prototype for venue staff. Complete action-based practice, then run a timed stadium drill: open Exit B and redirect the crowd. Built with A-Frame and Express.
+
+Decision review, alternative ghost replay, Neon persistence, and verified headset support are planned features. Crowd behavior is simplified, not a validated real-world evacuation model.
 
 ## Run locally
 
-Requires Node.js 18+.
+Use the Node version in `.node-version` (24).
 
 ```sh
 npm install
@@ -19,7 +21,7 @@ Open http://localhost:3000. Set `PORT` to change the port. VR needs HTTPS, so te
 npm test
 ```
 
-Smoke tests start the server on a free port and check the health route, every local script and stylesheet `index.html` loads, and that the browser scripts parse. GitHub Actions runs them on every push to `main` and every pull request.
+Smoke tests start the server on a free port and check health, all local page assets (including A-Frame), and browser-script syntax. Simulation and tutorial tests check action gating, fresh resets, routing effects, and deterministic replay. `npm test` runs both suites; GitHub Actions uses that same command on every push to `main` and every pull request.
 
 ## Deploy
 
@@ -33,7 +35,11 @@ The Node version comes from `.node-version`, for both Render and CI.
 
 ## Plan
 
-See [docs/plan/](docs/plan/README.md) and [CHECKLIST.md](CHECKLIST.md).
+See [PLAN.md](PLAN.md) for current checkpoints and evidence, [design direction](docs/design/BRAND.md) for the accepted experience, and [docs/plan/](docs/plan/README.md) / [CHECKLIST.md](CHECKLIST.md) for the original teammate roadmap.
+
+## Try the current checkpoint
+
+Begin guided practice → open Exit B → redirect the crowd → watch blue figures head to the middle exit → start a fresh timed drill. Practice waits for successful tasks and has no time pressure. Restart returns to task 1.
 
 ## Agent skills
 
