@@ -21,6 +21,10 @@
   "homepage": "https://github.com/lyanisbarreto-mercado/crowdclear#readme",
   "dependencies": {
     "aframe": "1.8.0",
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }

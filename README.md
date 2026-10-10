@@ -2,7 +2,7 @@
 
 Laptop-first evacuation training prototype for venue staff. Complete action-based practice, then run a timed stadium drill: open Exit B and redirect the crowd. Built with A-Frame and Express.
 
-Decision review, alternative ghost replay, Neon persistence, and verified headset support are planned features. Crowd behavior is simplified, not a validated real-world evacuation model.
+A finished drill opens a decision review, can be replayed against one re-timed decision, and is saved to Postgres (Neon) so its link reopens it. Saving has been tested against an in-process Postgres (PGlite), not yet against the team's Neon database. Headset support is not yet verified. Crowd behavior is simplified, not a validated real-world evacuation model.
 
 ## Run locally
 
@@ -13,7 +13,7 @@ npm install
 npm start
 ```
 
-Open http://localhost:3000. Set `PORT` to change the port. VR needs HTTPS, so test headsets against the deployed Render URL.
+Open http://localhost:3000. Set `PORT` to change the port. Set `DATABASE_URL` to a Postgres connection string to save drills; without it the game still runs and each finished drill says it was not saved. The server creates its table from `schema.sql` at startup. VR needs HTTPS, so test headsets against the deployed Render URL.
 
 ## Test
 
@@ -30,6 +30,7 @@ Render web service linked to this repo:
 - Build command: `npm ci`
 - Start command: `npm start`
 - Auto-Deploy: **After CI Checks Pass**, so `main` only deploys when CI is green
+- Environment: `DATABASE_URL` = the Neon connection string (keep it in Render, never in the repo)
 
 The Node version comes from `.node-version`, for both Render and CI.
 

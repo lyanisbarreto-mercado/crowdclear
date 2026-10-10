@@ -128,8 +128,42 @@ function perform(action) {
   refresh();
 }
 function finish() {
+  showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
+  save(lastRun);
+}
+// fetch rejects with a TypeError only when the request never reached the server.
+const reason = error => (error instanceof TypeError ? 'The server could not be reached.' : error.message);
+async function save(run) {
+  el('save-status').textContent = 'Saving this drill…';
+  try {
+    run.id = crypto.randomUUID();
+    const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: run.id, version: run.version, commands: run.commands, result: run.result }) });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Server error ${res.status}.`);
+    if (lastRun !== run) return;
+    history.replaceState(null, '', `?run=${run.id}`);
+    el('save-status').textContent = 'Saved. Reload or share this page address to reopen this drill.';
+  } catch (error) {
+    if (lastRun === run) el('save-status').textContent = `Not saved. ${reason(error)}`;
+  }
+}
+async function reopen(id) {
+  el('load-status').textContent = 'Opening the saved drill…';
+  try {
+    const res = await fetch(`/api/runs/${encodeURIComponent(id)}`);
+    const saved = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(saved.error || `Server error ${res.status}.`);
+    if (saved.version !== sim.VERSION) throw new Error('It was recorded with a different simulation version, so it cannot be replayed.');
+    fresh('review');
+    showReview({ ...saved, initial });
+    el('save-status').textContent = 'Opened from the database. Replay checks that it reproduces its saved result.';
+  } catch (error) {
+    el('load-status').textContent = `Could not open the saved drill. ${reason(error)}`;
+  }
+}
+function showReview(run) {
   mode = 'review';
-  lastRun = { version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) };
+  lastRun = run;
   instructions('DRILL COMPLETE', 'Decision review', review.outcome(lastRun.result));
   el('feedback').textContent = 'These results describe this simplified simulation only.';
   el('review-timeline').replaceChildren(...review.timeline(lastRun.commands).map(text => {
@@ -203,6 +237,8 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
+const savedRun = new URLSearchParams(location.search).get('run');
+if (savedRun) reopen(savedRun);
 if (scene.hasLoaded) createAllFigures();
 else scene.addEventListener('loaded', createAllFigures, { once: true });
 requestAnimationFrame(frame);

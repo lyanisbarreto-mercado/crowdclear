@@ -22,6 +22,7 @@
 			<p>You are coordinating a stadium evacuation. Practice opening an exit and directing people toward it, then try an independent drill.</p>
             <p class="muted">A simulated training prototype. Results are not real-world evacuation predictions.</p>
 			<button id="start-btn">Begin guided practice</button>
+			<p id="load-status" role="status" aria-live="polite"></p>
 
 		</section>
 
@@ -49,6 +50,7 @@
                 <section id="review" hidden aria-labelledby="review-heading">
                     <h4 id="review-heading">Your actions</h4>
                     <ol id="review-timeline"></ol>
+                    <p id="save-status" role="status" aria-live="polite"></p>
                     <form id="compare-form">
                         <h4>Compare another decision</h4>
                         <label for="compare-action">Action to re-time</label>

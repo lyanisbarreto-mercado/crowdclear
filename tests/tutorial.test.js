@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const sim = require('../public/simulation');
-function setup() {
+function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }) } = {}) {
   const elements = new Map();
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
@@ -15,16 +15,21 @@ function setup() {
     return elements.get(id);
   }
   const scene = element('scene'); scene.hasLoaded = true;
+  const requests = [];
+  const urls = [];
   const context = vm.createContext({
     window: { CrowdSimulation: sim, CrowdReview: require('../public/review'), dispatchEvent() {} },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
       createElement: () => element(Symbol()) },
-    requestAnimationFrame() {}, Event: class {}
+    requestAnimationFrame() {}, Event: class {},
+    fetch: (...args) => { requests.push(args); return fetch(...args); },
+    crypto: { randomUUID: () => '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60' },
+    location: { search }, URLSearchParams, history: { replaceState: (...args) => { urls.push(args[2]); } }
   });
   vm.runInContext(fs.readFileSync('public/game.js', 'utf8'), context);
   const value = expression => vm.runInContext(expression, context);
   let clock = 0;
-  return { element, context, value, click: id => element(id).listeners.click(),
+  return { element, context, value, requests, urls, click: id => element(id).listeners.click(),
     play: whileMode => { while (value('mode') === whileMode) value('frame')(clock += 250); },
     playTicks: ticks => { while (value('state.tick') < ticks) value('frame')(clock += 250); } };
 }
@@ -102,4 +107,59 @@ test('comparison replays the original exactly and changes only the chosen action
   assert.match(text, /replayed exactly/);
   assert.match(text, /cleared the venue [\d.]+ s later/);
   assert.match(text, /1 scheduled action\(s\) could not happen/);
+});
+const settle = () => new Promise(resolve => setImmediate(resolve));
+function drillWithBothActions(ui) {
+  ui.click('start-btn'); ui.click('open-exit'); ui.click('redirect');
+  ui.click('drill-btn'); ui.click('open-exit');
+  ui.playTicks(50); ui.click('redirect');
+  ui.play('drill');
+}
+test('a finished drill is saved once and the page address then reopens it', async () => {
+  const ui = setup();
+  drillWithBothActions(ui);
+  await settle();
+  assert.equal(ui.requests.length, 1);
+  const [url, options] = ui.requests[0];
+  assert.equal(url, '/api/runs');
+  assert.equal(options.method, 'POST');
+  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, commands: lastRun.commands, result: lastRun.result })'));
+  assert.deepEqual(ui.urls, [`?run=${ui.value('lastRun.id')}`]);
+  assert.match(ui.element('save-status').textContent, /^Saved\./);
+});
+test('a failed save says so and keeps the review usable', async () => {
+  const refused = setup({ fetch: async () => ({ ok: false, status: 503, json: async () => ({ error: 'Saving is not set up on this server.' }) }) });
+  drillWithBothActions(refused);
+  await settle();
+  assert.equal(refused.element('save-status').textContent, 'Not saved. Saving is not set up on this server.');
+  assert.deepEqual(refused.urls, []);
+  assert.equal(refused.element('compare-form').hidden, false);
+  // A browser's fetch rejects with its own realm's TypeError, so build it inside the page context.
+  const offline = setup({ fetch: async () => { throw vm.runInContext("new TypeError('Failed to fetch')", offline.context); } });
+  drillWithBothActions(offline);
+  await settle();
+  assert.equal(offline.element('save-status').textContent, 'Not saved. The server could not be reached.');
+});
+test('a saved link opens the review and its replay reproduces the saved result', async () => {
+  const commands = [{ tick: 0, action: 'open-exit' }, { tick: 45, action: 'redirect' }];
+  const state = sim.createState();
+  while (!sim.isDone(state)) sim.step(state, commands);
+  const saved = { id: '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60', version: sim.VERSION, commands, result: require('../public/review').result(state) };
+  const ui = setup({ search: `?run=${saved.id}`, fetch: async () => ({ ok: true, json: async () => saved }) });
+  await settle();
+  assert.equal(ui.requests[0][0], `/api/runs/${saved.id}`);
+  assert.equal(ui.value('mode'), 'review');
+  assert.equal(ui.element('review-timeline').children.length, 2);
+  ui.element('compare-action').value = '1';
+  ui.element('compare-time').value = '20';
+  ui.element('compare-form').listeners.submit({ preventDefault() {} });
+  ui.play('compare');
+  assert.match(ui.element('compare-result').textContent, /replayed exactly/);
+  assert.equal(ui.requests.length, 1, 'reopening does not save a second copy');
+});
+test('a missing saved run is reported on the start screen', async () => {
+  const ui = setup({ search: '?run=nope', fetch: async () => ({ ok: false, status: 404, json: async () => ({ error: 'No saved drill matches this link.' }) }) });
+  await settle();
+  assert.equal(ui.element('load-status').textContent, 'Could not open the saved drill. No saved drill matches this link.');
+  assert.equal(ui.value('mode'), 'intro');
 });
