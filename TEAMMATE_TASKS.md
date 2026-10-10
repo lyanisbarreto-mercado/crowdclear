@@ -7,7 +7,7 @@ Carol owns UX/UI. Colin owns feature integration. Either can help the other, but
 ## Start here together
 
 - [ ] Get the reconciled changes onto a shared commit so both computers run the same version; preserve current uncommitted work before pulling.
-- [ ] Run `npm test` and the local app on both computers. Latest recorded result: 16 passing tests (Colin, Oct 10, commit `fdd8b3e`).
+- [ ] Run `npm test` and the local app on both computers. Latest recorded result: 23 passing tests (Colin, Oct 10, commit `e3cd908`).
 - [ ] Confirm the event portal, live app URL, and which teammate will submit on Devpost.
 - [ ] Capture URLs / test notes for the platform items marked complete in CHECKLIST: Render, headset input/audio, Neon, and Presage. These are reported complete there; their evidence is not yet recorded in PLAN.
 - [ ] Agree the next handoff: Carol supplies a review-screen layout and copy; Colin supplies the run data that fills it.
@@ -30,9 +30,9 @@ Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-dra
 - [ ] Implement review in `public/review.js`: populate Carol's layout from actual run data; handle no actions, time expiry, and early completion. *Data, text, and all three cases done on a baseline layout; waiting on Carol's layout. Hooks listed in PLAN.md.*
 - [x] Implement alternative replay using the same simulation and starting state. Change one action's timing while retaining every other input. Verify the original reproduces its recorded result.
 - [ ] Wire Carol's comparison controls to replay; connect original/alternative visuals and reset behavior. *Baseline controls wired (action select, time input, replay button); original is a low-poly wireframe ghost, alternative solid. Swap in Carol's controls when ready.*
-- [ ] Connect Neon save/load if required for the agreed demo or track. Prove save → reopen → replay; validate writes, keep secrets server-side, and show failed saves honestly.
-- [ ] Integrate shared laptop/headset action handlers after the laptop loop works. Test actual headset input and ensure practice instructions/actions remain usable in VR.
-- [ ] Maintain passing smoke, tutorial, and simulation tests. Verify CI on Node 24 and check the deployed build after authorized deployment.
+- [ ] Connect Neon save/load if required for the agreed demo or track. Prove save → reopen → replay; validate writes, keep secrets server-side, and show failed saves honestly. *Built and proven against in-process Postgres (PGlite): a finished drill saves, its link reopens the review, and Replay reproduces the saved result. Still needs `DATABASE_URL` set on Render and one run against the real Neon database.*
+- [ ] Integrate shared laptop/headset action handlers after the laptop loop works. Test actual headset input and ensure practice instructions/actions remain usable in VR. *Built: "Enter headset view" (shown only on VR-capable browsers), a raised command post, and an in-scene panel whose buttons press the page's own buttons. Checked in desktop Chromium with a simulated session and mouse raycasts; not yet on a headset. Post and panel positions need tuning there.*
+- [ ] Maintain passing smoke, tutorial, and simulation tests. Verify CI on Node 24 and check the deployed build after authorized deployment. *CI passes on Node 24.21.0. Deployed build not checked: the Render URL is not recorded anywhere in the repo.*
 
 Primary files: `public/game.js`, `public/simulation.js`, `public/review.js`, `server.js`, `schema.sql`, `test/`, `tests/`. Own wiring changes to `public/index.html` during an agreed editing window.
 
