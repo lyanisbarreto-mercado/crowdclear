@@ -1,17 +1,19 @@
 # CrowdClear checklist
 
+For task ownership and parallel work, use the new [team checklist](TEAMMATE_TASKS.md).
+
 Current progress and revised designer-led checkpoints are tracked in [PLAN.md](PLAN.md). The items below preserve the broader original target; do not mark a compound requirement complete from a partial implementation.
 
 Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). If a gate isn't met on time, cut scope from the next phase rather than pushing the gate back.
 
 ## Hours 0–2 · Prove the platform
 
-- [ ] Bare Express + A-Frame scene deployed to Render
-- [ ] Render Auto-Deploy set to "After CI Checks Pass" (build `npm ci`, start `npm start`)
-- [ ] Published HTTPS URL: enter VR on the headset, select an object, play audio
-- [ ] Mouse selection works on the laptop
-- [ ] Neon connected; one test row written
-- [ ] Presage sample tried on the demo laptop with real lighting
+- [x] Bare Express + A-Frame scene deployed to Render
+- [x] Render Auto-Deploy set to "After CI Checks Pass" (build `npm ci`, start `npm start`)
+- [x] Published HTTPS URL: enter VR on the headset, select an object, play audio
+- [x] Mouse selection works on the laptop
+- [x] Neon connected; one test row written
+- [x] Presage sample tried on the demo laptop with real lighting
 - [ ] **Gate · Go / no-go:** VR works from the live URL; Presage reads, or it is cut
 
 ## Hours 2–12 · Core simulation

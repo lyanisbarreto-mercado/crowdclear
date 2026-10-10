@@ -14,7 +14,7 @@ Keep one venue and two actions. Crowd size and round duration are design targets
 
 ## Working agreement
 
-- Carol owns visual direction, comprehension, and experience feedback. Agent owns implementation and verification. Teammate responsibilities remain to be confirmed.
+- Carol owns UX/UI, comprehension, and experience feedback. Her teammate owns feature integration, simulation/review/replay wiring, persistence, and deployment checks. Either may help across roles through an explicit task/file handoff. See [TEAMMATE_TASKS.md](TEAMMATE_TASKS.md) for assignments; agent work follows the active owner's lane.
 - Use the existing Express, plain JavaScript, and A-Frame foundation. Laptop first, then headset. Headset support needs a real device check.
 - Work on main as requested. Preserve existing CSS and unrelated local changes. Do not merge the teammate's entire branch as part of planning.
 - Mode: gated at visible milestones, as Carol requested. Pause for her feedback before advancing to the next visible milestone. Explain what is visible, how to try it, what feedback matters, and what happens next.
