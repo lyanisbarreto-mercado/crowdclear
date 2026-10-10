@@ -101,3 +101,11 @@ a-scene { margin-inline: auto; border-radius: 12px; overflow: hidden; }
   #game { padding: 16px; }
   .drill-heading { align-items: start; }
 }
+/* Review and comparison controls: functional baseline for Carol to restyle. */
+#review h4 { margin: 16px 0 8px; }
+#review ol { padding-left: 1.2em; line-height: 1.6; }
+#compare-form label { display: block; margin-top: 10px; font-size: 0.9rem; }
+#compare-form select, #compare-form input { width: 100%; min-height: 44px; margin-top: 4px; padding: 8px; border-radius: 8px; border: 1px solid #6a7789; background: #0e1726; color: #f4f7fb; font: inherit; }
+#compare-form select:focus-visible, #compare-form input:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+#compare-form button { margin-top: 12px; }
+#compare-result { white-space: pre-line; line-height: 1.6; }

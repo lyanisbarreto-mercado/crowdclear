@@ -46,6 +46,19 @@
                     <button id="redirect" disabled>Redirect crowd to B</button>
                 </div>
                 <p id="feedback" role="status" aria-live="polite">Your task stays here until you complete it.</p>
+                <section id="review" hidden aria-labelledby="review-heading">
+                    <h4 id="review-heading">Your actions</h4>
+                    <ol id="review-timeline"></ol>
+                    <form id="compare-form">
+                        <h4>Compare another decision</h4>
+                        <label for="compare-action">Action to re-time</label>
+                        <select id="compare-action"></select>
+                        <label for="compare-time">New time (seconds into the drill)</label>
+                        <input id="compare-time" type="number" min="0" max="90" step="0.1" required />
+                        <button type="submit">Replay original and alternative</button>
+                    </form>
+                    <p id="compare-result" role="status" aria-live="polite"></p>
+                </section>
                 <button id="drill-btn" hidden>Start timed drill</button>
                 <p class="muted">The fixed overhead view lets you watch all three routes.</p>
             </aside>
@@ -120,13 +133,15 @@
                 <a-text value="B" position="0 3.5 -11" align="center" width="8"></a-text>
                 <a-text value="C" position="8 3.5 -11" align="center" width="8"></a-text>
                 <a-entity id="crowd"></a-entity>
+                <a-entity id="ghost-crowd" visible="false"></a-entity>
             </a-scene>
-            <p class="scene-caption">Crowd figures are simplified. Blue figures are directed toward Exit B.</p>
+            <p class="scene-caption">Crowd figures are simplified. Blue figures are directed toward Exit B. In a comparison, faded wireframe figures replay your original run and solid figures show the alternative.</p>
             </div>
             </div>
 		</section>
 
         <script src="/simulation.js"></script>
+        <script src="/review.js"></script>
         <script src="/game.js"></script>
 	</main>
 </body>

@@ -1,15 +1,22 @@
 const sim = window.CrowdSimulation;
+const review = window.CrowdReview;
 const el = id => document.getElementById(id);
+const clone = value => JSON.parse(JSON.stringify(value));
 let state = sim.createState();
+let initial = null;
+let lastRun = null;
+let ghost = null;
+let altSchedule = null;
 let mode = 'intro';
 let practiceStep = 0;
 let accumulator = 0;
 let previousTime = null;
 const figures = [];
+const ghostFigures = [];
 const scene = document.querySelector('a-scene');
 
-function createFigures() {
-  if (figures.length) return;
+function createFigures(list, container, faded) {
+  if (list.length) return;
   state.people.forEach(() => {
     const figure = document.createElement('a-entity');
     const body = document.createElement('a-cylinder');
@@ -20,9 +27,30 @@ function createFigures() {
     head.setAttribute('radius', '0.23');
     head.setAttribute('position', '0 1.3 0');
     head.setAttribute('color', '#f4f7fb');
+    // Low-poly wireframe, not just a paler color, so the original crowd reads as different without color vision.
+    // Default segment counts make a wireframe so dense it looks solid at this camera distance.
+    if (faded) {
+      body.setAttribute('segments-radial', '6');
+      body.setAttribute('segments-height', '1');
+      head.setAttribute('segments-width', '6');
+      head.setAttribute('segments-height', '4');
+      [body, head].forEach(part => part.setAttribute('material', { wireframe: true, transparent: true, opacity: 0.6 }));
+    }
     figure.append(body, head);
-    el('crowd').append(figure);
-    figures.push({ figure, body });
+    el(container).append(figure);
+    list.push({ figure, body });
+  });
+}
+function createAllFigures() {
+  createFigures(figures, 'crowd', false);
+  createFigures(ghostFigures, 'ghost-crowd', true);
+}
+function place(list, s) {
+  list.forEach(({ figure, body }, i) => {
+    const person = s.people[i];
+    figure.setAttribute('visible', !person.evacuated);
+    figure.setAttribute('position', `${person.x} 0 ${person.z}`);
+    body.setAttribute('color', person.exit === 'B' ? '#76bcff' : '#f1d673');
   });
 }
 function instructions(label, title, copy) {
@@ -32,29 +60,35 @@ function instructions(label, title, copy) {
 }
 function refresh() {
   const stats = sim.stats(state);
-  el('evacuated').textContent = `Evacuated: ${stats.evacuated} / ${state.people.length}`;
+  const total = state.people.length;
+  el('evacuated').textContent = ghost
+    ? `Alternative: ${stats.evacuated} / ${total} · Original: ${sim.stats(ghost).evacuated} / ${total}`
+    : `Evacuated: ${stats.evacuated} / ${total}`;
   el('remaining').textContent = `Remaining: ${stats.remaining}`;
-  el('timer').textContent = mode === 'drill' || mode === 'finished'
-    ? `Time remaining: ${Math.ceil(stats.seconds)} seconds` : 'Practice · no time limit';
+  const clock = ghost ? Math.max(state.tick, ghost.tick) : state.tick;
+  el('timer').textContent = mode === 'practice' || mode === 'intro'
+    ? 'Practice · no time limit' : `Time remaining: ${Math.ceil(Math.max(0, sim.DURATION - clock * sim.DT))} seconds`;
   for (const exit of ['A', 'B', 'C']) {
     el(`status-${exit.toLowerCase()}`).textContent = `Exit ${exit} · ${state.open[exit] ? 'OPEN' : 'CLOSED'} · ${stats.queues[exit]} heading here`;
   }
   el('exit-b').setAttribute('color', state.open.B ? '#2ecc71' : '#e74c3c');
   const active = mode === 'practice' || mode === 'drill';
+  el('actions').hidden = !active;
+  el('review').hidden = !lastRun || active;
   el('open-exit').disabled = !active || state.open.B;
   el('redirect').disabled = !active || !state.open.B || state.redirected;
   el('open-exit').classList.toggle('task-target', mode === 'practice' && practiceStep === 0);
   el('redirect').classList.toggle('task-target', mode === 'practice' && practiceStep === 1);
-  figures.forEach(({ figure, body }, i) => {
-    const person = state.people[i];
-    figure.setAttribute('visible', !person.evacuated);
-    figure.setAttribute('position', `${person.x} 0 ${person.z}`);
-    body.setAttribute('color', person.exit === 'B' ? '#76bcff' : '#f1d673');
-  });
+  place(figures, state);
+  el('ghost-crowd').setAttribute('visible', !!ghost);
+  if (ghost) place(ghostFigures, ghost);
 }
 function fresh(nextMode) {
   mode = nextMode;
   state = sim.createState();
+  initial = clone(state);
+  ghost = null;
+  lastRun = null;
   accumulator = 0;
   previousTime = null;
   practiceStep = 0;
@@ -69,7 +103,7 @@ function fresh(nextMode) {
     instructions('INDEPENDENT DRILL', 'Reduce the queue', 'Most people are heading to Exit A. Open Exit B, then redirect part of the crowd to spread the flow.');
     el('feedback').textContent = 'A fresh drill has started. Your practice actions have been cleared.';
   }
-  createFigures();
+  createAllFigures();
   refresh();
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
@@ -94,12 +128,45 @@ function perform(action) {
   refresh();
 }
 function finish() {
-  mode = 'finished';
-  const stats = sim.stats(state);
-  instructions('DRILL COMPLETE', 'Your first drill is finished', `${stats.evacuated} of ${state.people.length} people evacuated; ${stats.remaining} remain. Decision review and comparison replay are coming in the next checkpoints.`);
+  mode = 'review';
+  lastRun = { version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) };
+  instructions('DRILL COMPLETE', 'Decision review', review.outcome(lastRun.result));
   el('feedback').textContent = 'These results describe this simplified simulation only.';
+  el('review-timeline').replaceChildren(...review.timeline(lastRun.commands).map(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  el('compare-action').replaceChildren(...lastRun.commands.map((c, i) => {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = review.timeline([c])[0];
+    return option;
+  }));
+  el('compare-form').hidden = !lastRun.commands.length;
+  el('compare-time').value = lastRun.commands.length ? (lastRun.commands[0].tick * sim.DT).toFixed(1) : '';
+  el('compare-result').textContent = lastRun.commands.length
+    ? 'Pick one action and a new time. Every other action stays the same.'
+    : 'With no actions there is nothing to re-time. Start another drill and try opening Exit B.';
   el('drill-btn').textContent = 'Try another drill';
   el('drill-btn').hidden = false;
+  refresh();
+}
+function compare(index, seconds) {
+  if (!lastRun || !lastRun.commands[index] || !(seconds >= 0 && seconds <= sim.DURATION)) return;
+  altSchedule = review.alternative(lastRun.commands, index, Math.round(seconds / sim.DT));
+  state = clone(lastRun.initial);
+  ghost = clone(lastRun.initial);
+  mode = 'compare';
+  accumulator = 0;
+  previousTime = null;
+  el('compare-result').textContent = 'Replaying both runs from the same start.';
+  refresh();
+}
+function finishCompare() {
+  mode = 'review';
+  const rejected = altSchedule.length - state.commands.length;
+  el('compare-result').textContent = review.comparison(lastRun, review.result(ghost), review.result(state), rejected).join('\n');
   refresh();
 }
 el('start-btn').addEventListener('click', () => fresh('practice'));
@@ -107,25 +174,35 @@ el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
 el('open-exit').addEventListener('click', () => perform('open-exit'));
 el('redirect').addEventListener('click', () => perform('redirect'));
+el('compare-form').addEventListener('submit', event => {
+  event.preventDefault();
+  compare(Number(el('compare-action').value), Number(el('compare-time').value));
+});
+function tick() {
+  if (mode === 'compare') {
+    if (!sim.isDone(state)) sim.step(state, altSchedule);
+    if (!sim.isDone(ghost)) sim.step(ghost, lastRun.commands);
+    if (sim.isDone(state) && sim.isDone(ghost)) finishCompare();
+    return;
+  }
+  sim.step(state);
+  if (mode === 'drill' && sim.isDone(state)) finish();
+}
 function frame(now) {
   if (previousTime === null) previousTime = now;
   const delta = (now - previousTime) / 1000;
   previousTime = now;
-  const running = mode === 'drill' || (mode === 'practice' && practiceStep === 2);
-  if (running && !document.hidden) {
+  const running = () => mode === 'drill' || mode === 'compare' || (mode === 'practice' && practiceStep === 2);
+  if (running() && !document.hidden) {
     accumulator += Math.min(delta, 0.25);
-    while (accumulator >= sim.DT) {
+    while (accumulator >= sim.DT && running()) {
       accumulator -= sim.DT;
-      sim.step(state);
-      if (mode === 'drill' && (sim.stats(state).remaining === 0 || state.tick >= sim.DURATION / sim.DT)) {
-        finish();
-        break;
-      }
+      tick();
     }
     refresh();
   }
   requestAnimationFrame(frame);
 }
-if (scene.hasLoaded) createFigures();
-else scene.addEventListener('loaded', createFigures, { once: true });
+if (scene.hasLoaded) createAllFigures();
+else scene.addEventListener('loaded', createAllFigures, { once: true });
 requestAnimationFrame(frame);

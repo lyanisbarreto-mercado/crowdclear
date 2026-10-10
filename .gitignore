@@ -4,3 +4,4 @@ node_modules/
 !.env.example
 AGENTS.md
 task_plan.md
+.playwright-mcp/

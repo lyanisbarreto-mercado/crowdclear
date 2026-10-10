@@ -25,7 +25,8 @@
     state.commands.push({ tick: state.tick, action });
     return true;
   }
-  function step(state) {
+  function step(state, schedule = []) {
+    schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action));
     state.tick++;
     for (const exit of Object.keys(EXIT_X)) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
@@ -53,7 +54,12 @@
     return { evacuated, remaining: state.people.length - evacuated, queues,
       seconds: Math.max(0, DURATION - state.tick * DT) };
   }
-  const api = { DT, DURATION, createState, act, step, stats };
+  function isDone(state) {
+    return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
+  }
+  // Bump when step/act behavior changes so saved runs are not replayed against different rules.
+  const VERSION = 1;
+  const api = { VERSION, DT, DURATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;
 })(typeof window === 'undefined' ? globalThis : window);

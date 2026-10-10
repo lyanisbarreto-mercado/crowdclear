@@ -27,10 +27,7 @@ test('opening and redirecting improves throughput over the unchanged scenario', 
 test('same initial state and tick-stamped commands reproduce the full run', () => {
   const original = run(true);
   const replay = sim.createState();
-  for (let tick = 0; tick < original.tick; tick++) {
-    original.commands.filter(c => c.tick === tick).forEach(c => sim.act(replay, c.action));
-    sim.step(replay);
-  }
+  while (replay.tick < original.tick) sim.step(replay, original.commands);
   assert.deepEqual(replay, original);
 });
 test('a fresh drill resets every practice decision and agent', () => {
