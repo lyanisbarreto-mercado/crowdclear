@@ -1,7 +1,7 @@
-/* Decision review and comparison text, derived only from run records. No DOM access. */
+/* Decision review, comparison text, and score, derived only from run records and final stats. No DOM access. */
 (function (root) {
   const sim = typeof module !== 'undefined' && module.exports ? require('./simulation') : root.CrowdSimulation;
-  const LABELS = { 'open-exit': 'Opened Exit B', redirect: 'Redirected crowd to Exit B' };
+  const LABELS = { 'clear-hazard': 'Cleared the hazard at Exit', 'open-exit': 'Opened Exit', redirect: 'Redirected crowd to Exit' };
   const secs = ticks => `${(ticks * sim.DT).toFixed(1)} s`;
   function result(state) {
     const { evacuated, remaining } = sim.stats(state);
@@ -13,7 +13,7 @@
       : `All ${r.evacuated} people evacuated in ${secs(r.ticks)}.`;
   }
   function timeline(commands) {
-    return commands.length ? commands.map(c => `${secs(c.tick)} · ${LABELS[c.action]}`) : ['No actions taken during the drill.'];
+    return commands.length ? commands.map(c => `${secs(c.tick)} · ${LABELS[c.action]} ${c.target}`) : ['No actions taken during the drill.'];
   }
   function alternative(commands, index, tick) {
     return commands.map((c, i) => (i === index ? { ...c, tick } : c));
@@ -33,10 +33,20 @@
       `Original: ${outcome(original)}`,
       `Alternative: ${outcome(alt)}`,
       difference(original, alt),
-      rejected ? `${rejected} scheduled action(s) could not happen at the new time. Redirecting needs Exit B open and people still heading to Exit A.` : ''
+      rejected ? `${rejected} scheduled action(s) could not happen at the new time. An exit must be cleared before it opens, and open before people can be redirected to it.` : ''
     ].filter(Boolean);
   }
-  const api = { result, outcome, timeline, alternative, comparison };
+  // Score = (evacuated + whole seconds remaining) × usable open exits, as agreed in BRAND.md.
+  function score(stats, open) {
+    const seconds = Math.floor(stats.seconds);
+    const exits = Object.values(open).filter(Boolean).length;
+    const message = stats.remaining === 0 ? (seconds >= 30 ? 'Outstanding!' : 'Great work!') : 'Keep building your skills!';
+    const tip = stats.remaining === 0
+      ? 'You helped everyone reach an exit. Try another drill to practice a different hazard.'
+      : 'You are learning the controls. Next time, try clearing and opening the blocked exit early, then spread the crowd across open routes.';
+    return { seconds, exits, score: (stats.evacuated + seconds) * exits, message, tip };
+  }
+  const api = { result, outcome, timeline, alternative, comparison, score };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdReview = api;
 })(typeof window === 'undefined' ? globalThis : window);

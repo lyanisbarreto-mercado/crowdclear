@@ -113,3 +113,16 @@ Trial: run `npm start`; open localhost; begin practice; try redirect before open
 - `npm test`: 23 pass. Persistence tests run the real SQL on PGlite (in-process Postgres); mutating the replay check or removing `ON CONFLICT` each fails a test.
 - Browser (Playwright Chromium, server backed by PGlite): drill with Exit B at 0 s and redirect at 4.5 s saved as "All 30 people evacuated in 27.6 s"; a fresh load of its `?run=` link reopened the review; re-timing the redirect to 20 s gave "Your original run replayed exactly" and "8.3 s later". A bad link showed "No saved drill matches this link." With a simulated XR session and mouse raycasts through the same `cursor` component the lasers use, the panel completed practice, ran a drill, showed the review, ignored a hidden button, and exiting restored the camera to `0 22 18`, -42°.
 - Not verified: the real Neon database (no connection string on this machine), the live Render URL (not recorded), and an actual headset. `@electric-sql/pglite` is a dev dependency for tests only; `pg` 8.23.1 is the runtime driver.
+
+## Immediate hazard and score checkpoint
+
+Carol approved immediate hazard clearing. Implemented on the current `Lyanis'-tasks` checkout, preserving the existing per-exit HTML edits and leaving draft duplicate files untouched.
+
+- Drill start randomly selects one blocked exit; the run stores `blockedExit` and targeted commands. Clearing removes the hazard immediately; opening remains separate. All three exits have clear/open/redirect controls and visible status.
+- Tutorial completion shows persistent yellow checks; reset clears them. Practice remains untimed with the original two action gates.
+- Results show actual counts, remaining time, usable open exits, a transparent score formula, and supportive feedback. Ghost comparison and full command-timeline review remain future work.
+- `npm test`: 14 tests pass, covering HTTP assets, hazards at all exits, blocked-route protection, targeted command reproducibility, results scoring, tutorial gates/checks/reset, and existing simulation behavior.
+- Test discovery explicitly includes `test/*.test.js` and `tests/*.test.js`, leaving draft duplicate `test 2.js` files untouched and outside the runnable suite.
+- Local preview HTTP request returned 200. Chrome visual inspection was blocked because Computer Use was not approved for Chrome; browser layout and headset behavior remain unverified. No commit or push performed.
+
+Next: Carol reviews tutorial checkmarks, per-exit controls, and the results composition at localhost; pause for feedback before the next visible milestone.

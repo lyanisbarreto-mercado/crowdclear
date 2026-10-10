@@ -23,12 +23,13 @@ app.get("/api/health", (req, res) => {
 
 // Replays the submitted commands with the shared simulation. Returns the final state only if every
 // command was accepted at its recorded tick, so a stored run always replays exactly.
-function replay(commands) {
-    // Each action can succeed at most once, so a valid run has at most two commands.
-    if (!Array.isArray(commands) || commands.length > 2 || !commands.every((c) => c && typeof c === "object")) return null;
-    const state = sim.createState();
+function replay(blockedExit, commands) {
+    if (!["A", "B", "C"].includes(blockedExit)) return null;
+    // Redirects can repeat between exits, so cap the list to bound replay cost.
+    if (!Array.isArray(commands) || commands.length > 100 || !commands.every((c) => c && typeof c === "object")) return null;
+    const state = sim.createState({ blockedExit });
     while (!sim.isDone(state)) sim.step(state, commands);
-    const sent = commands.map(({ tick, action }) => ({ tick, action }));
+    const sent = commands.map(({ tick, action, target }) => ({ tick, action, target }));
     return JSON.stringify(state.commands) === JSON.stringify(sent) ? state : null;
 }
 
@@ -38,8 +39,8 @@ app.use("/api/runs", (req, res, next) => {
 });
 
 app.post("/api/runs", async (req, res) => {
-    const { id, version, commands, result } = req.body ?? {};
-    const state = typeof id === "string" && UUID.test(id) && version === sim.VERSION ? replay(commands) : null;
+    const { id, version, blockedExit, commands, result } = req.body ?? {};
+    const state = typeof id === "string" && UUID.test(id) && version === sim.VERSION ? replay(blockedExit, commands) : null;
     if (!state) return res.status(400).json({ error: "This is not a valid drill record." });
     const actual = review.result(state);
     if (!Object.keys(actual).every((key) => result?.[key] === actual[key])) {
@@ -47,15 +48,15 @@ app.post("/api/runs", async (req, res) => {
     }
     // The client picks the id, so a retried save hits the conflict instead of storing a duplicate.
     const { rows } = await req.app.locals.db.query(
-        "INSERT INTO runs (id, version, commands, result) VALUES ($1, $2, $3::jsonb, $4::jsonb) ON CONFLICT (id) DO NOTHING RETURNING id",
-        [id, version, JSON.stringify(state.commands), JSON.stringify(actual)],
+        "INSERT INTO runs (id, version, blocked_exit, commands, result) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb) ON CONFLICT (id) DO NOTHING RETURNING id",
+        [id, version, blockedExit, JSON.stringify(state.commands), JSON.stringify(actual)],
     );
     res.status(rows.length ? 201 : 200).json({ id });
 });
 
 app.get("/api/runs/:id", async (req, res) => {
     const { rows } = UUID.test(req.params.id)
-        ? await req.app.locals.db.query("SELECT id, version, commands, result FROM runs WHERE id = $1", [req.params.id])
+        ? await req.app.locals.db.query(`SELECT id, version, blocked_exit AS "blockedExit", commands, result FROM runs WHERE id = $1`, [req.params.id])
         : { rows: [] };
     if (!rows.length) return res.status(404).json({ error: "No saved drill matches this link." });
     res.json(rows[0]);

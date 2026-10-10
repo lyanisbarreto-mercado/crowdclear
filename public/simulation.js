@@ -3,9 +3,11 @@
   const DT = 0.1;
   const DURATION = 90;
   const EXIT_X = { A: -8, B: 0, C: 8 };
-  function createState() {
+  function createState({ blockedExit = null } = {}) {
+    if (blockedExit !== null && !Object.hasOwn(EXIT_X, blockedExit)) throw new Error("Unknown exit");
     return {
-      tick: 0, open: { A: true, B: false, C: true }, redirected: false,
+      tick: 0, blockedExit, hazard: blockedExit,
+      open: blockedExit ? Object.fromEntries(Object.keys(EXIT_X).map(e => [e, e !== blockedExit])) : { A: true, B: false, C: true }, redirected: false, lastRedirect: null,
       cooldown: { A: 0, B: 0, C: 0 }, commands: [],
       people: Array.from({ length: 30 }, (_, id) => ({
         id, x: -7 + (id % 6) * 2.5, z: 1 + Math.floor(id / 6) * 1.3,
@@ -13,24 +15,28 @@
       }))
     };
   }
-  function act(state, action) {
-    if (action === 'open-exit' && !state.open.B) {
-      state.open.B = true;
-    } else if (action === 'redirect' && state.open.B && !state.redirected) {
-      const candidates = state.people.filter(p => !p.evacuated && p.exit === 'A');
+  function act(state, action, target = 'B') {
+    if (!Object.hasOwn(EXIT_X, target)) return false;
+    if (action === 'clear-hazard' && state.hazard === target) {
+      state.hazard = null;
+    } else if (action === 'open-exit' && !state.open[target] && state.hazard !== target) {
+      state.open[target] = true;
+    } else if (action === 'redirect' && state.open[target] && state.hazard !== target && state.lastRedirect !== target) {
+      const candidates = state.people.filter(p => !p.evacuated && p.exit !== target && (state.blockedExit !== null || p.exit === 'A'));
       if (!candidates.length) return false;
-      candidates.filter((_, i) => i % 2 === 0).forEach(p => { p.exit = 'B'; });
+      candidates.filter((_, i) => i % 2 === 0).forEach(p => { p.exit = target; });
       state.redirected = true;
+      state.lastRedirect = target;
     } else return false;
-    state.commands.push({ tick: state.tick, action });
+    state.commands.push({ tick: state.tick, action, target });
     return true;
   }
   function step(state, schedule = []) {
-    schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action));
+    schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action, c.target));
     state.tick++;
     for (const exit of Object.keys(EXIT_X)) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
-      if (!state.open[exit]) continue;
+      if (!state.open[exit] || state.hazard === exit) continue;
       const queue = state.people.filter(p => !p.evacuated && p.exit === exit);
       queue.forEach((p, rank) => {
         const dx = EXIT_X[exit] - p.x;
@@ -58,7 +64,7 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 1;
+  const VERSION = 2;
   const api = { VERSION, DT, DURATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;

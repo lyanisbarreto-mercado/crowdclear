@@ -8,13 +8,13 @@ const app = require('../server');
 
 let server;
 let base;
-const commands = [{ tick: 0, action: 'open-exit' }, { tick: 45, action: 'redirect' }];
-function played(schedule) {
-  const state = sim.createState();
+const commands = [{ tick: 0, action: 'clear-hazard', target: 'B' }, { tick: 0, action: 'open-exit', target: 'B' }, { tick: 45, action: 'redirect', target: 'B' }];
+function played(schedule, blockedExit = 'B') {
+  const state = sim.createState({ blockedExit });
   while (!sim.isDone(state)) sim.step(state, schedule);
   return review.result(state);
 }
-const run = { id: '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60', version: sim.VERSION, commands, result: played(commands) };
+const run = { id: '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60', version: sim.VERSION, blockedExit: 'B', commands, result: played(commands) };
 const post = body => fetch(`${base}/api/runs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 before(async () => {
@@ -42,8 +42,10 @@ test('a saved run reopens with the same commands and result, and a retried save 
 
 test('the server refuses records its own replay cannot reproduce', async () => {
   const id = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
-  const early = [{ tick: 0, action: 'redirect' }, { tick: 5, action: 'open-exit' }];
-  assert.equal((await post({ ...run, id, commands: early, result: played(early) })).status, 400, 'redirect before Exit B opens');
+  const early = [{ tick: 0, action: 'open-exit', target: 'B' }, { tick: 5, action: 'clear-hazard', target: 'B' }];
+  assert.equal((await post({ ...run, id, commands: early, result: played(early) })).status, 400, 'opening Exit B before its hazard is cleared');
+  assert.equal((await post({ ...run, id, blockedExit: 'A' })).status, 400, 'clearing Exit B fails when the hazard is at Exit A');
+  assert.equal((await post({ ...run, id, blockedExit: 'D' })).status, 400, 'unknown scenario');
   assert.equal((await post({ ...run, id, result: { ...run.result, ticks: 1 } })).status, 422, 'tampered result');
   assert.equal((await post({ ...run, id, version: sim.VERSION + 1 })).status, 400, 'other simulation version');
   assert.equal((await post({ ...run, id: 'not-a-uuid' })).status, 400);

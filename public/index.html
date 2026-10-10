@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <!-- @format -->
 
 <html lang="en">
@@ -16,147 +16,207 @@
 			<p>Emergency Evacuation Training</p>
 		</header>
 
-	<main>
-		<section id="intro">
-			<h2>Stadium Evacuation Drill</h2>
-			<p>You are coordinating a stadium evacuation. Practice opening an exit and directing people toward it, then try an independent drill.</p>
-            <p class="muted">A simulated training prototype. Results are not real-world evacuation predictions.</p>
-			<button id="start-btn">Begin guided practice</button>
-			<p id="load-status" role="status" aria-live="polite"></p>
+		<main>
+			<section id="intro">
+				<h2>Stadium Evacuation Drill</h2>
+				<p>
+					You are coordinating a stadium evacuation. Practice opening an exit
+					and directing people toward it, then try an independent drill.
+				</p>
+				<p class="muted">
+					A simulated training prototype. Results are not real-world evacuation
+					predictions.
+				</p>
+				<button id="start-btn">Begin guided practice</button>
+				<p id="load-status" role="status" aria-live="polite"></p>
+			</section>
 
-		</section>
+			<section id="game" aria-label="Stadium drill">
+				<div class="drill-heading">
+					<h2 id="mode-title">Guided practice</h2>
+					<button id="vr-btn" class="secondary" hidden>Enter headset view</button>
+					<button id="stop-btn" class="secondary">Restart practice</button>
+				</div>
+				<div id="hud">
+					<span id="evacuated">Evacuated: 0</span>
+					<span id="timer">Practice · no time limit</span>
+					<span id="remaining">Remaining: 30</span>
+				</div>
 
-		<section id="game" aria-label="Stadium drill">
-            <div class="drill-heading"><h2 id="mode-title">Guided practice</h2><button id="vr-btn" class="secondary" hidden>Enter headset view</button><button id="stop-btn" class="secondary">Restart practice</button></div>
-			<div id="hud">
-				<span id="evacuated">Evacuated: 0</span>
-				<span id="timer">Practice · no time limit</span>
-                <span id="remaining">Remaining: 30</span>
-			</div>
+				<div class="exit-status" aria-label="Exit status">
+					<span id="status-a">Exit A · OPEN</span
+					><span id="status-b">Exit B · CLOSED</span
+					><span id="status-c">Exit C · OPEN</span>
+				</div>
+				<div class="play-layout">
+					<aside id="instruction" aria-label="Current task">
+						<p id="step-label" class="eyebrow">TASK 1 OF 2</p>
+						<h3 id="task-title">Open an alternative route</h3>
+						<p id="task-copy">
+							Open Exit B to give the crowd another route. The highlighted
+							button controls the closed exit in the middle.
+						</p>
+						<div id="actions">
+<fieldset id="exit-controls-a"><legend>Exit A</legend>
+<button id="clear-hazard-a" hidden>Clear hazard at A</button>
+<button id="open-exit-a">Open Exit A<span class="completion-check" id="check-open-exit-a" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-a">Redirect crowd to A<span class="completion-check" id="check-redirect-a" aria-hidden="true" hidden> ✓</span></button>
+</fieldset>
+<fieldset id="exit-controls-b"><legend>Exit B</legend>
+<button id="clear-hazard-b" hidden>Clear hazard at B</button>
+<button id="open-exit-b">Open Exit B<span class="completion-check" id="check-open-exit-b" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-b">Redirect crowd to B<span class="completion-check" id="check-redirect-b" aria-hidden="true" hidden> ✓</span></button>
+</fieldset>
+<fieldset id="exit-controls-c"><legend>Exit C</legend>
+<button id="clear-hazard-c" hidden>Clear hazard at C</button>
+<button id="open-exit-c">Open Exit C<span class="completion-check" id="check-open-exit-c" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-c">Redirect crowd to C<span class="completion-check" id="check-redirect-c" aria-hidden="true" hidden> ✓</span></button>
+</fieldset>
+</div>
+<p id="feedback" role="status" aria-live="polite">
+							Your task stays here until you complete it.
+						</p>
+						<section id="review" hidden aria-labelledby="review-heading">
+							<h4 id="review-heading">Your actions</h4>
+							<ol id="review-timeline"></ol>
+							<p id="save-status" role="status" aria-live="polite"></p>
+							<form id="compare-form">
+								<h4>Compare another decision</h4>
+								<label for="compare-action">Action to re-time</label>
+								<select id="compare-action"></select>
+								<label for="compare-time">New time (seconds into the drill)</label>
+								<input id="compare-time" type="number" min="0" max="90" step="0.1" required />
+								<button type="submit">Replay original and alternative</button>
+							</form>
+							<p id="compare-result" role="status" aria-live="polite"></p>
+						</section>
+						<button id="drill-btn" hidden>Start timed drill</button>
+						<p class="muted">
+							The fixed overhead view lets you watch all three routes.
+						</p>
+					</aside>
+					<div class="scene-wrap">
+<section id="results" hidden aria-labelledby="results-title">
+  <div class="result-card">
+    <h2 id="results-title">Drill Results</h2>
+    <dl><div><dt>Evacuated</dt><dd id="result-evacuated"></dd></div>
+    <div><dt>Time remaining</dt><dd id="result-time"></dd></div>
+    <div><dt>Open exits</dt><dd id="result-exits"></dd></div>
+    <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div></dl>
+    <p class="muted">Score = (evacuated + whole seconds remaining) × open exits</p>
+  </div>
+  <h3 id="result-message"></h3><p id="result-tip"></p>
+</section>
+						<a-scene
+							embedded
+							xr-mode-ui="enabled: false"
+							renderer="antialias: true"
+							background="color: #182230"
+						>
+							<a-sky color="#182230"></a-sky>
+							<a-plane
+								rotation="-90 0 0"
+								width="24"
+								height="24"
+								color="#555b63"
+							></a-plane>
 
-            <div class="exit-status" aria-label="Exit status">
-                <span id="status-a">Exit A · OPEN</span><span id="status-b">Exit B · CLOSED</span><span id="status-c">Exit C · OPEN</span>
-            </div>
-            <div class="play-layout">
-            <aside id="instruction" aria-label="Current task">
-                <p id="step-label" class="eyebrow">TASK 1 OF 2</p>
-                <h3 id="task-title">Open an alternative route</h3>
-                <p id="task-copy">Open Exit B to give the crowd another route. The highlighted button controls the closed exit in the middle.</p>
-                <div id="actions">
-                    <button id="open-exit">Open Exit B</button>
-                    <button id="redirect" disabled>Redirect crowd to B</button>
-                </div>
-                <p id="feedback" role="status" aria-live="polite">Your task stays here until you complete it.</p>
-                <section id="review" hidden aria-labelledby="review-heading">
-                    <h4 id="review-heading">Your actions</h4>
-                    <ol id="review-timeline"></ol>
-                    <p id="save-status" role="status" aria-live="polite"></p>
-                    <form id="compare-form">
-                        <h4>Compare another decision</h4>
-                        <label for="compare-action">Action to re-time</label>
-                        <select id="compare-action"></select>
-                        <label for="compare-time">New time (seconds into the drill)</label>
-                        <input id="compare-time" type="number" min="0" max="90" step="0.1" required />
-                        <button type="submit">Replay original and alternative</button>
-                    </form>
-                    <p id="compare-result" role="status" aria-live="polite"></p>
-                </section>
-                <button id="drill-btn" hidden>Start timed drill</button>
-                <p class="muted">The fixed overhead view lets you watch all three routes.</p>
-            </aside>
-            <div class="scene-wrap">
+							<a-box
+								position="0 1.5 -12"
+								width="24"
+								height="3"
+								depth="0.3"
+								color="#8a929d"
+							></a-box>
 
-			<a-scene embedded xr-mode-ui="enabled: false" renderer="antialias: true" background="color: #182230">
-				<a-sky color="#182230"></a-sky>
-				<a-plane
-					rotation="-90 0 0"
-					width="24"
-					height="24"
-					color="#555b63"
-				></a-plane>
+							<a-box
+								position="-12 1.5 0"
+								width="0.3"
+								height="3"
+								depth="24"
+								color="#8a929d"
+							></a-box>
 
-				<a-box
-					position="0 1.5 -12"
-					width="24"
-					height="3"
-					depth="0.3"
-					color="#8a929d"
-				></a-box>
+							<a-box
+								position="12 1.5 0"
+								width="0.3"
+								height="3"
+								depth="24"
+								color="#8a929d"
+							></a-box>
 
-				<a-box
-					position="-12 1.5 0"
-					width="0.3"
-					height="3"
-					depth="24"
-					color="#8a929d"
-				></a-box>
+							<a-box
+								id="exit-a"
+								position="-8 1 -11.7"
+								width="3"
+								height="2"
+								depth="0.2"
+								color="#2ecc71"
+							></a-box>
 
-				<a-box
-					position="12 1.5 0"
-					width="0.3"
-					height="3"
-					depth="24"
-					color="#8a929d"
-				></a-box>
+							<a-box
+								id="exit-b"
+								position="0 1 -11.7"
+								width="3"
+								height="2"
+								depth="0.2"
+								color="#e74c3c"
+							></a-box>
 
-				<a-box
-					id="exit-a"
-					position="-8 1 -11.7"
-					width="3"
-					height="2"
-					depth="0.2"
-					color="#2ecc71"
-				></a-box>
+							<a-box
+								id="exit-c"
+								position="8 1 -11.7"
+								width="3"
+								height="2"
+								depth="0.2"
+								color="#2ecc71"
+							></a-box>
 
-				<a-box
-					id="exit-b"
-					position="0 1 -11.7"
-					width="3"
-					height="2"
-					depth="0.2"
-					color="#e74c3c"
-				></a-box>
+							<a-entity id="rig">
+								<a-entity id="camera" camera position="0 22 18" rotation="-42 0 0"></a-entity>
+								<a-entity laser-controls="hand: left" raycaster="objects: .vr-control; far: 4"></a-entity>
+								<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 4"></a-entity>
+								<a-entity id="vr-post" visible="false">
+									<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" color="#3a4250"></a-box>
+									<a-entity id="vr-panel" position="-0.75 1.25 -0.55" rotation="-15 50 0">
+										<a-plane width="1.2" height="1.1" color="#182230"></a-plane>
+										<a-text id="vr-text" position="-0.55 0.52 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
+									</a-entity>
+								</a-entity>
+							</a-entity>
+							<a-text
+								value="A"
+								position="-8 3.5 -11"
+								align="center"
+								width="8"
+							></a-text>
+							<a-text
+								value="B"
+								position="0 3.5 -11"
+								align="center"
+								width="8"
+							></a-text>
+							<a-text
+								value="C"
+								position="8 3.5 -11"
+								align="center"
+								width="8"
+							></a-text>
+							<a-box id="hazard-marker" visible="false" position="0 0.6 -10.5" width="2.8" height="1.2" depth="1" color="#e6da78"></a-box>
+<a-text id="hazard-label" visible="false" value="HAZARD" position="0 4.5 -11" align="center" width="10" color="#e6da78"></a-text>
+<a-entity id="crowd"></a-entity>
+							<a-entity id="ghost-crowd" visible="false"></a-entity>
+						</a-scene>
+						<p class="scene-caption">
+							Crowd figures are simplified. Exit labels show each route; the yellow obstruction marks the hazard. In a comparison, faded wireframe figures replay your original run and solid figures show the alternative.
+						</p>
+					</div>
+				</div>
+			</section>
 
-				<a-box
-					id="exit-c"
-					position="8 1 -11.7"
-					width="3"
-					height="2"
-					depth="0.2"
-					color="#2ecc71"
-				></a-box>
-
-				<a-entity id="rig">
-					<a-entity
-						id="camera"
-						camera
-						position="0 22 18"
-						rotation="-42 0 0"
-					></a-entity>
-					<a-entity laser-controls="hand: left" raycaster="objects: .vr-control; far: 4"></a-entity>
-					<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 4"></a-entity>
-					<a-entity id="vr-post" visible="false">
-						<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" color="#3a4250"></a-box>
-						<a-entity id="vr-panel" position="-0.75 1.25 -0.55" rotation="-15 50 0">
-							<a-plane width="1.2" height="0.9" color="#182230"></a-plane>
-							<a-text id="vr-text" position="-0.55 0.42 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
-						</a-entity>
-					</a-entity>
-				</a-entity>
-                <a-text value="A" position="-8 3.5 -11" align="center" width="8"></a-text>
-                <a-text value="B" position="0 3.5 -11" align="center" width="8"></a-text>
-                <a-text value="C" position="8 3.5 -11" align="center" width="8"></a-text>
-                <a-entity id="crowd"></a-entity>
-                <a-entity id="ghost-crowd" visible="false"></a-entity>
-            </a-scene>
-            <p class="scene-caption">Crowd figures are simplified. Blue figures are directed toward Exit B. In a comparison, faded wireframe figures replay your original run and solid figures show the alternative.</p>
-            </div>
-            </div>
-		</section>
-
-        <script src="/simulation.js"></script>
-        <script src="/review.js"></script>
-        <script src="/game.js"></script>
-	</main>
-</body>
+			<script src="/simulation.js"></script>
+			<script src="/review.js"></script>
+<script src="/game.js"></script>
+		</main>
+	</body>
 </html>

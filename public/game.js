@@ -2,6 +2,7 @@ const sim = window.CrowdSimulation;
 const review = window.CrowdReview;
 const el = id => document.getElementById(id);
 const clone = value => JSON.parse(JSON.stringify(value));
+const EXITS = ['A', 'B', 'C'];
 let state = sim.createState();
 let initial = null;
 let lastRun = null;
@@ -50,7 +51,7 @@ function place(list, s) {
     const person = s.people[i];
     figure.setAttribute('visible', !person.evacuated);
     figure.setAttribute('position', `${person.x} 0 ${person.z}`);
-    body.setAttribute('color', person.exit === 'B' ? '#76bcff' : '#f1d673');
+    body.setAttribute('color', { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit]);
   });
 }
 function instructions(label, title, copy) {
@@ -68,31 +69,57 @@ function refresh() {
   const clock = ghost ? Math.max(state.tick, ghost.tick) : state.tick;
   el('timer').textContent = mode === 'practice' || mode === 'intro'
     ? 'Practice · no time limit' : `Time remaining: ${Math.ceil(Math.max(0, sim.DURATION - clock * sim.DT))} seconds`;
-  for (const exit of ['A', 'B', 'C']) {
-    el(`status-${exit.toLowerCase()}`).textContent = `Exit ${exit} · ${state.open[exit] ? 'OPEN' : 'CLOSED'} · ${stats.queues[exit]} heading here`;
-  }
-  el('exit-b').setAttribute('color', state.open.B ? '#2ecc71' : '#e74c3c');
   const active = mode === 'practice' || mode === 'drill';
+  for (const exit of EXITS) {
+    const suffix = exit.toLowerCase();
+    el(`exit-controls-${suffix}`).hidden = mode === 'practice' && exit !== 'B';
+    const hazard = state.hazard === exit;
+    const status = hazard ? 'HAZARD · clear before opening' : state.open[exit] ? 'OPEN' : 'CLOSED';
+    el(`status-${suffix}`).textContent = `Exit ${exit} · ${status} · ${stats.queues[exit]} heading here`;
+    el(`exit-${suffix}`).setAttribute('color', hazard ? '#e6da78' : state.open[exit] ? '#2ecc71' : '#e74c3c');
+    const available = active && (mode !== 'practice' || exit === 'B');
+    const clear = el(`clear-hazard-${suffix}`);
+    clear.hidden = mode === 'practice';
+    clear.disabled = !available || !hazard;
+    const open = el(`open-exit-${suffix}`);
+    const redirect = el(`redirect-${suffix}`);
+    open.hidden = mode === 'practice' && exit !== 'B';
+    redirect.hidden = mode === 'practice' && exit !== 'B';
+    open.disabled = !available || state.open[exit] || hazard;
+    redirect.disabled = !available || !state.open[exit] || hazard || state.lastRedirect === exit || stats.remaining === 0;
+    open.classList.toggle('task-target', mode === 'practice' && practiceStep === 0 && exit === 'B');
+    redirect.classList.toggle('task-target', mode === 'practice' && practiceStep === 1 && exit === 'B');
+    for (const kind of ['open-exit', 'redirect']) {
+      const complete = mode === 'practice' && exit === 'B' && practiceStep >= (kind === 'open-exit' ? 1 : 2);
+      el(`check-${kind}-${suffix}`).hidden = !complete;
+      el(`${kind}-${suffix}`).setAttribute('aria-label', `${kind === 'open-exit' ? 'Open Exit' : 'Redirect crowd to'} ${exit}${complete ? ', completed' : ''}`);
+    }
+  }
+  el('hazard-marker').setAttribute('visible', !!state.hazard);
+  el('hazard-label').setAttribute('visible', !!state.hazard);
+  if (state.hazard) {
+    const x = { A: -8, B: 0, C: 8 }[state.hazard];
+    el('hazard-marker').setAttribute('position', `${x} 0.6 -10.5`);
+    el('hazard-label').setAttribute('position', `${x} 4.5 -11`);
+  }
   el('actions').hidden = !active;
   el('review').hidden = !lastRun || active;
-  el('open-exit').disabled = !active || state.open.B;
-  el('redirect').disabled = !active || !state.open.B || state.redirected;
-  el('open-exit').classList.toggle('task-target', mode === 'practice' && practiceStep === 0);
-  el('redirect').classList.toggle('task-target', mode === 'practice' && practiceStep === 1);
   place(figures, state);
   el('ghost-crowd').setAttribute('visible', !!ghost);
   if (ghost) place(ghostFigures, ghost);
   syncHeadset();
 }
-function fresh(nextMode) {
+function fresh(nextMode, blockedExit = nextMode === 'drill' ? EXITS[Math.floor(Math.random() * EXITS.length)] : null) {
   mode = nextMode;
-  state = sim.createState();
+  state = sim.createState({ blockedExit });
   initial = clone(state);
   ghost = null;
   lastRun = null;
   accumulator = 0;
   previousTime = null;
   practiceStep = 0;
+  el('results').hidden = true;
+  scene.hidden = false;
   el('intro').hidden = true;
   el('game').style.display = 'block';
   el('drill-btn').hidden = true;
@@ -101,24 +128,30 @@ function fresh(nextMode) {
     instructions('TASK 1 OF 2', 'Open an alternative route', 'Open Exit B to give the crowd another route. Use the highlighted control for the closed exit in the middle.');
     el('feedback').textContent = 'No timer is running. Complete the task when you are ready.';
   } else {
-    instructions('INDEPENDENT DRILL', 'Reduce the queue', 'Most people are heading to Exit A. Open Exit B, then redirect part of the crowd to spread the flow.');
+    instructions('INDEPENDENT DRILL', 'Restore the blocked route', `A hazard blocks Exit ${state.hazard}. Clear it, open the exit, and direct people toward available routes. You can also use the other open exits.`);
     el('feedback').textContent = 'A fresh drill has started. Your practice actions have been cleared.';
   }
   createAllFigures();
   refresh();
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
-function perform(action) {
+function perform(action, target = 'B') {
   if (mode !== 'practice' && mode !== 'drill') return;
-  if (!sim.act(state, action)) return;
-  if (action === 'open-exit') {
-    el('feedback').textContent = 'Exit B is open. People still need direction to use the new route.';
+  if (mode === 'practice' && (target !== 'B' || (action !== 'open-exit' && action !== 'redirect'))) return;
+  if (!sim.act(state, action, target)) {
+    el('feedback').textContent = `You can try another route. Clear any hazard and open Exit ${target} before directing people there.`;
+    return;
+  }
+  if (action === 'clear-hazard') {
+    el('feedback').textContent = `Nice work! The hazard at Exit ${target} is cleared. You can open that exit now.`;
+  } else if (action === 'open-exit') {
+    el('feedback').textContent = `Good work! Exit ${target} is open. Direct people toward the new route.`;
     if (mode === 'practice' && practiceStep === 0 && state.open.B) {
       practiceStep = 1;
       instructions('TASK 2 OF 2', 'Direct people to the new route', 'Redirect the crowd to Exit B. Watch the blue figures move toward the middle exit.');
     }
   } else {
-    el('feedback').textContent = 'Part of the crowd is now heading to Exit B. Watch the blue figures take the new route.';
+    el('feedback').textContent = `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
       instructions('PRACTICE COMPLETE', 'You have tried both actions', 'Opening an exit makes a route available; redirecting sends people toward it. Watch the response, then start a fresh timed drill when ready.');
@@ -129,8 +162,22 @@ function perform(action) {
   refresh();
 }
 function finish() {
+  showResults(state);
   showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
   save(lastRun);
+}
+function showResults(s) {
+  const stats = sim.stats(s);
+  const score = review.score(stats, s.open);
+  el('result-evacuated').textContent = `${stats.evacuated} / ${s.people.length}`;
+  el('result-time').textContent = `${score.seconds} seconds`;
+  el('result-exits').textContent = `${score.exits}`;
+  el('result-score').textContent = `${score.score}`;
+  el('result-message').textContent = score.message;
+  el('result-tip').textContent = score.tip;
+  el('results').hidden = false;
+  // The results card replaces the scene on a laptop; in a headset the scene is the only view.
+  scene.hidden = !laptopPose;
 }
 // fetch rejects with a TypeError only when the request never reached the server.
 const reason = error => (error instanceof TypeError ? 'The server could not be reached.' : error.message);
@@ -139,7 +186,7 @@ async function save(run) {
   try {
     run.id = crypto.randomUUID();
     const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: run.id, version: run.version, commands: run.commands, result: run.result }) });
+      body: JSON.stringify({ id: run.id, version: run.version, blockedExit: run.initial.blockedExit, commands: run.commands, result: run.result }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Server error ${res.status}.`);
     if (lastRun !== run) return;
     history.replaceState(null, '', `?run=${run.id}`);
@@ -155,7 +202,7 @@ async function reopen(id) {
     const saved = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(saved.error || `Server error ${res.status}.`);
     if (saved.version !== sim.VERSION) throw new Error('It was recorded with a different simulation version, so it cannot be replayed.');
-    fresh('review');
+    fresh('review', saved.blockedExit);
     showReview({ ...saved, initial });
     el('save-status').textContent = 'Opened from the database. Replay checks that it reproduces its saved result.';
   } catch (error) {
@@ -166,7 +213,7 @@ function showReview(run) {
   mode = 'review';
   lastRun = run;
   instructions('DRILL COMPLETE', 'Decision review', review.outcome(lastRun.result));
-  el('feedback').textContent = 'These results describe this simplified simulation only.';
+  el('feedback').textContent = 'Every drill is a chance to improve. Try another hazard scenario when you are ready. Results describe this simplified simulation only.';
   el('review-timeline').replaceChildren(...review.timeline(lastRun.commands).map(text => {
     const item = document.createElement('li');
     item.textContent = text;
@@ -182,7 +229,7 @@ function showReview(run) {
   el('compare-time').value = lastRun.commands.length ? (lastRun.commands[0].tick * sim.DT).toFixed(1) : '';
   el('compare-result').textContent = lastRun.commands.length
     ? 'Pick one action and a new time. Every other action stays the same.'
-    : 'With no actions there is nothing to re-time. Start another drill and try opening Exit B.';
+    : 'With no actions there is nothing to re-time. Start another drill and try clearing the blocked exit.';
   el('drill-btn').textContent = 'Try another drill';
   el('drill-btn').hidden = false;
   refresh();
@@ -195,6 +242,9 @@ function compare(index, seconds) {
   mode = 'compare';
   accumulator = 0;
   previousTime = null;
+  el('results').hidden = true;
+  scene.hidden = false;
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
   el('compare-result').textContent = 'Replaying both runs from the same start.';
   refresh();
 }
@@ -207,8 +257,11 @@ function finishCompare() {
 el('start-btn').addEventListener('click', () => fresh('practice'));
 el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
-el('open-exit').addEventListener('click', () => perform('open-exit'));
-el('redirect').addEventListener('click', () => perform('redirect'));
+for (const exit of EXITS) {
+  for (const action of ['clear-hazard', 'open-exit', 'redirect']) {
+    el(`${action}-${exit.toLowerCase()}`).addEventListener('click', () => perform(action, exit));
+  }
+}
 el('compare-form').addEventListener('submit', event => {
   event.preventDefault();
   compare(Number(el('compare-action').value), Number(el('compare-time').value));
@@ -217,33 +270,38 @@ el('compare-form').addEventListener('submit', event => {
 // panel mirrors the side panel, and controller clicks press the page's own buttons so both inputs share handlers.
 // ponytail: post and panel positions are first guesses; tune them on the headset.
 const VR_POST = '0 6 13';
-const VR_BUTTONS = ['open-exit', 'redirect', 'drill-btn', 'stop-btn'];
+const VR_LABELS = { 'clear-hazard': 'Clear', 'open-exit': 'Open', redirect: 'Redirect to' };
 const shown = button => !button.closest('[hidden]');
 let vrButtons = [];
 let laptopPose = null;
 function syncHeadset() {
   if (!laptopPose) return;
   const timeline = el('review').hidden ? [] : [...el('review-timeline').children].map(item => item.textContent);
+  const results = el('results').hidden ? [] : [`${el('result-message').textContent} Score: ${el('result-score').textContent}`];
   el('vr-text').setAttribute('value', [...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
-    ...timeline, el('evacuated').textContent, el('timer').textContent].join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
-  vrButtons.forEach(({ source, button }) => {
+    ...results, ...timeline, el('evacuated').textContent, el('timer').textContent].join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
+  vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : '#2f7de1');
-    button.setAttribute('text', 'value', source.textContent);
+    button.setAttribute('text', 'value', label || source.textContent);
   });
 }
 function createVrButtons() {
-  vrButtons = VR_BUTTONS.map((id, i) => {
+  // One column per exit (clear, open, redirect), then the drill and restart buttons on the last row.
+  const layout = EXITS.flatMap((exit, col) => Object.keys(VR_LABELS).map((action, row) =>
+    ({ id: `${action}-${exit.toLowerCase()}`, label: `${VR_LABELS[action]} ${exit}`, col, row })))
+    .concat({ id: 'drill-btn', col: 0, row: 3 }, { id: 'stop-btn', col: 2, row: 3 });
+  vrButtons = layout.map(({ id, label, col, row }) => {
     const source = el(id);
     const button = document.createElement('a-entity');
     button.classList.add('vr-control');
-    button.setAttribute('geometry', { primitive: 'plane', width: 0.55, height: 0.12 });
-    button.setAttribute('position', `${i % 2 ? 0.29 : -0.29} ${-0.24 - Math.floor(i / 2) * 0.15} 0.01`);
-    button.setAttribute('text', { align: 'center', width: 0.5, wrapCount: 22, color: '#ffffff' });
+    button.setAttribute('geometry', { primitive: 'plane', width: 0.36, height: 0.1 });
+    button.setAttribute('position', `${(col - 1) * 0.38} ${-0.08 - row * 0.12} 0.01`);
+    button.setAttribute('text', { align: 'center', width: 0.34, wrapCount: 18, color: '#ffffff' });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
     button.addEventListener('click', () => { if (shown(source)) source.click(); });
     el('vr-panel').append(button);
-    return { source, button };
+    return { source, button, label };
   });
 }
 window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { el('vr-btn').hidden = !ok; }, () => {});
@@ -256,6 +314,7 @@ scene.addEventListener('enter-vr', () => {
   laptopPose = { position: camera.position.clone(), rotation: camera.rotation.clone() };
   el('rig').setAttribute('position', VR_POST);
   el('vr-post').setAttribute('visible', true);
+  scene.hidden = false;
   syncHeadset();
 });
 scene.addEventListener('exit-vr', () => {
@@ -265,6 +324,7 @@ scene.addEventListener('exit-vr', () => {
   el('camera').object3D.position.copy(laptopPose.position);
   el('camera').object3D.rotation.copy(laptopPose.rotation);
   laptopPose = null;
+  scene.hidden = !el('results').hidden;
 });
 function tick() {
   if (mode === 'compare') {

@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const sim = require('../public/simulation');
-function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }) } = {}) {
+const review = require('../public/review');
+// random picks the drill's blocked exit: 0 → A, 0.4 → B, 0.9 → C.
+function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }), random = 0.4 } = {}) {
   const elements = new Map();
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
@@ -18,7 +20,7 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   const requests = [];
   const urls = [];
   const context = vm.createContext({
-    window: { CrowdSimulation: sim, CrowdReview: require('../public/review'), dispatchEvent() {} },
+    window: { CrowdSimulation: sim, CrowdReview: review, dispatchEvent() {} },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
       createElement: () => element(Symbol()) },
     requestAnimationFrame() {}, Event: class {},
@@ -26,35 +28,47 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
     crypto: { randomUUID: () => '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60' },
     location: { search }, URLSearchParams, history: { replaceState: (...args) => { urls.push(args[2]); } }
   });
+  vm.runInContext(`Math.random = () => ${random};`, context);
   vm.runInContext(fs.readFileSync('public/game.js', 'utf8'), context);
   const value = expression => vm.runInContext(expression, context);
   let clock = 0;
-  return { element, context, value, requests, urls, click: id => element(id).listeners.click(),
+  return { element, context, value, requests, urls, scene, click: id => element(id).listeners.click(),
     play: whileMode => { while (value('mode') === whileMode) value('frame')(clock += 250); },
     playTicks: ticks => { while (value('state.tick') < ticks) value('frame')(clock += 250); } };
+}
+const settle = () => new Promise(resolve => setImmediate(resolve));
+function practice(ui) {
+  ui.click('start-btn'); ui.click('open-exit-b'); ui.click('redirect-b');
+}
+// Exit B is blocked (default random): clear and open it at 0 s, redirect to it at 5 s.
+function drillWithActions(ui) {
+  practice(ui);
+  ui.click('drill-btn'); ui.click('clear-hazard-b'); ui.click('open-exit-b');
+  ui.playTicks(50); ui.click('redirect-b');
+  ui.play('drill');
 }
 test('practice waits indefinitely for its task and rejected redirect cannot advance it', () => {
   const ui = setup(); ui.click('start-btn');
   vm.runInContext('frame(0); frame(30000);', ui.context);
   assert.equal(ui.value('practiceStep'), 0);
   assert.equal(ui.value('state.tick'), 0);
-  ui.click('redirect');
+  ui.click('redirect-b');
   assert.equal(ui.value('practiceStep'), 0);
   assert.equal(ui.element('drill-btn').hidden, true);
 });
 test('both successful tasks unlock the drill and starting clears practice state', () => {
-  const ui = setup(); ui.click('start-btn'); ui.click('open-exit');
+  const ui = setup(); ui.click('start-btn'); ui.click('open-exit-b');
   assert.equal(ui.value('practiceStep'), 1);
   assert.equal(ui.element('drill-btn').hidden, true);
-  assert.equal(ui.element('redirect').disabled, false);
-  ui.click('open-exit');
+  assert.equal(ui.element('redirect-b').disabled, false);
+  ui.click('open-exit-b');
   assert.equal(ui.value('practiceStep'), 1);
-  ui.click('redirect');
+  ui.click('redirect-b');
   assert.equal(ui.value('practiceStep'), 2);
   assert.equal(ui.element('drill-btn').hidden, false);
   ui.click('drill-btn');
   assert.equal(ui.value('mode'), 'drill');
-  assert.equal(ui.value('state.open.B'), false);
+  assert.equal(ui.value('state.open[state.blockedExit]'), false);
   assert.equal(ui.value('state.commands.length'), 0);
   assert.equal(ui.value('state.tick'), 0);
   ui.click('stop-btn');
@@ -62,95 +76,104 @@ test('both successful tasks unlock the drill and starting clears practice state'
   assert.equal(ui.value('practiceStep'), 0);
   assert.equal(ui.element('drill-btn').hidden, true);
 });
-test('a finished drill records only drill decisions and opens the review', () => {
-  const ui = setup(); ui.click('start-btn'); ui.click('open-exit'); ui.click('redirect');
-  ui.click('drill-btn'); ui.click('open-exit');
-  ui.playTicks(50); ui.click('redirect');
-  ui.play('drill');
+test('yellow completion indicators appear only after successful practice actions and reset', () => {
+  const ui = setup(); ui.click('start-btn');
+  assert.equal(ui.element('check-open-exit-b').hidden, true);
+  ui.click('open-exit-b');
+  assert.equal(ui.element('check-open-exit-b').hidden, false);
+  assert.equal(ui.element('check-redirect-b').hidden, true);
+  ui.click('redirect-b');
+  assert.equal(ui.element('check-redirect-b').hidden, false);
+  ui.click('stop-btn');
+  assert.equal(ui.element('check-open-exit-b').hidden, true);
+});
+test('a finished drill records only drill decisions and opens the review and results', () => {
+  const ui = setup();
+  drillWithActions(ui);
   const run = ui.value('lastRun');
   assert.equal(ui.value('mode'), 'review');
   assert.equal(run.version, sim.VERSION);
-  assert.equal(JSON.stringify(run.initial), JSON.stringify(sim.createState()));
-  assert.equal(run.commands.map(c => c.action).join(), 'open-exit,redirect');
+  assert.equal(JSON.stringify(run.initial), JSON.stringify(sim.createState({ blockedExit: 'B' })));
+  assert.equal(run.commands.map(c => `${c.action}-${c.target}`).join(), 'clear-hazard-B,open-exit-B,redirect-B');
   assert.equal(run.commands[0].tick, 0);
-  assert.ok(run.commands[1].tick >= 50);
+  assert.ok(run.commands[2].tick >= 50);
   assert.equal(run.result.remaining, 0);
-  assert.ok(run.result.ticks < sim.DURATION / sim.DT, 'cleared before time ran out');
   assert.equal(ui.element('review').hidden, false);
   assert.equal(ui.element('actions').hidden, true);
   assert.equal(ui.element('compare-form').hidden, false);
-  assert.equal(ui.element('review-timeline').children.length, 2);
+  assert.equal(ui.element('review-timeline').children.length, 3);
+  assert.equal(ui.element('results').hidden, false);
+  assert.equal(ui.scene.hidden, true, 'results replace the scene on a laptop');
+  assert.equal(ui.element('result-message').textContent, 'Outstanding!');
 });
-test('a drill with no actions is reviewed without offering a re-time', () => {
-  const ui = setup(); ui.click('start-btn'); ui.click('open-exit'); ui.click('redirect');
-  ui.click('drill-btn'); ui.play('drill');
+test('a blocked main exit left alone runs out of time and the review says so', () => {
+  const ui = setup({ random: 0 });
+  practice(ui);
+  ui.click('drill-btn');
+  assert.equal(ui.value('state.blockedExit'), 'A');
+  ui.play('drill');
   assert.equal(ui.value('lastRun.commands.length'), 0);
   assert.equal(ui.element('compare-form').hidden, true);
   assert.equal(ui.element('review-timeline').children[0].textContent, 'No actions taken during the drill.');
-  assert.match(ui.element('task-copy').textContent, /All 30 people evacuated/);
+  assert.match(ui.element('task-copy').textContent, /^Time ran out after 90\.0 s\. 6 of 30 people evacuated/);
+  assert.equal(ui.element('result-message').textContent, 'Keep building your skills!');
 });
 test('comparison replays the original exactly and changes only the chosen action', () => {
-  const ui = setup(); ui.click('start-btn'); ui.click('open-exit'); ui.click('redirect');
-  ui.click('drill-btn'); ui.click('open-exit');
-  ui.playTicks(50); ui.click('redirect');
-  ui.play('drill');
+  const ui = setup();
+  drillWithActions(ui);
   const recorded = ui.value('JSON.stringify(lastRun.result)');
-  ui.element('compare-action').value = '0';
+  ui.element('compare-action').value = '1';
   ui.element('compare-time').value = '30';
   ui.element('compare-form').listeners.submit({ preventDefault() {} });
   assert.equal(ui.value('mode'), 'compare');
+  assert.equal(ui.element('results').hidden, true);
+  assert.equal(ui.scene.hidden, false, 'the replay needs the scene');
   ui.play('compare');
   assert.equal(ui.value('mode'), 'review');
   assert.equal(JSON.stringify(ui.value('review.result(ghost)')), recorded);
-  assert.equal(ui.value('state.commands.map(c => c.action + "@" + c.tick).join()'), 'open-exit@300');
+  assert.equal(ui.value('state.commands.map(c => c.action + "@" + c.tick).join()'), 'clear-hazard@0,open-exit@300');
   const text = ui.element('compare-result').textContent;
   assert.match(text, /replayed exactly/);
   assert.match(text, /cleared the venue [\d.]+ s later/);
   assert.match(text, /1 scheduled action\(s\) could not happen/);
 });
-const settle = () => new Promise(resolve => setImmediate(resolve));
-function drillWithBothActions(ui) {
-  ui.click('start-btn'); ui.click('open-exit'); ui.click('redirect');
-  ui.click('drill-btn'); ui.click('open-exit');
-  ui.playTicks(50); ui.click('redirect');
-  ui.play('drill');
-}
-test('a finished drill is saved once and the page address then reopens it', async () => {
+test('a finished drill is saved once with its scenario and the page address then reopens it', async () => {
   const ui = setup();
-  drillWithBothActions(ui);
+  drillWithActions(ui);
   await settle();
   assert.equal(ui.requests.length, 1);
   const [url, options] = ui.requests[0];
   assert.equal(url, '/api/runs');
   assert.equal(options.method, 'POST');
-  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, commands: lastRun.commands, result: lastRun.result })'));
+  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, blockedExit: "B", commands: lastRun.commands, result: lastRun.result })'));
   assert.deepEqual(ui.urls, [`?run=${ui.value('lastRun.id')}`]);
   assert.match(ui.element('save-status').textContent, /^Saved\./);
 });
 test('a failed save says so and keeps the review usable', async () => {
   const refused = setup({ fetch: async () => ({ ok: false, status: 503, json: async () => ({ error: 'Saving is not set up on this server.' }) }) });
-  drillWithBothActions(refused);
+  drillWithActions(refused);
   await settle();
   assert.equal(refused.element('save-status').textContent, 'Not saved. Saving is not set up on this server.');
   assert.deepEqual(refused.urls, []);
   assert.equal(refused.element('compare-form').hidden, false);
   // A browser's fetch rejects with its own realm's TypeError, so build it inside the page context.
   const offline = setup({ fetch: async () => { throw vm.runInContext("new TypeError('Failed to fetch')", offline.context); } });
-  drillWithBothActions(offline);
+  drillWithActions(offline);
   await settle();
   assert.equal(offline.element('save-status').textContent, 'Not saved. The server could not be reached.');
 });
-test('a saved link opens the review and its replay reproduces the saved result', async () => {
-  const commands = [{ tick: 0, action: 'open-exit' }, { tick: 45, action: 'redirect' }];
-  const state = sim.createState();
+test('a saved link opens the review in its scenario and its replay reproduces the saved result', async () => {
+  const commands = [{ tick: 0, action: 'clear-hazard', target: 'A' }, { tick: 0, action: 'open-exit', target: 'A' }, { tick: 45, action: 'redirect', target: 'C' }];
+  const state = sim.createState({ blockedExit: 'A' });
   while (!sim.isDone(state)) sim.step(state, commands);
-  const saved = { id: '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60', version: sim.VERSION, commands, result: require('../public/review').result(state) };
+  const saved = { id: '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60', version: sim.VERSION, blockedExit: 'A', commands, result: review.result(state) };
   const ui = setup({ search: `?run=${saved.id}`, fetch: async () => ({ ok: true, json: async () => saved }) });
   await settle();
   assert.equal(ui.requests[0][0], `/api/runs/${saved.id}`);
   assert.equal(ui.value('mode'), 'review');
-  assert.equal(ui.element('review-timeline').children.length, 2);
-  ui.element('compare-action').value = '1';
+  assert.equal(ui.value('lastRun.initial.blockedExit'), 'A');
+  assert.equal(ui.element('review-timeline').children.length, 3);
+  ui.element('compare-action').value = '2';
   ui.element('compare-time').value = '20';
   ui.element('compare-form').listeners.submit({ preventDefault() {} });
   ui.play('compare');

@@ -12,7 +12,7 @@ Carol owns UX/UI. Colin owns feature integration. Either can help the other, but
 - [ ] Capture URLs / test notes for the platform items marked complete in CHECKLIST: Render, headset input/audio, Neon, and Presage. These are reported complete there; their evidence is not yet recorded in PLAN.
 - [ ] Agree the next handoff: Carol supplies a review-screen layout and copy; Colin supplies the run data that fills it.
 
-## Carol · UX/UI
+## Lyanis · UX/UI
 
 - [ ] **First priority: try the current practice.** Can a new player identify Exit B, perform both tasks, understand the crowd response, and start a fresh drill without help? Record the three most important fixes.
 - [ ] Refine briefing and tutorial wording: one instruction at a time, clear action feedback, no Next button to bypass interactive tasks.

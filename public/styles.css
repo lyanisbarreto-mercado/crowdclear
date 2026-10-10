@@ -109,3 +109,17 @@ a-scene { margin-inline: auto; border-radius: 12px; overflow: hidden; }
 #compare-form select:focus-visible, #compare-form input:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 #compare-form button { margin-top: 12px; }
 #compare-result { white-space: pre-line; line-height: 1.6; }
+.completion-check { color: #e4dc7b; font-size: 1.4rem; margin-left: 8px; font-weight: 800; }
+#results { width: 90%; margin: 0 auto; padding: 32px; min-height: 480px; border-radius: 12px; background: #111d28; text-align: center; }
+.result-card { max-width: 440px; margin: 0 auto 20px; padding: 24px; background: #2d3c4f; border: 1px solid #74859a; border-radius: 10px; }
+.result-card h2 { font-size: 1.8rem; font-weight: 500; }
+.result-card dl { margin: 0; }
+.result-card dl div { display: flex; justify-content: space-between; gap: 16px; padding: 12px; margin-bottom: 10px; border-radius: 6px; background: #182230; text-align: left; }
+.result-card dd { margin: 0; font-weight: 700; }
+.result-card .score-total { background: #596f86; }
+#result-message { background: #e4dc7b; color: #182230; border-radius: 12px; padding: 20px; font-size: 1.8rem; max-width: 540px; margin: 0 auto; }
+#result-tip { max-width: 540px; margin: 16px auto; line-height: 1.6; }
+@media (max-width: 600px) { #results { width: 100%; padding: 16px; } }
+#actions fieldset { border: 1px solid #596679; border-radius: 8px; margin: 0; padding: 10px; min-width: 0; }
+#actions legend { color: #e6da78; padding: 0 6px; font-weight: 700; }
+#actions fieldset button { display: block; width: 100%; margin: 6px 0; }
