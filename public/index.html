@@ -1,0 +1,106 @@
+<!-- @format -->
+
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>CrowdClear</title>
+		<link rel="stylesheet" href="/styles.css" />
+		<script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+	</head>
+
+	<body>
+		<header>
+			<h1>CrowdClear</h1>
+			<p>Emergency Evacuation Training</p>
+		</header>
+	</body>
+
+	<main>
+		<section id="intro">
+			<h2>Stadium Evacuation Drill</h2>
+			<p>Help evacuate and open an alternative exit</p>
+			<button id="start-btn">Start Drill</button>
+		</section>
+
+		<section id="game">
+			<div id="hud">
+				<span id="evacuated">Evacuated: 0</span>
+				<span id="timer">Timer: 120 seconds</span>
+			</div>
+
+			<div id="actions">
+				<button id="open-exit">Open Exit</button>
+				<button id="redirect">Redirect Crowd</button>
+			</div>
+
+			<a-scene embedded>
+				<a-sky color="#182230"></a-sky>
+				<a-plane
+					rotation="-90 0 0"
+					width="24"
+					height="24"
+					color="#555b63"
+				></a-plane>
+
+				<a-box
+					position="0 1.5 -12"
+					width="24"
+					height="3"
+					depth="0.3"
+					color="#8a929d"
+				></a-box>
+
+				<a-box
+					position="-12 1.5 0"
+					width="0.3"
+					height="3"
+					depth="24"
+					color="#8a929d"
+				></a-box>
+
+				<a-box
+					position="12 1.5 0"
+					width="0.3"
+					height="3"
+					depth="24"
+					color="#8a929d"
+				></a-box>
+
+				<a-box
+					id="exit-a"
+					position="-8 1 -11.7"
+					width="3"
+					height="2"
+					depth="0.2"
+					color="#2ecc71"
+				></a-box>
+
+				<a-box
+					id="exit-b"
+					position="0 1 -11.7"
+					width="3"
+					height="2"
+					depth="0.2"
+					color="#e74c3c"
+				></a-box>
+
+				<a-box
+					id="exit-c"
+					position="8 1 -11.7"
+					width="3"
+					height="2"
+					depth="0.2"
+					color="#2ecc71"
+				></a-box>
+
+				<a-entity
+					camera
+					position="0 1.7 10"
+					look-controls
+					wasd-controls
+				></a-entity>
+			</a-scene>
+		</section>
+	</main>
+</html>
