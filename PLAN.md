@@ -55,7 +55,27 @@ Baseline source inspection on October 10, 2026, before checkpoint 2 implementati
 
 ## Next action
 
-Colin: set `DATABASE_URL` (the Neon connection string) on Render, then finish one drill on the live URL and reopen its link; try "Enter headset view" on the headset and note where the panel and post should move. Checkpoints 3 and 4 are on `main` (commit `fdd8b3e`; CI green on Node 24). Carol: `git pull`, run `npm start`, open `http://localhost:3000`, finish practice and a drill, read the review, then re-time one action and press Replay. Feedback that matters: does the review explain why the result happened, and can you tell the two crowds apart? Then send the review/comparison layout using the hooks below. Event portal confirmation remains outstanding.
+Work from [TEAMMATE_TASKS.md](TEAMMATE_TASKS.md), "Tonight, in order": P0 live URL, saving, and headset check; then the P1 VR and mechanics passes. "Carol" in older entries below is Lyanis.
+
+### Render (deploy loops on its startup page)
+
+A fresh clone of `main` runs `npm ci` and `npm start` cleanly with `PORT=10000`: the server logs `CrowdClear running at http://localhost:10000`, `/api/health` answers 200, A-Frame is served, and `/api/runs` answers 503 without a database. So the loop is a Render setting. In the Render dashboard, open the CrowdClear service:
+
+1. **Events**: is the newest deploy "Deploy live" or "Deploy failed", and for which commit? Auto-Deploy waits for CI, and CI is green for every recent commit.
+2. **Logs**: find `CrowdClear running at http://localhost:10000`.
+   - Line present but the deploy never goes live: Settings → Health Check Path must be `/api/health` (or empty). Any other path returns 404 and Render keeps retrying.
+   - `Cannot find module …/index.js`: Settings → Start Command must be `npm start`.
+   - `No open ports detected`: the start command is not running `server.js`; same fix.
+   - Build errors: Build Command must be `npm ci`; Root Directory empty; branch `main`.
+3. **Settings**: the service must be a Web Service (not a Static Site or Background Worker) on the Node runtime. Node comes from `.node-version` (24).
+4. A free instance asleep for 15 minutes shows the waking-up page once for up to about a minute; it should not repeat.
+
+### Neon saving (`DATABASE_URL`)
+
+1. console.neon.tech → the CrowdClear project → **Connect**. Pick the branch and database, keep connection pooling on, and copy the `postgresql://…?sslmode=require…` string.
+2. Render → the CrowdClear service → **Environment** → add `DATABASE_URL` with that string → save and deploy.
+3. On the live URL, finish a drill. The review should say "Saved." and the address should end in `?run=…`; reload it and the same review opens. In Neon's SQL Editor, `SELECT id, blocked_exit, result, created_at FROM runs ORDER BY created_at DESC LIMIT 5;` shows the row. The server creates the table at startup.
+4. Keep the string only in Render (and a local `.env` if needed); never in the repo or chat.
 
 ## Delivery targets (Eastern local time)
 
@@ -126,3 +146,12 @@ Carol approved immediate hazard clearing. Implemented on the current `Lyanis'-ta
 - Local preview HTTP request returned 200. Chrome visual inspection was blocked because Computer Use was not approved for Chrome; browser layout and headset behavior remain unverified. No commit or push performed.
 
 Next: Carol reviews tutorial checkmarks, per-exit controls, and the results composition at localhost; pause for feedback before the next visible milestone.
+
+## Merge of Lyanis's hazard and results branch (Colin, October 10, evening)
+
+- `212243f` merges `Lyanis'-tasks` (`7c5586d`), which had branched before checkpoints 3-4. Kept from Lyanis: random hazard exit per drill, Clear hazard, per-exit controls, practice checkmarks, results card and score. Kept from `main`: review, comparison replay, save/load, headset controls.
+- Integration fixes: the replay schedule now passes each command's target (without it, a replayed redirect to C became a redirect to B); `VERSION` is 2; saved runs carry `blockedExit` (column `blocked_exit`) and the server rebuilds that scenario before replaying; `review.js` gained `score()` and stays DOM-free; the results card hides the scene on a laptop only and comparison brings it back; the headset panel has a per-exit grid.
+- Left out four macOS duplicates (`PLAN 2.md`, `docs/submission-draft 2.md`, `tests/simulation.test 2.js`, `tests/tutorial.test 2.js`); each is an older or identical copy and remains on the branch.
+- `npm test`: 28 pass, including a new check that a hazard at Exit A left alone runs out of time ("6 of 30 people evacuated"). Browser (PGlite-backed server): practice checkmarks; drill with Exit A blocked; clear and open A; results card (score 219) and review; comparison with opening moved to 20 s replayed exactly and cleared 19.8 s later; the saved link reopened the Exit A scenario; simulated headset grid ignored Open A while blocked and opened it after Clear A.
+- Measured mechanics (no action / clear and open at 0 s / clear and open at 30 s): hazard A 6 of 30 out at 90 s / 45.9 s / 75.9 s; hazard B 45.9 s / 45.9 s / 45.9 s; hazard C 24 of 30 out at 90 s / 45.9 s / 48.1 s. Nine alternating redirects are all accepted.
+- One browser run recorded 11 redirects that the test script did not issue; a rerun with a click logger saw only scripted clicks. Probably manual clicks in the visible test window; not reproduced.
