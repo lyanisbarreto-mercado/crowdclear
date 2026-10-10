@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+.env*
+!.env.example
+AGENTS.md
+task_plan.md
