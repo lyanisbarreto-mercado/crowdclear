@@ -55,7 +55,7 @@ Baseline source inspection on October 10, 2026, before checkpoint 2 implementati
 
 ## Next action
 
-Checkpoints 3 and 4 are implemented locally (commit `fdd8b3e`, not pushed). Carol: run `npm start`, open `http://localhost:3000`, finish practice and a drill, read the review, then re-time one action and press Replay. Feedback that matters: does the review explain why the result happened, and can you tell the two crowds apart? Then send the review/comparison layout using the hooks below. Event portal confirmation remains outstanding.
+Checkpoints 3 and 4 are on `main` (commit `fdd8b3e`; CI green on Node 24). Carol: `git pull`, run `npm start`, open `http://localhost:3000`, finish practice and a drill, read the review, then re-time one action and press Replay. Feedback that matters: does the review explain why the result happened, and can you tell the two crowds apart? Then send the review/comparison layout using the hooks below. Event portal confirmation remains outstanding.
 
 ## Delivery targets (Eastern local time)
 
@@ -103,4 +103,4 @@ Trial: run `npm start`; open localhost; begin practice; try redirect before open
 - In the current simulation every run clears before 90 s, so clearance time is the meaningful result. Measured: no action clears in 45.9 s; opening and redirecting at 0 s clears in 25.2 s; acting at 40 and 45 s clears in 48.3 s, worse than doing nothing, because redirected people walk back across the lobby. The time-expiry path is unit-tested but cannot happen in play yet.
 - The comparison re-times one action and keeps every other action's tick. The original replays as low-poly wireframe ghost figures and the alternative as solid figures; the HUD shows both counts. Moving a redirect before Exit B opens makes it fail, and the result text says so.
 - `npm test`: 16 pass. Browser check (Playwright Chromium, 1366×850): practice, then a drill with Exit B opened at 0 s and redirect at 4.5 s, reviewed as "All 30 people evacuated in 27.6 s". Re-timing the redirect to 20 s gave "Your original run replayed exactly" and "The alternative cleared the venue 8.3 s later." No console errors besides the missing favicon.
-- Known gaps. From the default overhead camera the wireframe/solid difference is hard to see at figure size, so the crowds mostly separate by position, color, HUD, and caption; Carol to judge. Max queue is not computed. Headset not checked. Not pushed or deployed.
+- Known gaps. From the default overhead camera the wireframe/solid difference is hard to see at figure size, so the crowds mostly separate by position, color, HUD, and caption; Carol to judge. Max queue is not computed. Headset not checked. Pushed to `main`; CI passed on Node 24.21.0 (16/16). The Render deploy was not checked.
