@@ -1,0 +1,41 @@
+name: probe
+
+# Live probe of the judged deployment (PLAN 2.6). Keep it on through judging.
+# Repository variables (Settings > Secrets and variables > Actions > Variables):
+#   PROBE_BASE_URLS  space-separated origins, e.g. "https://myapp.tech https://myapp.vercel.app"
+#   PROBE_REQUIRE    space-separated integrations that must be true, e.g. "sponsor db" (exactly what you claim)
+#   PROBE_BRAND      product name that must appear on the homepage
+# Odd minutes because GitHub deprioritizes :00 schedules; judge freshness by the newest run's age.
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health, stats and homepage answer from production
+        env:
+          BASES: ${{ vars.PROBE_BASE_URLS }}
+          REQUIRE: ${{ vars.PROBE_REQUIRE }}
+          BRAND: ${{ vars.PROBE_BRAND }}
+        run: |
+          if [ -z "$BASES" ]; then echo "PROBE_BASE_URLS not set; skipping"; exit 0; fi
+          python3 - <<'PY'
+          import json, os, urllib.request
+          def get(url):
+              with urllib.request.urlopen(url, timeout=30) as r:
+                  assert r.status == 200, (url, r.status)
+                  return r.read()
+          for base in os.environ["BASES"].split():
+              h = json.loads(get(base + "/api/health"))
+              need = os.environ.get("REQUIRE", "").split()
+              missing = [k for k in need if h.get("integrations", {}).get(k) is not True]
+              assert h.get("ok") is True and not missing, (base, "not live:", missing, h)
+              json.loads(get(base + "/api/stats"))
+              brand = os.environ.get("BRAND", "")
+              assert brand.encode() in get(base + "/"), (base, "homepage does not carry", brand)
+              # add one domain assertion here, e.g. a known input returns the known verdict
+              print("probe ok", base, h["integrations"])
+          PY

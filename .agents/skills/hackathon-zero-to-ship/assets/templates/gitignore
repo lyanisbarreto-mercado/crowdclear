@@ -1,0 +1,33 @@
+# secrets: never commit
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+*.pem
+*.key
+
+# build / deps
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# tests and media scratch
+playwright-report/
+test-results/
+docs/video/raw/
+.review/
+
+# agent worktrees and local state
+.claude/worktrees/
+.cursor/worktrees/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp

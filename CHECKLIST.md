@@ -55,4 +55,5 @@ Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). I
 - [x] `.gitignore`; `node_modules` and `.DS_Store` untracked
 - [x] Plan converted to `docs/plan/`
 - [x] A-Frame pinned to 1.8.0 and served by Express
+- [x] Codex skill kit in `.agents/skills/`
 - [ ] `docs/stack.md` and `docs/adr/0001-stack.md` (deferred until after the event)

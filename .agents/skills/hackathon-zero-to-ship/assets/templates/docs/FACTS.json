@@ -1,0 +1,23 @@
+{
+  "$comment": "Single source of truth for public numbers. Fill metrics only from a measuring command and record that command in provenance under the same key. headline lists metric keys the README must state verbatim (tests/facts.test.ts). integrationsClaimed lists /api/health keys the copy relies on; integrationAliases maps a health key to vendor names used in copy (e.g. db: [MongoDB, Atlas]) so check_claims.py can catch unbacked mentions. Example: metrics.listingsScanned = 1662, provenance.listingsScanned = 'python ml/harvest.py --count (2026-09-26)'.",
+  "projectName": "YOUR_PROJECT",
+  "tagline": "One sentence: the signature moment in plain words.",
+  "asOf": null,
+  "metrics": {},
+  "provenance": {},
+  "headline": [],
+  "labels": {},
+  "integrationsClaimed": [],
+  "integrationAliases": {},
+  "demo": {
+    "liveUrl": null,
+    "judgePath": "/judge",
+    "repoUrl": null,
+    "videoUrl": null,
+    "curlExample": "curl https://YOUR_DOMAIN/api/health"
+  },
+  "honesty": {
+    "sandboxOnly": true,
+    "limits": []
+  }
+}

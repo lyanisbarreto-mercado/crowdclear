@@ -16,3 +16,7 @@ Open http://localhost:3000. Set `PORT` to change the port. VR needs HTTPS, so te
 ## Plan
 
 See [docs/plan/](docs/plan/README.md) and [CHECKLIST.md](CHECKLIST.md).
+
+## Agent skills
+
+Codex skills for planning, building, reviewing, and submitting live in [.agents/skills/](.agents/skills/README.md).
