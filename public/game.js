@@ -94,7 +94,15 @@ function createFigures(list, container, faded) {
       model.setAttribute('gltf-model', `/models/kenney/character-${CHARACTERS[i % CHARACTERS.length]}.glb`);
       model.setAttribute('scale', '1.6 1.6 1.6');
       model.setAttribute('walker', '');
-      figure.append(ring, model);
+      // Hit volume for laptop click and VR ray select of panicking guests.
+      const hit = document.createElement('a-cylinder');
+      hit.classList.add('vr-control');
+      hit.setAttribute('radius', '0.45');
+      hit.setAttribute('height', '1.6');
+      hit.setAttribute('position', '0 0.8 0');
+      hit.setAttribute('material', 'visible: false');
+      hit.addEventListener('click', evt => { selectPerson(i, evt); });
+      figure.append(ring, model, hit);
       list.push({ figure, body: ring, model, x: null, z: null });
     }
     el(container).append(figure);
@@ -104,13 +112,26 @@ function createAllFigures() {
   createFigures(figures, 'crowd', false);
   createFigures(ghostFigures, 'ghost-crowd', true);
 }
+let selectedPersonId = null;
+function selectPerson(id, evt) {
+  if (mode !== 'drill' && mode !== 'practice') return;
+  const person = state.people[id];
+  if (!person || person.evacuated) return;
+  selectedPersonId = id;
+  el('feedback').textContent = person.panic
+    ? `Reassure ${id} — speak or hold Reassure.`
+    : `Selected person ${id}. Orange rings need reassurance.`;
+  buzz(evt);
+  refresh();
+}
 function place(list, s) {
   list.forEach((item, i) => {
     const { figure, body, model } = item;
     const person = s.people[i];
     figure.setAttribute('visible', !person.evacuated);
     figure.setAttribute('position', `${person.x} 0 ${person.z}`);
-    body.setAttribute('color', { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit]);
+    const exitColor = { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit];
+    body.setAttribute('color', person.panic ? '#ff8a3d' : selectedPersonId === person.id ? '#ffe08a' : exitColor);
     if (!model) return;
     // Face the direction of travel; the walker component plays walk while moving and idle otherwise.
     // Same state/tick refreshes keep the last moving flag so walk clips are not restarted every display frame.
@@ -198,6 +219,9 @@ function refresh() {
   }
   el('actions').hidden = !active;
   el('review').hidden = !lastRun || active;
+  const canReassure = mode === 'drill' && selectedPersonId !== null && !!state.people[selectedPersonId]?.panic;
+  el('reassure-btn').hidden = mode !== 'drill';
+  el('reassure-btn').disabled = !canReassure;
   place(figures, state);
   el('ghost-crowd').setAttribute('visible', !!ghost);
   if (ghost) place(ghostFigures, ghost);
@@ -271,7 +295,8 @@ function speak(text) {
 function announce(id) {
   const text = window.CrowdAnnouncements[id];
   el('pa-caption').textContent = `PA: ${text}`;
-  if (!soundOn) return;
+  // Headset: captions + panel text only — spoken PA stays on the laptop.
+  if (!soundOn || laptopPose) return;
   const generation = audioGeneration;
   const sequence = ++voiceSequence;
   const voice = clip(id);
@@ -292,6 +317,10 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   mode = nextMode;
   scoreExpanded = false;
   lastDoorSelection = null;
+  selectedPersonId = null;
+  micLoudFor = 0;
+  lastCalmAt = 0;
+  stopMic();
   ambience(mode === 'drill');
   if (mode === 'practice') breathingLog.practice = [];
   breathingLog.drill = [];
@@ -303,7 +332,9 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   accumulator = 0;
   previousTime = null;
   practiceStep = 0;
+  if (mode === 'drill') startMic();
   el('results').hidden = true;
+  el('vitals-card').hidden = true;
   el('intro').hidden = true;
   el('game').style.display = 'block';
   syncSceneLifecycle();
@@ -326,6 +357,20 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
 }
 function perform(action, target = 'B') {
   if (mode !== 'practice' && mode !== 'drill') return;
+  if (action === 'calm') {
+    if (mode !== 'drill') return;
+    if (!sim.act(state, action, target)) {
+      el('feedback').textContent = 'Select an orange-ring panicking guest first.';
+      return;
+    }
+    const person = state.people.find(p => p.id === Number(target));
+    el('feedback').textContent = person?.panic
+      ? `Still panicking — keep reassuring person ${target}.`
+      : `Person ${target} is calming down.`;
+    if (person && !person.panic) selectedPersonId = null;
+    refresh();
+    return;
+  }
   if (mode === 'practice' && (target !== 'B' || (action !== 'open-exit' && action !== 'redirect'))) return;
   if (!sim.act(state, action, target)) {
     el('feedback').textContent = `Not ready yet. Use another open exit, or wait for the current action to finish.`;
@@ -372,33 +417,122 @@ async function pollBreathing() {
     : `Breathing: ${breathing.hint || 'measuring (about 30 s)'}`;
   syncHeadset();
 }
-const average = list => list.reduce((a, b) => a + b, 0) / list.length;
 function breathingSummary() {
-  const { practice, drill } = breathingLog;
-  if (!drill.length) return 'Breathing (laptop camera): not enough steady readings during the drill.';
-  const during = `${Math.round(average(drill))} /min during the drill`;
-  return `Breathing (laptop camera): ${practice.length ? `${Math.round(average(practice))} /min in practice, ` : ''}${during}.`;
+  return review.vitals(breathingLog);
+}
+function analyticsFor(s, commands = s.commands) {
+  const stats = sim.stats(s);
+  const score = review.score(stats, s.open);
+  const summary = review.result(s);
+  const vitalsText = breathingSeen ? breathingSummary() : '';
+  return review.report({
+    result: summary,
+    score,
+    total: s.people.length,
+    commands,
+    vitalsText
+  });
 }
 function finish() {
   ambience(false);
-  el('breathing-review').hidden = !breathingSeen;
-  el('breathing-review').textContent = breathingSeen ? breathingSummary() : '';
+  stopMic();
+  // Headset has no page chrome — open the score panel once when the drill ends.
+  if (laptopPose) scoreExpanded = true;
   showResults(state);
   showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
   save(lastRun);
 }
-function showResults(s) {
-  const stats = sim.stats(s);
-  const score = review.score(stats, s.open);
-  el('result-evacuated').textContent = `${stats.evacuated} / ${s.people.length}`;
-  el('result-time').textContent = `${score.seconds} seconds`;
-  el('result-exits').textContent = `${score.exits}`;
-  el('result-score').textContent = `${score.score}`;
-  el('result-message').textContent = score.message;
-  el('result-tip').textContent = score.tip;
+function fillActionLog(entries) {
+  el('review-timeline').replaceChildren(...entries.map(entry => {
+    const item = document.createElement('li');
+    if (entry.time) {
+      const time = document.createElement('span');
+      time.className = 'log-time';
+      time.textContent = entry.time;
+      const label = document.createElement('span');
+      label.className = 'log-label';
+      label.textContent = entry.label;
+      item.append(time, label);
+    } else {
+      item.textContent = entry.label;
+    }
+    return item;
+  }));
+}
+function showResults(s, commands = s.commands) {
+  const report = analyticsFor(s, commands);
+  el('result-message').textContent = report.headline;
+  el('result-tip').textContent = report.tip;
+  el('result-outcome').textContent = report.outcome;
+  el('result-peak').textContent = report.peak;
+  el('result-peak').hidden = !report.peak;
+  el('result-evacuated').textContent = report.values.evacuated;
+  el('result-time').textContent = report.values.time;
+  el('result-exits').textContent = report.values.exits;
+  el('result-calmed').textContent = report.values.calmed;
+  el('result-panicking').textContent = report.values.panicking;
+  el('result-score').textContent = report.values.score;
+  fillActionLog(report.timeline);
+  el('breathing-review').textContent = report.vitals;
+  el('breathing-review').hidden = !report.vitals;
+  el('vitals-card').hidden = !report.vitals;
   el('results').hidden = false;
   // The results card replaces the scene on a laptop; in a headset the scene is the only view.
   syncSceneLifecycle();
+  return report;
+}
+let micStream = null;
+let micAnalyser = null;
+let micData = null;
+let micLoudFor = 0;
+let lastCalmAt = 0;
+function stopMic() {
+  micStream?.getTracks?.().forEach(track => track.stop());
+  micStream = null;
+  micAnalyser = null;
+  micData = null;
+  micLoudFor = 0;
+}
+async function startMic() {
+  stopMic();
+  try {
+    const media = window.navigator?.mediaDevices?.getUserMedia;
+    if (!media) return;
+    if (!audio && window.AudioContext) audio = new window.AudioContext();
+    await audio?.resume?.();
+    micStream = await media.call(window.navigator.mediaDevices, { audio: true });
+    if (!audio?.createAnalyser || !audio.createMediaStreamSource) return;
+    const source = audio.createMediaStreamSource(micStream);
+    micAnalyser = audio.createAnalyser();
+    micAnalyser.fftSize = 512;
+    source.connect(micAnalyser);
+    micData = new Uint8Array(micAnalyser.frequencyBinCount);
+  } catch {
+    stopMic();
+  }
+}
+function micRms() {
+  if (!micAnalyser || !micData) return 0;
+  micAnalyser.getByteTimeDomainData(micData);
+  let sum = 0;
+  for (let i = 0; i < micData.length; i++) {
+    const v = (micData[i] - 128) / 128;
+    sum += v * v;
+  }
+  return Math.sqrt(sum / micData.length);
+}
+function tryReassureFromMic(dt) {
+  if (mode !== 'drill' || selectedPersonId === null) { micLoudFor = 0; return; }
+  const person = state.people[selectedPersonId];
+  if (!person?.panic) { micLoudFor = 0; return; }
+  if (micRms() > 0.08) micLoudFor += dt;
+  else micLoudFor = 0;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (micLoudFor >= 0.4 && now - lastCalmAt >= 800) {
+    lastCalmAt = now;
+    micLoudFor = 0;
+    perform('calm', selectedPersonId);
+  }
 }
 // fetch rejects with a TypeError only when the request never reached the server.
 const reason = error => (error instanceof TypeError ? 'The server could not be reached.' : error.message);
@@ -455,13 +589,13 @@ async function reopen(id) {
 function showReview(run) {
   mode = 'review';
   lastRun = run;
-  instructions('DRILL DONE', 'Your drill', review.outcome(lastRun.result));
+  const report = analyticsFor(state, lastRun.commands);
+  instructions('DRILL DONE', 'Your drill', report.outcome);
   el('feedback').textContent = 'Try again, or change when you took one action. These results are for this game only.';
-  el('review-timeline').replaceChildren(...review.timeline(lastRun.commands).map(text => {
-    const item = document.createElement('li');
-    item.textContent = text;
-    return item;
-  }));
+  el('review-outcome').textContent = report.outcome;
+  fillActionLog(report.timeline);
+  el('breathing-review').textContent = report.vitals;
+  el('vitals-card').hidden = !report.vitals;
   el('compare-action').replaceChildren(...lastRun.commands.map((c, i) => {
     const option = document.createElement('option');
     option.value = String(i);
@@ -501,6 +635,13 @@ function finishCompare() {
 el('start-btn').addEventListener('click', () => fresh('practice'));
 el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
+el('reassure-btn').addEventListener('click', () => {
+  if (selectedPersonId === null) {
+    el('feedback').textContent = 'Select an orange-ring panicking guest first.';
+    return;
+  }
+  perform('calm', selectedPersonId);
+});
 el('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn;
   if (!soundOn) stopAudio();
@@ -531,22 +672,49 @@ function syncHeadset() {
   const hasResults = !el('results').hidden;
   const caption = el('pa-caption').textContent;
   const breathingText = el('breathing').hidden ? '' : el('breathing').textContent;
-  const instructions = hasResults
-    ? ['Drill done', 'Select View score, or try another drill.', breathingText]
-    : [mode === 'practice'
-      ? practiceStep === 0 ? 'Select the middle door, Exit B, to open it.'
-        : practiceStep === 1 ? 'Select Exit B again to send people through it.'
-          : 'Practice complete. Select Start timed drill below.'
-      : 'Select a door to open it or send people. For blocked doors, select twice. Wait 4 seconds, then open.',
-      ...['task-title', 'feedback'].map(id => el(id).textContent), caption, breathingText];
+  let instructions;
+  if (hasResults) {
+    const report = lastRun
+      ? analyticsFor(state, lastRun.commands)
+      : null;
+    instructions = report?.briefLines || ['Drill complete', el('result-message').textContent,
+      `People out: ${el('result-evacuated').textContent}`,
+      `Calmed: ${el('result-calmed').textContent}`,
+      `Still panicking: ${el('result-panicking').textContent}`,
+      'Score panel is on your right.', breathingText];
+    el('vr-score-text').setAttribute('value', (report?.scoreLines || [
+      el('result-message').textContent,
+      `Score: ${el('result-score').textContent}`,
+      `People out: ${el('result-evacuated').textContent}`,
+      `Time left: ${el('result-time').textContent}`,
+      `Open exits: ${el('result-exits').textContent}`,
+      `Calmed: ${el('result-calmed').textContent}`,
+      `Still panicking: ${el('result-panicking').textContent}`,
+      el('result-tip').textContent, breathingText
+    ]).filter(Boolean).join('\n\n').replace(/·/g, '-'));
+  } else if (mode === 'practice') {
+    // Mirror laptop step labels: STEP 1/2 → open B, STEP 2/2 → send to B, then start drill.
+    instructions = [
+      ...(practiceStep === 0
+        ? ['STEP 1 OF 2', 'Open Exit B', 'Point at Exit B and select to open it.']
+        : practiceStep === 1
+          ? ['STEP 2 OF 2', 'Send people to B', 'Point at Exit B and select to send people there.']
+          : ['PRACTICE DONE', 'Ready for the drill', 'Start the timed drill when ready.']),
+      caption, breathingText];
+    el('vr-score-text').setAttribute('value', ' ');
+  } else {
+    instructions = [
+      el('step-label').textContent || `${sim.DURATION}-SECOND DRILL`,
+      el('task-title').textContent,
+      'Point at doors to clear (select twice), open, or send people.',
+      'Orange rings are panicking. Select one, then speak or Hold Reassure.',
+      el('feedback').textContent, caption, breathingText];
+    el('vr-score-text').setAttribute('value', ' ');
+  }
   el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   el('vr-score-toggle').setAttribute('visible', hasResults);
   el('vr-score-toggle').setAttribute('text', 'value', scoreExpanded ? 'Hide score [-]' : 'View score [+]');
   el('vr-score-details').setAttribute('visible', hasResults && scoreExpanded);
-  el('vr-score-text').setAttribute('value', [el('result-message').textContent,
-    `Score: ${el('result-score').textContent}`, el('evacuated').textContent,
-    `Time left: ${el('result-time').textContent}`, el('result-tip').textContent,
-    `Open exits: ${el('result-exits').textContent}`].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : button.hovered ? '#e6da78' : '#2f7de1');
@@ -569,13 +737,17 @@ function hoverControl(button, canInteract) {
   });
 }
 function createVrButtons() {
-  const layout = [{ id: 'drill-btn', col: 0 }, { id: 'stop-btn', col: 1 }];
-  vrButtons = layout.map(({ id, label, col }) => {
+  const layout = [
+    { id: 'drill-btn', col: 0, row: 0 },
+    { id: 'stop-btn', col: 1, row: 0 },
+    { id: 'reassure-btn', col: 0.5, row: 1, label: 'Hold Reassure' }
+  ];
+  vrButtons = layout.map(({ id, label, col, row }) => {
     const source = el(id);
     const button = document.createElement('a-entity');
     button.classList.add('vr-control');
     button.setAttribute('geometry', { primitive: 'plane', width: 0.6, height: 0.16 });
-    button.setAttribute('position', `${(col - 0.5) * 0.65} 0 0.01`);
+    button.setAttribute('position', `${(col - 0.5) * 0.65} ${-row * 0.2} 0.01`);
     button.setAttribute('text', { align: 'center', width: 0.56, wrapCount: 22, color: '#ffffff' });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
     button.addEventListener('click', evt => { if (shown(source) && !source.disabled) { source.click(); buzz(evt); } });
@@ -694,9 +866,9 @@ function tick() {
     return;
   }
   const incidentNow = mode === 'drill' && state.incidentTicks.includes(state.tick);
-  const clearingExit = state.clearingUntil !== null ? state.hazard : null;
+  const clearingExit = state.clearingExit;
   sim.step(state);
-  if (clearingExit && !state.hazard) {
+  if (clearingExit && !state.hazards.includes(clearingExit)) {
     instructions('CLEARED', `Open Exit ${clearingExit}`, [{ word: 'Open', tone: 'open' }, ` Exit ${clearingExit}, then `, { word: 'send people', tone: 'send' }, ' there.']);
     el('feedback').textContent = `Exit ${clearingExit} is clear. Open it now.`;
   }
@@ -723,6 +895,7 @@ function frame(now) {
     return;
   }
   accumulator += Math.min(delta, 0.25);
+  tryReassureFromMic(Math.min(delta, 0.25));
   let stepped = false;
   while (accumulator >= sim.DT && running()) {
     accumulator -= sim.DT;

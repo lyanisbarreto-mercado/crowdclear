@@ -85,7 +85,7 @@ CrowdClear is a prototype with a deliberately simplified crowd model. Its result
 
 Our next steps are to:
 
-- Add microphone conversations with selected distressed people. A trainee could speak reassurance or directions, and a person might hesitate or resist before responding. This is planned; the current build has prerecorded announcements and reliable staff redirections, with no microphone input or person-level conversations.
+- Mic calm is in the build: select panicking guests and reassure with mic volume or Hold Reassure (no speech-to-text). Richer conversational resistance remains future work.
 - Test pointing accuracy, panel placement, comfort, and performance on a physical Quest.
 - Add navigable obstacles and more floor plans, supported by proper pathfinding.
 - Introduce multiple incidents, people with mobility needs, and staff coordination.

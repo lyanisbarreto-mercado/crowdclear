@@ -15,7 +15,8 @@
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Overpass:wght@600;800;900&display=swap" />
 		<link rel="stylesheet" href="/styles.css" />
-		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="icon" href="/CrowdClear_Logo.jpg" type="image/jpeg" />
+		<meta property="og:image" content="/CrowdClear_Logo.jpg" />
 		<script src="/aframe/aframe-v1.8.0.min.js"></script>
 		<script src="/environment.js"></script>
 	</head>
@@ -23,8 +24,13 @@
 	<body>
 		<a class="skip-link" href="#main">Skip to the drill</a>
 		<header>
-			<h1>CrowdClear</h1>
-			<p>Practice helping people get out</p>
+			<div class="brand">
+				<img src="/CrowdClear_Logo.jpg" alt="" width="52" height="52" />
+				<div>
+					<h1>CrowdClear</h1>
+					<p>Practice helping people get out</p>
+				</div>
+			</div>
 		</header>
 
 		<main id="main">
@@ -87,10 +93,11 @@
 <button id="redirect-c" class="action-send">Send people to C<span class="completion-check" id="check-redirect-c" aria-hidden="true" hidden> ✓</span></button>
 </fieldset>
 </div>
-<p id="feedback" role="status" aria-live="polite">
+						<p id="feedback" role="status" aria-live="polite">
 							Take your time. There is no timer.
 						</p>
 						<p id="pa-caption" class="pa-caption" aria-live="polite"></p>
+						<button id="reassure-btn" class="action-send" type="button" hidden>Hold Reassure</button>
 
 						<button id="drill-btn" hidden>Start timed drill</button>
 						<p class="muted">
@@ -100,20 +107,32 @@
 					<div class="scene-wrap">
 <section id="results" hidden aria-labelledby="results-title">
   <div class="result-card">
-    <h2 id="results-title">Drill results</h2>
-    <dl><div><dt>People out</dt><dd id="result-evacuated"></dd></div>
-    <div><dt>Time left</dt><dd id="result-time"></dd></div>
-    <div><dt class="word-open">Open exits</dt><dd id="result-exits"></dd></div>
-    <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div></dl>
-    <p class="muted">1 point per person out. Get everyone out to earn 1 extra point per full second left.</p>
+    <p class="result-kicker" id="results-title">Drill results</p>
+    <h2 id="result-message"></h2>
+    <p id="result-tip"></p>
+    <p id="result-outcome" class="result-outcome"></p>
+    <p id="result-peak" class="result-peak" hidden></p>
+    <dl class="result-metrics">
+      <div><dt>People out</dt><dd id="result-evacuated"></dd></div>
+      <div><dt>Time left</dt><dd id="result-time"></dd></div>
+      <div><dt class="word-open">Open exits</dt><dd id="result-exits"></dd></div>
+      <div><dt>Calmed</dt><dd id="result-calmed"></dd></div>
+      <div><dt>Still panicking</dt><dd id="result-panicking"></dd></div>
+      <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div>
+    </dl>
+    <p class="muted result-formula">1 point per person out. Clear the venue to earn 1 extra point per full second left.</p>
   </div>
-  <h3 id="result-message"></h3><p id="result-tip"></p>
 </section>
 <section id="review" hidden aria-labelledby="review-heading">
-							<h4 id="review-heading">Your actions</h4>
-							<ol id="review-timeline"></ol>
+							<h3 id="review-heading">After-action review</h3>
+							<p id="review-outcome" class="review-outcome"></p>
+							<h4>Action log</h4>
+							<ol id="review-timeline" class="action-log"></ol>
+							<div id="vitals-card" class="vitals-card" hidden>
+								<h4>Breathing vitals</h4>
+								<p id="breathing-review"></p>
+							</div>
 							<p id="save-status" role="status" aria-live="polite"></p>
-							<p id="breathing-review" hidden></p>
 							<form id="compare-form">
 								<h4>Try a different time</h4>
 								<label for="compare-action">Choose an action</label>
@@ -157,27 +176,29 @@
 								<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 40"></a-entity>
 								<a-entity id="vr-post" visible="false">
 									<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" material="src: #floor-material; repeat: 0.6 0.5; roughness: 0.95"></a-box>
-									<!-- Waist-high railing on the open sides of the raised post, for comfort at height. -->
-									<a-box position="0 1 -1" width="2.4" height="0.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="-1.2 1 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="1.2 1 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="-1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-entity id="vr-panel" position="-1.5 2.1 -1.3" rotation="-10 45 0">
+									<!-- Side rails only (no front bar) so instruction panels stay readable at eye height. -->
+									<a-box id="vr-rail-left" position="-1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box id="vr-rail-right" position="1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="-1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="-1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<!-- Panels sit above rail height (~1.05) and toward the player so they are not clipped by posts. -->
+									<a-entity id="vr-panel" position="-1.55 2.35 -0.55" rotation="-8 35 0">
 										<a-plane width="1.2" height="1.1" color="#182230"></a-plane>
 										<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.55 0.47 0.02" width="0.35" wrap-count="12"></a-text>
 										<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.15 0.47 0.02" width="0.35" wrap-count="12"></a-text>
 										<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.25 0.47 0.02" width="0.35" wrap-count="12"></a-text>
 										<a-text id="vr-text" position="-0.55 0.36 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
 									</a-entity>
-<a-entity id="vr-navigation" position="-1.5 1.3 -1.3" rotation="-10 45 0"></a-entity>
-<a-entity position="1.5 2.1 -1.3" rotation="-10 -45 0">
-  <a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0.52 0.02" geometry="primitive: plane; width: 1.2; height: 0.18" material="color: #2f7de1" text="value: View score [+]; align: center; width: 1.1"></a-entity>
-  <a-entity id="vr-score-details" visible="false" position="0 -0.45 0">
-    <a-plane width="1.2" height="1.7" color="#182230"></a-plane>
-    <a-text id="vr-score-text" position="-0.55 0.78 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
-  </a-entity>
-</a-entity>
+									<a-entity id="vr-navigation" position="-1.55 1.55 -0.55" rotation="-8 35 0"></a-entity>
+									<a-entity id="vr-score" position="1.55 2.15 -0.55" rotation="-8 -35 0">
+										<a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0 0.02" geometry="primitive: plane; width: 1.2; height: 0.18" material="color: #2f7de1" text="value: View score [+]; align: center; width: 1.1"></a-entity>
+										<a-entity id="vr-score-details" visible="false" position="0 1.2 0">
+											<a-plane width="1.25" height="2.15" color="#182230"></a-plane>
+											<a-text id="vr-score-text" position="-0.58 1.0 0.01" width="1.15" wrap-count="46" anchor="left" baseline="top" value=" "></a-text>
+										</a-entity>
+									</a-entity>
 								</a-entity>
 							</a-entity>
 							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage></a-entity>

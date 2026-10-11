@@ -4,7 +4,7 @@ Experience direction accepted by Carol. Visual styling remains a draft.
 
 ## What the player should understand
 
-You are the venue staff member coordinating an evacuation drill. People are clustering at an exit. You can open an alternative exit and redirect the crowd. Afterward, you see how your decisions changed the simulated outcome.
+You are the venue staff member coordinating an evacuation drill. People are clustering at an exit. You can open an alternative exit, redirect the crowd, and reassure panicking guests (orange rings; mic volume or Hold Reassure). In VR, point at doors and people; spoken PA is off while captions stay. Afterward, you see how your decisions changed the simulated outcome (including calmed / still panicking). Simulation version 9.
 
 The experience should feel calm and legible even when the scenario is urgent. Keep the existing dark palette as a starting point. Use explicit exit labels and status text alongside color. Decide typography and final colors with Carol before broad styling changes.
 
@@ -94,16 +94,16 @@ Door leaves animate with live simulation state. Labels explicitly say OPEN, CLOS
 
 The user requested a clearing delay and selected 60 people with restrained panic cues. Clearing now takes four simulated seconds. Keep the equipment and smoke visible and the door inaccessible during work; show the countdown on the gate controls and above the blocked exit. Ignore repeated clearing presses, then explicitly invite the player to reopen the door when work finishes. Other open routes remain available while clearing proceeds.
 
-Scatter starting positions and vary individual speeds; one quarter of the crowd hesitates briefly at the incident. Staff directions remain reliable. Stable three-column queues fit the crowd inside the lobby, and flow is balanced so prompt clearing plus redirection can evacuate everyone within the existing 60-second drill. All variation is seeded and repeatable for comparison; these are game cues, not validated crowd-psychology rules. Simulation version 7 aligns live commands and replay at the incident tick and prevents inaccurate replay of older drills.
+Scatter starting positions and vary individual speeds; one quarter of the crowd hesitates briefly at the incident. Some guests panic and wander (orange rings) until calmed with mic volume or Hold Reassure; redirects skip panickers. Staff directions remain reliable for calm guests. Stable three-column queues fit the crowd inside the lobby, and flow is balanced so prompt clearing, redirection, and calming can evacuate everyone within the existing 60-second drill. All variation is seeded and repeatable for comparison; these are game cues, not validated crowd-psychology rules. Simulation version 9 includes panic/calm, multiple incidents, and the version-7 incident-tick command order, and prevents inaccurate replay of older drills.
 
 ## Immersive input and results
 
-In the emulator/headset, remove the mirrored per-exit button grid. Single-select a closed door to open it, or an open door to redirect the crowd. Two selections on the same blocked door within 450 ms start four seconds of clearing; reopening remains a separate selection. Available doors highlight on pointer hover; navigation and score controls change color on hover.
+In the emulator/headset, point at doors rather than a mirrored per-exit button grid. Spoken PA is off; captions stay on the raised instruction panel. Single-select a closed door to open it, or an open door to redirect the crowd. Two selections on the same blocked door within 450 ms start four seconds of clearing; reopening remains a separate selection. Select orange-ring panickers, then speak or Hold Reassure. Available doors highlight on pointer hover; navigation, reassure, and score controls change color on hover.
 
-Instructions occupy their own panel. Start/restart sits below it; View score expands a separate panel on the other side, with the actual score, completion message, and metrics. Desktop buttons and results/review remain available. Emulator panel spacing still requires visual verification.
+Instructions occupy their own raised panel above side-rail height (no front rail bar). Practice steps use the same STEP 1/2 / PRACTICE DONE labels as the laptop. Start/restart and Reassure sit below the copy panel; View score expands upward on the other side with the same after-action analytics as the laptop (score, people out, time left, open exits, calmed / still panicking, outcome, action log, and Presage breathing vitals when the local sensor was used). Desktop buttons and results/review remain available. Emulator panel spacing still requires visual verification.
 
-## Repeated incidents and raised immersive panels
+## Repeated incidents and immersive placement
 
-Each new timed drill chooses two or three incidents. The first strikes between 10 and 20 seconds; later incidents use the same scenario seed to choose times at least 10 seconds apart. Each incident targets the busiest route that is not already blocked. Multiple uncleared hazards persist independently; one clearing operation can be underway at a time. Comparison retains the original incident times and exits.
+Each new timed drill chooses two or three incidents. The first strikes between 10 and 20 seconds; later incidents use the same scenario seed to choose times at least 10 seconds apart. Each targets the busiest route that is not already blocked. Multiple hazards persist independently; one clearing operation can be underway at a time. Comparison retains the original incident times and exits.
 
-Instruction and score panel centres are raised from 1.35 m to 2.3 m relative to the command post. Navigation is raised from 0.55 m to 1.5 m. The expanded score panel now reaches the top of the railing instead of descending behind it. Emulator/device visibility remains to be checked by Carol.
+The teammate’s layout keeps panels toward the player, removes the front rail, and expands results upward. All three panel groups are lowered 0.2 m from that layout: instructions 2.35 m, navigation 1.55 m, score 2.15 m. Entering VR from the intro or completed laptop results starts fresh practice.

@@ -155,13 +155,23 @@ test('after a redirect, staff need the cooldown before the next one', () => {
   sim.step(state);
   assert.equal(sim.act(state, 'redirect', 'C'), true);
 });
+function calmSchedule(fromTick, people) {
+  // Retry each panicker across ticks until calmSucceeds (~45%); keeps strategy tests about routing.
+  const cmds = [];
+  let tick = fromTick;
+  for (const id of people.filter(p => p.id % 5 === 0).map(p => p.id)) {
+    for (let attempt = 0; attempt < 8; attempt++) cmds.push({ tick: tick++, action: 'calm', target: id });
+  }
+  return cmds;
+}
 test('spreading the crowd early shortens the longest line and clears the venue sooner', () => {
   const play = schedule => {
     const state = sim.createState({ hazardTick: 150 });
     const fix = exit => [{ tick: 151, action: 'clear-hazard', target: exit }, { tick: 151 + sim.CLEAR_DURATION, action: 'open-exit', target: exit }];
     const probe = sim.createState({ hazardTick: 150 });
     while (probe.tick <= 150) sim.step(probe, schedule);
-    while (!sim.isDone(state)) sim.step(state, [...schedule, ...fix(probe.blockedExit)]);
+    const calm = calmSchedule(152, probe.people);
+    while (!sim.isDone(state)) sim.step(state, [...schedule, ...fix(probe.blockedExit), ...calm]);
     return { peak: state.peak.size, ticks: state.tick, remaining: sim.stats(state).remaining };
   };
   const waited = play([]);
@@ -176,7 +186,10 @@ test('people keep a body width apart instead of walking through each other', () 
   const schedule = [{ tick: 10, action: 'redirect', target: 'B' }];
   let closest = Infinity;
   while (!sim.isDone(state)) {
-    if (state.tick === 151) schedule.push({ tick: 151, action: 'clear-hazard', target: state.blockedExit }, { tick: 151 + sim.CLEAR_DURATION, action: 'open-exit', target: state.blockedExit });
+    if (state.tick === 151) {
+      schedule.push({ tick: 151, action: 'clear-hazard', target: state.blockedExit }, { tick: 151 + sim.CLEAR_DURATION, action: 'open-exit', target: state.blockedExit },
+        ...calmSchedule(152, state.people));
+    }
     sim.step(state, schedule);
     const present = state.people.filter(p => !p.evacuated);
     for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) {

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "iwer": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@iwer/extension-bridge"],
+      "env": {}
+    }
+  }
+}

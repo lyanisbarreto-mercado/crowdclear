@@ -31,11 +31,27 @@
         id, x: -8.1 + (id % 10) * 1.8 + (random() - 0.5) * 1.2,
         z: 1 + Math.floor(id / 10) * 1.45 + (random() - 0.5) * 0.8,
         speed: 1.8 + random() * 1.2, hesitation: 4 + Math.floor(random() * 10), pauseUntil: 0,
-        exit: id < POPULATION * 0.8 ? familiar : other, evacuated: false
+        exit: id < POPULATION * 0.8 ? familiar : other, evacuated: false,
+        panic: false, heading: random() * Math.PI * 2
       }))
     };
   }
+  // Deterministic ~45% calm chance from tick + person id (replay-stable).
+  function calmSucceeds(tick, id) {
+    return ((Math.imul(tick + 1, 1664525) + Math.imul(id + 1, 1013904223)) >>> 0) % 100 < 45;
+  }
   function act(state, action, target = 'B') {
+    if (action === 'calm') {
+      const id = Number(target);
+      const person = state.people.find(p => p.id === id);
+      if (!person || person.evacuated || !person.panic) return false;
+      state.commands.push({ tick: state.tick, action, target: id });
+      if (calmSucceeds(state.tick, id)) {
+        person.panic = false;
+        person.pauseUntil = state.tick + 5;
+      }
+      return true;
+    }
     if (!Object.hasOwn(EXIT_X, target)) return false;
     if (action === 'clear-hazard' && state.hazards.includes(target) && state.clearingUntil === null) {
       state.clearingUntil = state.tick + CLEAR_DURATION;
@@ -43,7 +59,7 @@
     } else if (action === 'open-exit' && !state.open[target] && !state.hazards.includes(target)) {
       state.open[target] = true;
     } else if (action === 'redirect' && state.open[target] && !state.hazards.includes(target) && state.lastRedirect !== target && state.tick >= state.redirectReady) {
-      const candidates = state.people.filter(p => !p.evacuated && p.exit !== target && (state.hazardTick !== null || state.blockedExit !== null || p.exit === 'A'));
+      const candidates = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target && (state.hazardTick !== null || state.blockedExit !== null || p.exit === 'A'));
       if (!candidates.length) return false;
       candidates.filter((_, i) => i % 2 === 0).forEach(p => { p.exit = target; });
       state.redirected = true;
@@ -69,7 +85,11 @@
       state.open[exit] = false;
       state.lastRedirect = null;
       state.redirectReady = state.tick;
-      state.people.forEach(p => { if (!p.evacuated && p.id % 4 === 0) p.pauseUntil = state.tick + p.hesitation; });
+      state.people.forEach(p => {
+        if (p.evacuated) return;
+        if (p.id % 4 === 0) p.pauseUntil = state.tick + p.hesitation;
+        if (p.id % 5 === 0) p.panic = true;
+      });
     }
     state.tick++;
     if (state.clearingUntil !== null && state.tick >= state.clearingUntil) {
@@ -78,9 +98,18 @@
       state.clearingExit = null;
       state.clearingUntil = null;
     }
+    for (const p of state.people) {
+      if (p.evacuated || !p.panic || state.tick <= p.pauseUntil) continue;
+      if ((state.tick + p.id) % 17 === 0) p.heading = (p.heading + ((state.tick * 0.37 + p.id) % (Math.PI * 2))) % (Math.PI * 2);
+      const move = p.speed * DT * 0.55;
+      p.x += Math.sin(p.heading) * move;
+      p.z += Math.cos(p.heading) * move;
+      p.x = Math.max(-9.5, Math.min(9.5, p.x));
+      p.z = Math.max(0.5, Math.min(10.5, p.z));
+    }
     for (const exit of EXITS) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
-      const queue = state.people.filter(p => !p.evacuated && p.exit === exit);
+      const queue = state.people.filter(p => !p.evacuated && !p.panic && p.exit === exit);
       // Stable columns prevent people swapping places sideways every time someone leaves.
       const ranks = [0, 0, 0];
       const slots = queue.map(p => ({ p, x: EXIT_X[exit] + [0, -1, 1][p.id % 3] * SPACING,
@@ -123,16 +152,17 @@
   }
   function stats(state) {
     const evacuated = state.people.filter(p => p.evacuated).length;
+    const panicking = state.people.filter(p => !p.evacuated && p.panic).length;
     const queues = Object.fromEntries(Object.keys(EXIT_X).map(exit => [exit,
       state.people.filter(p => !p.evacuated && p.exit === exit).length]));
-    return { evacuated, remaining: state.people.length - evacuated, queues,
+    return { evacuated, remaining: state.people.length - evacuated, panicking, queues,
       seconds: Math.max(0, DURATION - state.tick * DT) };
   }
   function isDone(state) {
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 8;
+  const VERSION = 9;
   const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, CLEAR_DURATION, POPULATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;
