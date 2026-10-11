@@ -4,21 +4,21 @@ Working deadline: **October 11, 10 a.m. Eastern local time**. Feature freeze 8:3
 
 Lyanis owns UX/UI (called Carol in older notes). Colin owns feature integration. Either can help the other, but name one owner for each task before starting. This file assigns work; [PLAN.md](PLAN.md) tracks decisions and evidence; [CHECKLIST.md](CHECKLIST.md) keeps the original technical target.
 
-## Where we are (October 10, 7:45 p.m., `main` at the Lyanis merge)
+## Where we are (October 10, 9 p.m., `main` after Lyanis's `6ba692a`)
 
-Works on a laptop, verified in a browser and by 28 automated tests (CI green on Node 24):
+Works on a laptop, verified by 32 automated tests (CI green on Node 24):
 
-- Guided practice (two Exit B tasks with yellow checkmarks), then a 90-second drill where a random exit starts blocked by a hazard. Every exit has Clear hazard, Open, and Redirect controls.
-- At the end: Lyanis's results card (score, tip) replaces the scene, and the side panel shows the decision review (outcome and timestamped actions).
+- Guided practice (two Exit B tasks with yellow checkmarks), then a 60-second drill. All exits start open; between 10 and 20 s a hazard blocks the exit most people are heading to. Every exit has Clear hazard, Open, and Redirect controls.
+- At the end the score card leads (people evacuated plus a time bonus when everyone gets out), with the decision review (outcome and timestamped actions) and comparison below it.
 - Re-time one action and replay: your original run as wireframe figures beside the alternative as solid figures, with the measured difference.
-- Saving: a finished drill saves and its link reopens it, once `DATABASE_URL` is set on Render. Tested against an in-process Postgres, not yet against Neon.
+- Saving: a finished drill saves and its link reopens it. Verified against the real Neon database; the live site still needs `DATABASE_URL` set on Render.
 - Headset view: a raised platform with a panel of buttons. Never tried on a headset.
 
 Honest gaps. It plays like a basic simulator, not a VR training game:
 
 - **VR is not proven.** The live site does not deploy (Render loops on its startup page), so no headset has run it. In VR the player presses flat menu buttons on a panel; nothing in the world is interactive. No audio, primitive shapes.
-- **Decisions barely matter.** With the hazard at Exit B (one drill in three), doing nothing clears in 45.9 s, the same as acting. Clearing is instant, so the emergency is two clicks at 0 s. Redirects can be spammed between exits. People walk in straight lines through each other, and each exit lets one person out every 1.8 s however crowded it is.
-- **The score rewards open doors, not decisions.** Opening everything multiplies the score by 3 regardless of timing.
+- **Decisions now matter (fixed in `6ba692a`).** Measured: no reaction leaves 15 to 20 people inside at 60 s; clearing and reopening at once clears everyone in 45.9 s (score 44); reacting 15 s late costs 14 to 15 points or fails.
+- **Still shallow.** 24 of 30 people start toward Exit A, so the hazard nearly always hits A. Redirects can be spammed between exits. People walk in straight lines through each other, and each exit lets one person out every 1.8 s however crowded it is.
 
 ## Tonight, in order
 
@@ -26,7 +26,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 
 - [ ] Fix the Render deploy loop. The app starts cleanly from a fresh clone on Render's port, so the cause is a Render setting; read the service's Events and Logs (checks listed in PLAN.md, "Render").
 - [ ] Copy `DATABASE_URL` into Render's Environment; the value is in Colin's local `.env.local` (written by `neon link`). Then finish one drill on the live URL and reload its link. *Neon side done: repo linked to project CrowdClear (`quiet-mouse-43259915`, branch `production`), `runs` table created, and save, retry, reopen, and replay verified against the real database.*
-- [ ] Open the live HTTPS URL on the headset: Enter headset view, press Clear/Open/Redirect with a controller, note where the platform and panel should move.
+- [ ] Headset check: on the live HTTPS URL, or locally through `adb reverse tcp:3000 tcp:3000` (Quest) or a `cloudflared` tunnel. Enter headset view, press Clear/Open/Redirect with a controller, note where the platform and panel should move. Without a headset, the IWER emulator (Immersive Web Emulator extension plus the `iwer` MCP server on Colin's machine) can drive the page.
 
 **P1. Make it feel like VR (Colin, about 3 h)**
 
@@ -36,21 +36,22 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 
 **P1. Make decisions matter (Colin builds; Lyanis decides the tuning, about 3 h)**
 
-- [ ] The hazard strikes mid-drill (10 to 20 s) at the exit most people are heading to, so every drill needs a reaction under time pressure (CHECKLIST "Emergency round").
+- [x] The hazard strikes mid-drill (10 to 20 s) at the exit most people are heading to (Lyanis, `6ba692a`).
+- [ ] Vary which exit gets hit: spread the starting crowd across exits so the busiest exit is not always A.
 - [ ] Congestion: exits slow down when their queue is long, and the review shows peak queue per exit (CHECKLIST "max queue").
 - [ ] A redirect cooldown (or a limited number of staff orders) so spamming stops being the best play.
 - [ ] Raise the crowd to about 60 and retune so a slow or wrong call can still fail at 90 s.
 
 **P2. Lyanis**
 
-- [ ] Lay out the end of the drill now that the results card and the decision review both appear. Decide which leads and where "Compare another decision" sits.
+- [x] End-of-drill layout: the score leads, then the action timeline and comparison (`6ba692a`).
 - [ ] Door, hazard, and signage art direction for the P1 VR pass; PA and caption copy.
 - [ ] Devpost story, thumbnail, screenshots, and narration from the working build. Label headset support "experimental" unless the P0 headset check passes.
 
 ## Decisions only the team can make
 
-- [ ] Keep instant hazard clearing (Lyanis's call) or make clearing take a few seconds so early action pays off?
-- [ ] Keep the score formula `(evacuated + seconds left) × open exits`, or score timing and peak congestion instead?
+- [x] Hazard clearing stays immediate; reopening stays a separate action (Lyanis, BRAND.md).
+- [x] Score is people evacuated plus whole seconds left when everyone is out; open doors no longer multiply it (Lyanis, `6ba692a`).
 - [ ] Which judging tracks? Neon needs P0 saving on the live URL; a VR or game track needs the headset check and the P1 VR pass.
 - [ ] If tonight runs short, cut VR depth or mechanics depth first? (Recommendation: keep the door interaction and the mid-drill hazard; cut balcony art and extra audio.)
 

@@ -29,7 +29,7 @@ Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). I
 
 ## Hours 12–22 · Full loop
 
-- [ ] Emergency round: incident blocks the familiar exit at a fixed tick (partly: each drill starts with a random exit blocked and a Clear hazard action, from Lyanis's merge; it is not mid-drill and only sometimes the familiar exit, so a hazard at B needs no response)
+- [x] Emergency round: incident blocks the familiar exit at a fixed tick (Lyanis, `6ba692a`: at a tick chosen once per run between 10 and 20 s, the busiest exit is blocked; replays face the same event)
 - [ ] Review screen: evacuated before deadline, max queue, time to redirect, command timeline (outcome, clearance time, timestamped command timeline, and Lyanis's score card done; max queue not computed)
 - [x] Ghost replay: edit one command, re-run both from the same initial state, faded original vs solid alternative (laptop browser verified; headset pending)
 - [x] Determinism check: re-simulated original matches its saved result (server replays every save; a reopened run replayed exactly in the browser against PGlite)

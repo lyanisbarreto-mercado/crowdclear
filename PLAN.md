@@ -169,3 +169,9 @@ Next: Carol reviews tutorial checkmarks, per-exit controls, and the results comp
 Implemented timed hazard at the live busiest exit, with all exits initially open. Live alert, clear/open controls, original/alternative event locking, and database save/load retain the same scenario. Added nullable `hazard_tick` with an additive schema migration; no remote database operation performed here. Bumped simulation version to 3 to prevent inaccurate replay of older rules.
 
 Verification: `npm test` passed all 32 tests including timed incidents and PostgreSQL-compatible save/load. `git diff --check` passed. Browser/device verification and deployed migration remain pending. Current 60-second duration is preserved.
+
+## Pull of `6ba692a` (Colin, October 10, 9 p.m.)
+
+- Pulled Lyanis's mid-drill hazard, timing score, 60-second drill, and score-first end screen; `npm test` 32 pass locally and CI is green on that commit.
+- Measured (hazard at 10 s / 20 s): no reaction leaves 20 / 15 people inside; clearing and reopening 0.1 s after the incident clears everyone in 45.9 s (score 44); reacting 15 s later clears in 59.3 s / leaves 1 inside; redirecting to C alone leaves 10 / 7 inside. The busiest exit was A in every case, because 24 of 30 people start toward it.
+- Fixed: the comparison time box still allowed up to 90 s after the drill became 60 s, so 60 to 90 submitted and did nothing. Its maximum now comes from `sim.DURATION`.
