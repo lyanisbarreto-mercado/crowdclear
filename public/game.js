@@ -473,22 +473,26 @@ function createVrButtons() {
     button.setAttribute('position', `${(col - 1) * 0.38} ${-0.08 - row * 0.12} 0.01`);
     button.setAttribute('text', { align: 'center', width: 0.34, wrapCount: 18, color: '#ffffff' });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
-    button.addEventListener('click', () => { if (shown(source)) source.click(); });
+    button.addEventListener('click', evt => { if (shown(source) && !source.disabled) { source.click(); buzz(evt); } });
     el('vr-panel').append(button);
     return { source, button, label };
   });
 }
 // Doors are controls too: clicking one (mouse on a laptop, controller in a headset) presses the page button
 // for that door's next step, so both inputs share the same handlers and availability rules.
-function pressDoor(exit) {
+// A short controller pulse confirms a press that did something (no-op on a mouse or without haptics).
+function buzz(evt) {
+  evt?.detail?.cursorEl?.components?.['tracked-controls']?.controller?.gamepad?.hapticActuators?.[0]?.pulse?.(0.4, 40);
+}
+function pressDoor(exit, evt) {
   const x = exit.toLowerCase();
   const button = el(state.hazard === exit ? `clear-hazard-${x}` : state.open[exit] ? `redirect-${x}` : `open-exit-${x}`);
-  if (shown(button) && !button.disabled) button.click();
+  if (shown(button) && !button.disabled) { button.click(); buzz(evt); }
 }
 for (const exit of EXITS) {
   const door = el(`exit-${exit.toLowerCase()}`);
   const target = el(`door-target-${exit.toLowerCase()}`);
-  target.addEventListener('click', () => pressDoor(exit));
+  target.addEventListener('click', evt => pressDoor(exit, evt));
   target.addEventListener('mouseenter', () => door.setAttribute('material', 'emissive', '#555555'));
   target.addEventListener('mouseleave', () => door.setAttribute('material', 'emissive', '#000000'));
 }
