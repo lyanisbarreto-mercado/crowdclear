@@ -150,7 +150,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   el('intro').hidden = true;
   el('game').style.display = 'block';
   // Lets a headset browser show its own Enter VR prompt; A-Frame offers once and ignores browsers without it.
-  if (canStartHeadset() && !laptopPose) scene.enterVR(false, true);
+  checkHeadset().then(ok => { if (ok && !laptopPose) scene.enterVR(false, true); });
   el('drill-btn').hidden = true;
   el('mode-title').textContent = mode === 'practice' ? 'Guided practice' : 'Stadium evacuation drill';
   if (mode === 'practice') {
@@ -359,11 +359,19 @@ for (const exit of EXITS) {
 }
 scene.setAttribute('raycaster', 'objects: .vr-control');
 scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
-window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { el('vr-btn').hidden = !ok; }, () => {});
-// A-Frame checks for a headset once at page load; without one, enterVR only goes fullscreen with no XR session.
-const canStartHeadset = () => !!scene.checkHeadsetConnected?.();
+// A-Frame and this script both ask for VR support at page load, but an emulator such as the Immersive Web
+// Emulator installs its XR runtime later. Ask again when practice starts, and let a fresh yes count for A-Frame,
+// whose enterVR otherwise only goes fullscreen with no XR session.
+let headsetReady = false;
+function checkHeadset() {
+  const asked = window.navigator?.xr?.isSessionSupported?.('immersive-vr');
+  return asked ? asked.then(ok => { headsetReady = ok; el('vr-btn').hidden = !ok; return ok; }, () => false) : Promise.resolve(false);
+}
+checkHeadset();
+const aframeHeadset = scene.checkHeadsetConnected?.bind(scene);
+scene.checkHeadsetConnected = () => headsetReady || !!aframeHeadset?.();
 el('vr-btn').addEventListener('click', () => {
-  if (canStartHeadset()) scene.enterVR();
+  if (scene.checkHeadsetConnected()) scene.enterVR();
   else el('feedback').textContent = 'Headset view could not start in this browser. Reload the page with the headset connected.';
 });
 scene.addEventListener('enter-vr', () => {
