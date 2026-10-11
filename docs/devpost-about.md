@@ -30,7 +30,7 @@ People walk toward their assigned exit, form queues, and maintain separation. Ea
 
 **Higgsfield helped create the concourse artwork.** We generated floor, wall, and exterior textures with Higgsfield GPT Image Flare, then compressed the artwork to local WebP files. Three production generations were quoted at 0.75 credits total. The runtime textures total about 156 KB.
 
-We built animated double doors, EXIT sign housings, striped equipment cases, and a trolley with A-Frame geometry based on the approved visual references. Five camera-facing smoke sprites mark the blockage. Decorative fixtures stay at the lobby edges because the crowd simulation does not yet have obstacle pathfinding.
+We built animated double doors, EXIT sign housings, striped equipment cases, and a trolley with A-Frame geometry based on the approved visual references. Five camera-facing smoke sprites mark the blockage. Small smoke and flame sprites at the front corners add atmosphere during the incident, with a static version for reduced-motion preferences. Decorative fixtures stay at the lobby edges because the crowd simulation does not yet have obstacle pathfinding.
 
 **ElevenLabs gives the drill its voice and atmosphere.** We used the **ElevenLabs Text-to-Speech API** to generate PA messages for drill instructions, blocked exits, and crowd redirects. Its **Sound Effects API** generated the evacuation alarm and looping stadium crowd ambience. These sounds help communicate what is happening while making the lobby feel occupied.
 
@@ -44,7 +44,7 @@ The review compares average breathing rates during guided practice and the drill
 
 **Meta's Immersive Web Emulator let us test VR without an Oculus/Quest headset.** The **[Immersive Web Emulator (IWE)](https://github.com/meta-quest/immersive-web-emulator)** is a browser extension powered by the **Immersive Web Emulation Runtime (IWER)**. It emulates WebXR headset and controller behavior in a desktop browser. Earlier builds used a Meta Quest 3 profile to check VR entry, panel visibility, controller-trigger actions, and the return to the laptop view. The extension bridge can expose emulator controls to an agent through MCP. The latest 60-person scene and separate VR panels still need emulator and physical-headset visual checks.
 
-**Automated tests and strategy measurements guided development.** Our 55 automated tests cover simulation behavior, tutorial progression, replays, saving, audio, and breathing integration. **GitHub Actions** runs the suite on pushes to `main` and pull requests.
+**Automated tests and strategy measurements guided development.** Our 57 automated tests cover simulation behavior, tutorial progression, replays, saving, audio, and breathing integration. **GitHub Actions** runs the suite on pushes to `main` and pull requests.
 
 For the current 60-person build, we checked scenarios with incidents at 10, 14, 15, and 20 seconds. Early redirection followed by prompt clearing and reopening evacuated all 60 people in **52.4 to 54.3 seconds**. Without intervention, **42 to 45 people remained inside** at the end.
 

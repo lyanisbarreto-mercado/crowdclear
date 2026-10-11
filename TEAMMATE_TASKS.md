@@ -6,7 +6,7 @@ Lyanis owns UX/UI (called Carol in older notes). Colin owns feature integration.
 
 ## Latest integration checkpoint
 
-The current build has 60 people with scattered starts, varied speeds, and brief hesitation, plus four seconds of hazard clearing and a separate reopening action. Approved concourse textures, animated push-bar doors, EXIT signs, striped equipment, and smoke are integrated. Teammate updates for separate VR instruction and expandable score panels are preserved. All 55 automated tests pass locally.
+The current build has 60 people with scattered starts, varied speeds, and brief hesitation, plus four seconds of hazard clearing and a separate reopening action. Approved concourse textures, animated push-bar doors, EXIT signs, striped equipment, and smoke are integrated. Teammate updates for separate VR instruction and expandable score panels are preserved. All 57 automated tests pass locally. On-screen instructions now use plain words and green, blue, and amber action cues. Small smoke and fire effects appear at the front corners during the incident.
 
 The current [Devpost description](docs/devpost-about.md) replaces the older 30-person figures below. The user chose microphone conversations for a future person-level reassurance interaction. This is planned, with no microphone input or refusal behavior implemented. Physical-headset performance and the latest immersive panel layout still need checking. Older checkpoints below are historical evidence.
 
