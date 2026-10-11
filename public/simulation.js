@@ -36,20 +36,14 @@
       }))
     };
   }
-  // Deterministic ~45% calm chance from tick + person id (replay-stable).
-  function calmSucceeds(tick, id) {
-    return ((Math.imul(tick + 1, 1664525) + Math.imul(id + 1, 1013904223)) >>> 0) % 100 < 45;
-  }
   function act(state, action, target = 'B') {
     if (action === 'calm') {
       const id = Number(target);
       const person = state.people.find(p => p.id === id);
       if (!person || person.evacuated || !person.panic) return false;
       state.commands.push({ tick: state.tick, action, target: id });
-      if (calmSucceeds(state.tick, id)) {
-        person.panic = false;
-        person.pauseUntil = state.tick + 5;
-      }
+      person.panic = false;
+      person.pauseUntil = state.tick + 5;
       return true;
     }
     if (!Object.hasOwn(EXIT_X, target)) return false;
@@ -85,10 +79,14 @@
       state.open[exit] = false;
       state.lastRedirect = null;
       state.redirectReady = state.tick;
+      let panicking = stats(state).panicking;
       state.people.forEach(p => {
         if (p.evacuated) return;
         if (p.id % 4 === 0) p.pauseUntil = state.tick + p.hesitation;
-        if (p.id % 5 === 0) p.panic = true;
+        if (!p.panic && p.id % 5 === 0 && panicking < 3) {
+          p.panic = true;
+          panicking++;
+        }
       });
     }
     state.tick++;
@@ -105,7 +103,7 @@
       p.x += Math.sin(p.heading) * move;
       p.z += Math.cos(p.heading) * move;
       p.x = Math.max(-9.5, Math.min(9.5, p.x));
-      p.z = Math.max(0.5, Math.min(10.5, p.z));
+      p.z = Math.max(-10, Math.min(10.5, p.z));
     }
     for (const exit of EXITS) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
@@ -162,7 +160,7 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 9;
+  const VERSION = 12;
   const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, CLEAR_DURATION, POPULATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;

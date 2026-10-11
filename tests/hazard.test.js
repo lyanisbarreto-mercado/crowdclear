@@ -156,7 +156,7 @@ test('after a redirect, staff need the cooldown before the next one', () => {
   assert.equal(sim.act(state, 'redirect', 'C'), true);
 });
 function calmSchedule(fromTick, people) {
-  // Retry each panicker across ticks until calmSucceeds (~45%); keeps strategy tests about routing.
+  // Extra attempts become no-ops after the first succeeds; keeps strategy tests about routing.
   const cmds = [];
   let tick = fromTick;
   for (const id of people.filter(p => p.id % 5 === 0).map(p => p.id)) {

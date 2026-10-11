@@ -424,10 +424,10 @@ test('immersive hazard requires two selections and then a separate open action',
   select(6000);
   assert.equal(ui.value(`state.open.${exit}`), true);
 });
-test('immersive action panel contains drill navigation and reassure, not overlapping exit buttons', () => {
+test('immersive action panel contains navigation, reassurance, and guided practice actions', () => {
   const ui = setup();
   ui.value('createVrButtons()');
-  assert.equal(ui.value('vrButtons.length'), 3);
+  assert.equal(ui.value('vrButtons.length'), 5);
   assert.ok(ui.value('vrButtons.some(b => b.source === document.getElementById("reassure-btn"))'));
 });
 
@@ -688,12 +688,12 @@ test('headset mirrors actual captions with sound off and only visible breathing 
   assert.equal(ui.value('breathingLog.practice.length'), 1, 'low confidence is not averaged');
 });
 
-test('new drills choose two or three incidents and retain all events for comparison', () => {
+test('new drills schedule exactly two incidents and retain both for comparison', () => {
   for (const random of [0.1, 0.9]) {
     const ui = setup({ random }); practice(ui); ui.click('drill-btn');
-    assert.equal(ui.value('state.incidentCount'), random < 0.5 ? 2 : 3);
+    assert.equal(ui.value('state.incidentCount'), 2);
     ui.play('drill');
-    assert.equal(ui.value('lastRun.initial.fixedIncidents.length'), random < 0.5 ? 2 : 3);
+    assert.equal(ui.value('lastRun.initial.fixedIncidents.length'), 2);
     const replay = sim.createState({ hazardTick: ui.value('lastRun.initial.hazardTick'), incidentCount: ui.value('state.incidentCount'), fixedIncidents: ui.value('lastRun.initial.fixedIncidents') });
     while (!sim.isDone(replay)) sim.step(replay);
     assert.equal(JSON.stringify(replay.incidents), ui.value('JSON.stringify(state.incidents)'));
@@ -736,7 +736,7 @@ test('headset practice copy points at Exit B and reassure calms a panicker', () 
   ui.click('start-btn');
   ui.scene.xrSession = { visibilityState: 'visible' }; ui.scene.listeners['enter-vr']();
   assert.match(ui.element('vr-text').getAttribute('value'), /STEP 1 OF 2/);
-  assert.match(ui.element('vr-text').getAttribute('value'), /Point at Exit B/);
+  assert.match(ui.element('vr-text').getAttribute('value'), /point at Exit B/i);
   ui.click('open-exit-b');
   assert.match(ui.element('vr-text').getAttribute('value'), /STEP 2 OF 2/);
   assert.match(ui.element('vr-text').getAttribute('value'), /send people/);
@@ -790,4 +790,73 @@ test('headset score panel mirrors Presage vitals from the laptop review', async 
   assert.equal(ui.element('breathing-review').textContent, vitals);
   assert.match(ui.element('vr-score-text').getAttribute('value'), /Breathing \(Presage\): 16 \/min in practice, 18 \/min during the drill/);
   assert.match(ui.element('vr-text').getAttribute('value'), /Breathing \(Presage\)/);
+});
+
+test('headset navigation exposes a working timed drill button after practice', () => {
+  const ui = setup();
+  ui.click('start-btn');
+  ui.scene.xrSession = { visibilityState: 'visible' };
+  ui.scene.listeners['enter-vr']();
+  const buttons = ui.element('vr-navigation').children;
+  assert.equal(buttons[0].getAttribute('visible'), false);
+  assert.equal(buttons[1].getAttribute('visible'), true);
+  ui.click('open-exit-b');
+  ui.click('redirect-b');
+  assert.equal(buttons[0].getAttribute('visible'), true);
+  buttons[0].click();
+  assert.equal(ui.value('mode'), 'drill');
+});
+
+test('Reassure works without map selection and prioritizes a selected panicker', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  assert.equal(ui.element('reassure-btn').disabled, false);
+  ui.click('reassure-btn');
+  assert.equal(ui.value('sim.stats(state).panicking'), 2);
+  const id = ui.value('state.people.filter(p => p.panic).at(-1).id');
+  ui.value(`selectPerson(${id})`);
+  ui.click('reassure-btn');
+  assert.equal(ui.value(`state.people[${id}].panic`), false);
+  ui.click('reassure-btn');
+  assert.equal(ui.value('sim.stats(state).panicking'), 0);
+  assert.equal(ui.element('reassure-btn').disabled, true);
+});
+
+test('VR practice step buttons advance to the timed drill without door aiming', () => {
+  const ui = setup(); ui.click('start-btn');
+  ui.scene.xrSession = { visibilityState: 'visible' }; ui.scene.listeners['enter-vr']();
+  const buttonFor = id => ui.value('vrButtons').find(b => b.source === ui.element(id)).button;
+  assert.equal(buttonFor('open-exit-b').getAttribute('visible'), true);
+  assert.equal(buttonFor('redirect-b').getAttribute('visible'), false);
+  buttonFor('open-exit-b').click();
+  assert.equal(ui.value('practiceStep'), 1);
+  assert.equal(buttonFor('open-exit-b').getAttribute('visible'), false);
+  assert.equal(buttonFor('redirect-b').getAttribute('visible'), true);
+  buttonFor('redirect-b').click();
+  assert.equal(ui.value('practiceStep'), 2);
+  buttonFor('drill-btn').click();
+  assert.equal(ui.value('mode'), 'drill');
+  assert.equal(buttonFor('redirect-b').getAttribute('visible'), false);
+});
+
+test('pedestrian rings thicken on hover and stay thick until selection changes', () => {
+  const ui = setup(); practice(ui); ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  const ids = ui.value('state.people.filter(p => p.panic).map(p => p.id)');
+  const figure = id => ui.value(`figures[${id}]`);
+  const ring = figure(ids[0]).body;
+  const hit = figure(ids[0]).figure.children[2];
+  const outer = () => Number(ring.getAttribute('radius-outer'));
+  const normal = outer();
+  hit.listeners.mouseenter();
+  assert.ok(outer() > normal);
+  assert.equal(ring.getAttribute('color'), '#ff8a3d');
+  hit.click(); hit.listeners.mouseleave();
+  assert.ok(outer() > normal, 'selected ring survives pointer leaving');
+  ui.value('refresh()');
+  assert.ok(outer() > normal, 'selection survives redraws');
+  figure(ids[1]).figure.children[2].click();
+  assert.equal(outer(), normal, 'previous selection returns to normal');
+  assert.ok(Number(figure(ids[1]).body.getAttribute('radius-outer')) > normal);
 });

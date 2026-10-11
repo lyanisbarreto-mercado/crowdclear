@@ -8,7 +8,7 @@ function parseVec(attr) {
   return { x, y, z };
 }
 
-test('VR panels sit above side-rail height and score expands upward', () => {
+test('VR tutorial keeps navigation on its panel beyond the rails and score expands upward', () => {
   const html = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
   assert.match(html, /id="vr-rail-left"/);
   assert.match(html, /id="vr-rail-right"/);
@@ -26,10 +26,14 @@ test('VR panels sit above side-rail height and score expands upward', () => {
   const scorePos = parseVec(score[1]);
   const detailsPos = parseVec(details[1]);
 
-  // Panel center is 1.1 tall → bottom must clear the rail with margin.
-  assert.ok(panelPos.y - 0.55 > railTop + 0.35, `panel bottom too low: y=${panelPos.y}`);
-  assert.ok(navPos.y > railTop + 0.4, `nav too low: y=${navPos.y}`);
+  const panelContents = html.match(/id="vr-panel"[^>]*>([\s\S]*?)<\/a-entity>/)[1];
+  const panelHeight = Number(panelContents.match(/<a-plane[^>]*height="([^"]+)"/)[1]);
+  assert.match(panelContents, /id="vr-text"/);
+  assert.match(panelContents, /id="vr-navigation"/, 'navigation shares the tutorial transform');
+  assert.ok(panelPos.z < -1, 'tutorial sits beyond the rail ends');
+  assert.ok(panelPos.y - panelHeight / 2 > railTop + 0.025, 'tutorial bottom clears the railing');
+  assert.ok(Math.abs(navPos.y) + 0.2 + 0.08 < panelHeight / 2, 'both button rows fit on the panel');
   assert.ok(scorePos.y > railTop + 0.6, `score cluster too low: y=${scorePos.y}`);
   assert.ok(detailsPos.y > 0, 'score details expand above the toggle, not down into the rails');
-  assert.ok(panelPos.z > -1, 'panels pull toward the player, not past the front edge');
+
 });

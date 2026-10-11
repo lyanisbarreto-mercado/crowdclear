@@ -102,6 +102,14 @@ function createFigures(list, container, faded) {
       hit.setAttribute('position', '0 0.8 0');
       hit.setAttribute('material', 'visible: false');
       hit.addEventListener('click', evt => { selectPerson(i, evt); });
+      hit.addEventListener('mouseenter', () => {
+        figure.hovered = true;
+        refresh();
+      });
+      hit.addEventListener('mouseleave', () => {
+        figure.hovered = false;
+        refresh();
+      });
       figure.append(ring, model, hit);
       list.push({ figure, body: ring, model, x: null, z: null });
     }
@@ -119,7 +127,7 @@ function selectPerson(id, evt) {
   if (!person || person.evacuated) return;
   selectedPersonId = id;
   el('feedback').textContent = person.panic
-    ? `Reassure ${id} — speak or hold Reassure.`
+    ? `Reassure ${id} — speak or press Reassure once.`
     : `Selected person ${id}. Orange rings need reassurance.`;
   buzz(evt);
   refresh();
@@ -133,6 +141,9 @@ function place(list, s) {
     const exitColor = { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit];
     body.setAttribute('color', person.panic ? '#ff8a3d' : selectedPersonId === person.id ? '#ffe08a' : exitColor);
     if (!model) return;
+    const highlighted = figure.hovered || selectedPersonId === person.id;
+    body.setAttribute('radius-inner', highlighted ? 0.25 : 0.3);
+    body.setAttribute('radius-outer', highlighted ? 0.62 : 0.46);
     // Face the direction of travel; the walker component plays walk while moving and idle otherwise.
     // Same state/tick refreshes keep the last moving flag so walk clips are not restarted every display frame.
     if (item.state !== s) {
@@ -219,7 +230,7 @@ function refresh() {
   }
   el('actions').hidden = !active;
   el('review').hidden = !lastRun || active;
-  const canReassure = mode === 'drill' && selectedPersonId !== null && !!state.people[selectedPersonId]?.panic;
+  const canReassure = mode === 'drill' && state.people.some(p => !p.evacuated && p.panic);
   el('reassure-btn').hidden = mode !== 'drill';
   el('reassure-btn').disabled = !canReassure;
   place(figures, state);
@@ -308,7 +319,7 @@ function announce(id) {
     if (soundOn && generation === audioGeneration && sequence === voiceSequence) speak(text);
   });
 }
-function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null, incidentCount = nextMode === 'drill' ? 2 + Math.floor(Math.random() * 2) : 1) {
+function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null, incidentCount = nextMode === 'drill' ? 2 : 1) {
   // Browsers only start audio after a user gesture; practice and drills begin from a click.
   sessionGeneration++;
   stopAudio();
@@ -318,6 +329,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   scoreExpanded = false;
   lastDoorSelection = null;
   selectedPersonId = null;
+  figures.forEach(({ figure }) => { figure.hovered = false; });
   micLoudFor = 0;
   lastCalmAt = 0;
   stopMic();
@@ -636,11 +648,10 @@ el('start-btn').addEventListener('click', () => fresh('practice'));
 el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
 el('reassure-btn').addEventListener('click', () => {
-  if (selectedPersonId === null) {
-    el('feedback').textContent = 'Select an orange-ring panicking guest first.';
-    return;
-  }
-  perform('calm', selectedPersonId);
+  const selected = state.people.find(p => p.id === selectedPersonId && !p.evacuated && p.panic);
+  const person = selected || state.people.find(p => !p.evacuated && p.panic);
+  if (!person) return;
+  perform('calm', person.id);
 });
 el('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn;
@@ -696,10 +707,12 @@ function syncHeadset() {
     // Mirror laptop step labels: STEP 1/2 → open B, STEP 2/2 → send to B, then start drill.
     instructions = [
       ...(practiceStep === 0
-        ? ['STEP 1 OF 2', 'Open Exit B', 'Point at Exit B and select to open it.']
+        ? ['STEP 1 OF 2', 'Open Exit B', 'Press Open B below, or point at Exit B and select to open it.']
         : practiceStep === 1
-          ? ['STEP 2 OF 2', 'Send people to B', 'Point at Exit B and select to send people there.']
-          : ['PRACTICE DONE', 'Ready for the drill', 'Start the timed drill when ready.']),
+          ? ['STEP 2 OF 2', 'Send people to B', 'Press Send to B below, or point at Exit B and select to send people there.']
+          : ['PRACTICE DONE', 'Ready for the drill', 'Start the timed drill when ready.',
+            'Allow microphone access. Select an orange-ring person, then speak to calm them.',
+            'Sound level only, not words. Or press Reassure once. No selection needed.']),
       caption, breathingText];
     el('vr-score-text').setAttribute('value', ' ');
   } else {
@@ -707,16 +720,17 @@ function syncHeadset() {
       el('step-label').textContent || `${sim.DURATION}-SECOND DRILL`,
       el('task-title').textContent,
       'Point at doors to clear (select twice), open, or send people.',
-      'Orange rings are panicking. Select one, then speak or Hold Reassure.',
+      'MIC: allow access, select an orange-ring panicking person, then speak to calm them.',
+      'Sound level only, not words or door commands. Or press Reassure once. No selection needed.',
       el('feedback').textContent, caption, breathingText];
     el('vr-score-text').setAttribute('value', ' ');
   }
-  el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
+  el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n').replace(/·/g, '-'));
   el('vr-score-toggle').setAttribute('visible', hasResults);
   el('vr-score-toggle').setAttribute('text', 'value', scoreExpanded ? 'Hide score [-]' : 'View score [+]');
   el('vr-score-details').setAttribute('visible', hasResults && scoreExpanded);
-  vrButtons.forEach(({ source, button, label }) => {
-    button.setAttribute('visible', shown(source));
+  vrButtons.forEach(({ source, button, label, practiceOnly }) => {
+    button.setAttribute('visible', vrButtonShown(source, practiceOnly));
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : button.hovered ? '#e6da78' : '#2f7de1');
     button.setAttribute('text', 'value', label || source.textContent);
     button.setAttribute('text', 'color', button.hovered ? '#182230' : '#ffffff');
@@ -736,13 +750,18 @@ function hoverControl(button, canInteract) {
     button.setAttribute('text', 'color', '#ffffff');
   });
 }
+function vrButtonShown(source, practiceOnly) {
+  return shown(source) && (!practiceOnly || (mode === 'practice' && !source.disabled));
+}
 function createVrButtons() {
   const layout = [
     { id: 'drill-btn', col: 0, row: 0 },
     { id: 'stop-btn', col: 1, row: 0 },
-    { id: 'reassure-btn', col: 0.5, row: 1, label: 'Hold Reassure' }
+    { id: 'reassure-btn', col: 0.5, row: 1, label: 'Reassure' },
+    { id: 'open-exit-b', col: 0, row: 0, label: 'Open B', practiceOnly: true },
+    { id: 'redirect-b', col: 0, row: 0, label: 'Send to B', practiceOnly: true }
   ];
-  vrButtons = layout.map(({ id, label, col, row }) => {
+  vrButtons = layout.map(({ id, label, col, row, practiceOnly }) => {
     const source = el(id);
     const button = document.createElement('a-entity');
     button.classList.add('vr-control');
@@ -750,10 +769,10 @@ function createVrButtons() {
     button.setAttribute('position', `${(col - 0.5) * 0.65} ${-row * 0.2} 0.01`);
     button.setAttribute('text', { align: 'center', width: 0.56, wrapCount: 22, color: '#ffffff' });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
-    button.addEventListener('click', evt => { if (shown(source) && !source.disabled) { source.click(); buzz(evt); } });
-    hoverControl(button, () => shown(source) && !source.disabled);
+    button.addEventListener('click', evt => { if (vrButtonShown(source, practiceOnly) && !source.disabled) { source.click(); buzz(evt); } });
+    hoverControl(button, () => vrButtonShown(source, practiceOnly) && !source.disabled);
     el('vr-navigation').append(button);
-    return { source, button, label };
+    return { source, button, label, practiceOnly };
   });
 }
 // Doors are controls too: clicking one (mouse on a laptop, controller in a headset) presses the page button

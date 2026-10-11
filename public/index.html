@@ -97,8 +97,14 @@
 							Take your time. There is no timer.
 						</p>
 						<p id="pa-caption" class="pa-caption" aria-live="polite"></p>
-						<button id="reassure-btn" class="action-send" type="button" hidden>Hold Reassure</button>
+						<button id="reassure-btn" class="action-send" type="button" hidden>Reassure</button>
 
+						<details id="microphone-help">
+							<summary>How to use the microphone</summary>
+							<p>When the timed drill starts, allow microphone access if prompted. Select a person with an orange ring, then speak steadily to calm them. Reassurance now succeeds on the first attempt.</p>
+							<p>The microphone detects sound level, not words. You can say something reassuring such as “Stay calm, follow the open exit.” It does not control the doors.</p>
+							<p>If you cannot use the microphone or do not allow access, press Reassure once to calm a person instead. Selecting someone is optional; otherwise the button chooses a panicking person for you. The microphone is only used during the timed drill.</p>
+						</details>
 						<button id="drill-btn" hidden>Start timed drill</button>
 						<p class="muted">
 							Watch all three doors from above.
@@ -150,13 +156,13 @@
 							background="color: #0f1b2b"
 						>
 							<a-assets timeout="5000">
-								<img id="floor-material" src="/textures/concourse/floor.webp" />
-								<img id="wall-material" src="/textures/concourse/wall.webp" />
-								<img id="exterior-material" src="/textures/concourse/exterior.webp" />
-								<img id="hazard-stripes" src="/textures/concourse/hazard-stripes.svg" />
-								<img id="shutter-material" src="/textures/concourse/shutter.svg" />
-								<img id="venue-map" src="/textures/concourse/venue-map.svg" />
-								<img id="smoke-material" src="/textures/concourse/smoke.svg" />
+								<img id="floor-material" src="/textures/concourse/floor.webp" alt=""/>
+								<img id="wall-material" src="/textures/concourse/wall.webp" alt=""/>
+								<img id="exterior-material" src="/textures/concourse/exterior.webp" alt=""/>
+								<img id="hazard-stripes" src="/textures/concourse/hazard-stripes.svg" alt=""/>
+								<img id="shutter-material" src="/textures/concourse/shutter.svg" alt=""/>
+								<img id="venue-map" src="/textures/concourse/venue-map.svg" alt=""/>
+								<img id="smoke-material" src="/textures/concourse/smoke.svg" alt=""/>
 							</a-assets>
 							<a-sky color="#0f1b2b"></a-sky>
 							<a-entity light="type: hemisphere; color: #eef3ff; groundColor: #596573; intensity: 1.2"></a-entity>
@@ -183,15 +189,15 @@
 									<a-box position="1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
 									<a-box position="-1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
 									<a-box position="1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<!-- Panels sit above rail height (~1.05) and toward the player so they are not clipped by posts. -->
-									<a-entity id="vr-panel" position="-1.55 2.35 -0.55" rotation="-8 35 0">
-										<a-plane width="1.2" height="1.1" color="#182230"></a-plane>
-										<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.55 0.47 0.02" width="0.35" wrap-count="12"></a-text>
-										<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.15 0.47 0.02" width="0.35" wrap-count="12"></a-text>
-										<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.25 0.47 0.02" width="0.35" wrap-count="12"></a-text>
-										<a-text id="vr-text" position="-0.55 0.36 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
+									<!-- Keep instructions and navigation together, upright and beyond the front posts. -->
+									<a-entity id="vr-panel" position="-1.85 2.1 -1.2" rotation="0 45 0">
+										<a-plane width="1.6" height="1.9" color="#182230"></a-plane>
+										<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.72 0.85 0.02" width="0.35" wrap-count="12"></a-text>
+										<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.2 0.85 0.02" width="0.35" wrap-count="12"></a-text>
+										<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.32 0.85 0.02" width="0.35" wrap-count="12"></a-text>
+										<a-text id="vr-text" font="aileronsemibold" position="-0.72 0.72 0.02" width="1.44" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
+										<a-entity id="vr-navigation" position="0 -0.65 0.02"></a-entity>
 									</a-entity>
-									<a-entity id="vr-navigation" position="-1.55 1.55 -0.55" rotation="-8 35 0"></a-entity>
 									<a-entity id="vr-score" position="1.55 2.15 -0.55" rotation="-8 -35 0">
 										<a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0 0.02" geometry="primitive: plane; width: 1.2; height: 0.18" material="color: #2f7de1" text="value: View score [+]; align: center; width: 1.1"></a-entity>
 										<a-entity id="vr-score-details" visible="false" position="0 1.2 0">
