@@ -97,10 +97,12 @@ function refresh() {
   }
   el('hazard-marker').setAttribute('visible', !!state.hazard);
   el('hazard-label').setAttribute('visible', !!state.hazard);
+  el('hazard-smoke').setAttribute('visible', !!state.hazard);
   if (state.hazard) {
     const x = { A: -8, B: 0, C: 8 }[state.hazard];
     el('hazard-marker').setAttribute('position', `${x} 0.6 -10.5`);
     el('hazard-label').setAttribute('position', `${x} 4.5 -11`);
+    el('hazard-smoke').setAttribute('position', `${x} 0 -10.5`);
   }
   el('actions').hidden = !active;
   el('review').hidden = !lastRun || active;
