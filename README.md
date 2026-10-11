@@ -1,85 +1,157 @@
 # CrowdClear
 
-Laptop-first evacuation training prototype for venue staff. Complete action-based practice, then run a timed stadium drill: open Exit B and redirect the crowd. Built with A-Frame and Express.
+<img src="public/CrowdClear_Logo.jpg" alt="CrowdClear logo" width="160" />
 
-A finished drill opens a decision review, can be replayed against one re-timed decision, and is saved to Postgres (Neon) so its link reopens it. Saving is verified against the team's Neon database; the live site needs `DATABASE_URL` set on Render. Headset support is not yet verified. Crowd behavior is simplified, not a validated real-world evacuation model.
+CrowdClear is an evacuation training game for venue staff. Guide 60 people through a stadium lobby, handle blocked exits, and reassure panicking guests. Play in a laptop browser or use the experimental WebXR headset view.
 
-## Run locally
+The crowd and calmness cues are simplified game mechanics. They do not predict real emergencies or provide a medical assessment.
 
-Use the Node version in `.node-version` (24).
+## What the program does
+
+- **Practice.** Learn to open an exit and send people there without a timer.
+- **Run a drill.** Manage a 60-second evacuation with two or three blockages, scattered starting positions, varied walking speeds, and panicking guests.
+- **Respond.** Clear a blockage for four seconds, reopen the door, redirect people, and reassure guests. Color labels, exit signs, smoke, fire, and audio help show what is happening.
+- **Review.** See people out, time left, guests calmed, guests still panicking, score, longest queue, and a timed action log. Compare the current drill with your locally stored best run and play them side by side.
+- **Save and share.** With Postgres configured, the server checks the recorded decisions by replaying them before saving. Share the resulting page address to reopen the drill.
+- **Add webcam sensing.** The optional Presage helper supplies breathing and other authorized webcam metrics for the game's calmness review. The game works without the helper.
+
+## Start everything locally
+
+Use **Node.js 24**, the version pinned in [.node-version](.node-version), and npm. Express serves the frontend and API together, so there is no separate frontend build or server.
+
+### 1. Install the game
 
 ```sh
+git clone https://github.com/lyanisbarreto-mercado/crowdclear.git
+cd crowdclear
 npm install
-npm start
 ```
 
-Open http://localhost:3000. Set `PORT` to change the port. Set `DATABASE_URL` to a Postgres connection string to save drills; without it the game still runs and each finished drill says it was not saved. The server creates its table from `schema.sql` at startup. VR needs HTTPS, so test headsets against the deployed Render URL.
+### 2. Set up optional services
 
-## Simulation scene assets
+To use Presage, install its separate native SDK once:
 
-The lobby uses local Higgsfield-generated floor, wall, and exterior textures with lightweight A-Frame doors, EXIT signs, equipment cases, a trolley, and peripheral fixtures. Doors swing open when their route opens. A blocked route shows striped equipment and smoke; clearing removes both, and opening the door remains a separate action. Mouse and headset controls share the existing handlers.
+```sh
+npm --prefix sensor install
+```
 
-Asset provenance and runtime limits are documented in [public/textures/concourse/README.md](public/textures/concourse/README.md). These visual changes preserve the simulation rules and saved-run format. The bench, bin, and concession shutter sit outside the walking routes and are decorative.
+On **Windows ARM / Snapdragon**, use the x64 setup below instead of that sensor install command.
 
-The crowd now has 60 people, scattered starting positions, varied walking speeds, and brief hesitation from some people when the incident occurs. Three queue columns keep the crowd inside the lobby. Clearing takes four seconds with a visible countdown; the route stays blocked until work finishes, and reopening remains separate. These game cues are simplified, not a validated model of panic.
+Create `.env.local` in the project root. Add only the services you want:
 
-These behavior changes use simulation version 9. At the incident, some guests panic and wander until calmed (mic volume or Hold Reassure). Older saved drills remain in the database, but the current player reports that it cannot replay their older rules.
+```dotenv
+# Optional: webcam sensing
+PRESAGE_API_KEY=your_presage_api_key
 
-## Audio (ElevenLabs)
+# Optional: save and reopen drills with Neon or another Postgres database
+DATABASE_URL=your_postgres_connection_string
 
-The spoken lines (drill start, each hazard, each redirect) live in `public/announcements.js`. `public/audio/` holds ElevenLabs clips for every line, plus a recorded alarm and a looping crowd ambience from the sound-effects API, all listed in `public/audio/clips.js`. The game plays them on a laptop and falls back to the browser's speech and synth for anything missing. In a headset, PA voice is silent (captions and the in-scene panel still show the line); point at doors to clear, open, or send people, and select orange-ring panickers to reassure.
+# Optional: change the local port
+PORT=3000
+```
 
-To regenerate, put `ELEVENLABS_API_KEY` (or `ELEVEN_API_KEY`) in `.env` or `.env.local` (both gitignored) and run `npm run audio`. Existing files are kept to save credits; add `-- --force` to regenerate them. The key is only used by the script, never by the browser. `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` override the voice and speech model.
+Leave unused settings out. Keep `.env.local` private; it is gitignored. Presage requires a valid SmartSpectra API key and access to the laptop camera. Without `DATABASE_URL`, drills still run but results show **Not saved**.
 
-## Breathing (Presage SmartSpectra)
+### 3. Run one command
 
-A helper in `sensor/` reads calmness from the **laptop webcam** (native SDK — not in the browser, not on the Render box). It posts to `/api/breathing`; the page only shows Presage UI when a fresh reading is present. Data stays in memory and is never saved. A headset hides the face, so measure on the laptop before/during a laptop drill.
+```sh
+npm run dev
+```
 
-**Local:** `PRESAGE_API_KEY` in `.env.local`, `cd sensor && npm install` once, then with the game server up run `npm run sensor`.
+Open **http://localhost:3000**, or the address printed for your chosen `PORT`.
 
-**Deployed (Render):** the game on HTTPS cannot see your webcam by itself. Keep the helper on the demo laptop and point it at the live API:
+This command loads `.env` and `.env.local`, starts the game server, waits for its health endpoint, and starts Presage when its key, SDK, and Node runtime are available. Missing sensor setup produces a message and leaves the game running. **Ctrl+C** stops both processes. A sensor failure leaves the game available; a game-server failure stops the launcher and sensor.
 
-1. On Render, set `ALLOW_REMOTE_BREATHING=1` (optional `BREATHING_TOKEN=…` so only your helper can POST).
-2. On the laptop: `BREATHING_URL=https://YOUR-APP.onrender.com/api/breathing` and the same `BREATHING_TOKEN` if you set one, plus `PRESAGE_API_KEY`, then `npm run sensor`.
-3. Open the deployed site on that laptop — the HUD reads the shared in-memory sample (one demo trainee at a time).
+The launcher does not start a database service. Neon runs separately; `DATABASE_URL` connects the game to it. Existing artwork and audio are bundled, so playing requires no Higgsfield or ElevenLabs key.
 
-On Windows on ARM (Snapdragon), Presage has no native build. Install an x64 Node from nodejs.org, which Windows runs under emulation. If you extract Node to `C:\node-x64`, run these commands in PowerShell from the project root:
+## How to play
+
+1. Click **Start practice**. Click the middle door to **Open Exit B**, then click it again to **Send people to B**.
+2. Click **Start timed drill**. The first blockage appears after 10 to 20 seconds; more can follow.
+3. Click a red-outlined blockage to **Clear** it. Wait four seconds, then click the door to **Open** it. Other open exits remain available during clearing.
+4. Click an open door to **Send people** there. Wait for the five-second redirect cooldown before another direction.
+5. On a laptop, use **Reassure** when guests panic. In VR, use microphone reassurance when supported and allow microphone access. The on-screen instructions show the available control.
+6. Read the results and action log. After another run, use **Play side by side** to compare with your best run. Move **Jump to time** to inspect a point in the replay. The wireframe crowd is the best run; the solid crowd is the current run.
+7. If the result says **Saved**, copy the page address to share or reload it. **Restart practice** resets the tutorial; **Try another drill** starts a fresh timed run.
+
+Best-run comparison is stored in that browser. Shared run links require the database. The current simulation is version 9; older records stay stored, but the player rejects replay under different rules.
+
+## Presage on Windows ARM
+
+SmartSpectra's Windows native runtime needs **x64 Node**, including on Snapdragon computers. The game server can still use the normal ARM Node installation.
+
+Download a Windows x64 Node.js 24 ZIP from [Node.js downloads](https://nodejs.org/en/download). Extract its contents so this file exists:
+
+```text
+tools/node-win-x64/node.exe
+```
+
+Install the sensor SDK with that x64 runtime. From the project root in PowerShell:
 
 ```powershell
-cd sensor
-& C:\node-x64\node.exe C:\node-x64\node_modules\npm\bin\npm-cli.js install
-& C:\node-x64\node.exe --env-file-if-exists=../.env.local presage.mjs
+& .\tools\node-win-x64\node.exe .\tools\node-win-x64\node_modules\npm\bin\npm-cli.js --prefix sensor install
+npm run dev
 ```
 
-The emulated helper can report a camera frame rate below 25 frames per second, so readings take longer to become confident.
+The launcher and `npm run sensor` select that runtime automatically. If you installed x64 Node elsewhere, set `PRESAGE_NODE_PATH` to its executable in `.env.local`.
 
-## Test
+Face the webcam with your face and chest visible, use steady lighting, and allow about 30 seconds for usable readings. The emulated runtime can produce readings more slowly. A headset hides the face, so webcam sensing is intended for laptop sessions.
 
-```sh
-npm test
-```
+## VR and audio
 
-Smoke tests start the server on a free port and check health, all local page assets (including A-Frame), and browser-script syntax. Simulation and tutorial tests check action gating, fresh resets, routing effects, and deterministic replay. `npm test` runs both suites; GitHub Actions uses that same command on every push to `main` and every pull request.
+Use **Enter VR** in a browser that supports immersive WebXR. A deployed headset session requires HTTPS; supported local development can also use browser tooling or a headset tunnel. The [Immersive Web Emulator](https://github.com/meta-quest/immersive-web-emulator) can test headset and controller behavior on a desktop.
 
-## Deploy
+Point at doors to open or redirect. Select a blocked door twice to start clearing, wait four seconds, then reopen it. Headset panels show instructions, cooldowns, results, and replay controls. PA speech is silent in the headset view; captions remain available. Microphone features depend on browser support and permission. Physical-headset compatibility and comfort still need a device check.
 
-Render web service linked to this repo:
+On a laptop, **Sound: on/off** controls prerecorded announcements, alarm, and crowd ambience. Missing voice clips stay silent; a missing alarm falls back to synthesized beeps.
 
-- Build command: `npm ci`
-- Start command: `npm start`
-- Auto-Deploy: **After CI Checks Pass**, so `main` only deploys when CI is green
-- Environment: `DATABASE_URL` = the Neon connection string (keep it in Render, never in the repo)
+## Commands
 
-The Node version comes from `.node-version`, for both Render and CI.
+| Command | What it starts |
+| --- | --- |
+| `npm run dev` | Frontend/API and optional Presage together; loads local environment files |
+| `npm start` | Game server only; suitable for hosting |
+| `npm run sensor` | Presage only; loads local environment files |
+| `npm test` | Simulation, UI, API, persistence, sensor, asset, and launcher tests |
+| `npm run audio` | Optional audio regeneration using ElevenLabs credentials |
 
-## Plan
+Audio regeneration is separate from playing. Set `ELEVENLABS_API_KEY` or `ELEVEN_API_KEY` in a private environment file before running it. Existing clips are kept; `npm run audio -- --force` replaces them. `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` can override the generator's defaults.
 
-See [PLAN.md](PLAN.md) for current checkpoints and evidence, [design direction](docs/design/BRAND.md) for the accepted experience, and [docs/plan/](docs/plan/README.md) / [CHECKLIST.md](CHECKLIST.md) for the original teammate roadmap.
+## Configuration
 
-## Try the current checkpoint
+| Setting | Purpose |
+| --- | --- |
+| `PORT` | Local game port; defaults to `3000` |
+| `DATABASE_URL` | Postgres connection for saving; optional |
+| `PRESAGE_API_KEY` | SmartSpectra key; `SMARTSPECTRA_API_KEY` is also accepted |
+| `PRESAGE_NODE_PATH` | Optional Node executable for the native helper |
+| `BREATHING_URL` | Optional full sensor upload URL; defaults to the local game API |
+| `PRESAGE_ENDPOINT` | Alternate name for the sensor upload URL |
+| `ALLOW_REMOTE_BREATHING` | Server opt-in for remote demo sensing; defaults to off |
+| `BREATHING_TOKEN` | Optional token protecting remote sensor uploads |
 
-Begin guided practice → open Exit B → redirect the crowd → watch blue figures head to the middle exit → start a fresh timed drill. Practice waits for successful tasks and has no time pressure. Restart returns to task 1.
+By default, sensor reads and writes require localhost. Readings stay in server memory and are not included in saved drills.
 
-## Agent skills
+For a **shared deployed sensor demo**, set `ALLOW_REMOTE_BREATHING=1` on the server and use the same `BREATHING_TOKEN` on the server and laptop helper. Set the helper's `BREATHING_URL` to `https://YOUR-APP.onrender.com/api/breathing`, then run `npm run sensor` on the laptop. Remote mode shares one current reading with site visitors; the token protects uploads, not reads. Prefer local mode for private sessions.
 
-Codex skills for planning, building, reviewing, and submitting live in [.agents/skills/](.agents/skills/README.md).
+## Troubleshooting
+
+- **Presage skipped.** Add a valid key, install the sensor SDK, and check the x64 Node setup on Windows ARM. The game remains playable.
+- **No webcam readings.** Read the helper's terminal messages, check camera access and lighting, and wait for a confident sample. A configured remote upload URL will send readings to that server instead of the local HUD.
+- **Not saved.** Configure a reachable `DATABASE_URL`. Database setup errors appear in the server terminal; the drill itself still runs.
+- **Port already in use.** Stop the existing server or set a different `PORT` in `.env.local`.
+- **No Enter VR button or microphone response.** Use a compatible browser with the required permissions and HTTPS for a deployed headset session. Laptop controls remain available.
+
+## Stack and deployment
+
+- **A-Frame 1.8.0 / Three.js / WebXR** render the scene and immersive controls.
+- **Plain JavaScript** runs the deterministic simulation and shared laptop/headset UI.
+- **Node.js / Express 5** serve the frontend and validate recorded runs.
+- **Neon Postgres** stores scenario, version, decisions, and results when configured.
+- **Presage SmartSpectra** supplies optional local webcam metrics.
+- **ElevenLabs** generated the bundled voice and sound effects.
+- **Higgsfield** generated concourse artwork. Characters use Kenney assets; see [asset provenance](public/textures/concourse/README.md).
+
+For Render, use `npm ci` as the build command, `npm start` as the start command, and set `DATABASE_URL` in the service environment. The server creates or updates its table from [schema.sql](schema.sql). CI and hosting use [.node-version](.node-version). Keep webcam sensing on the laptop rather than the hosting server.
+
+See [PLAN.md](PLAN.md) for development evidence, [Devpost copy](docs/devpost-about.md) for the project story, and [agent skills](.agents/skills/README.md) for the local development kit.
