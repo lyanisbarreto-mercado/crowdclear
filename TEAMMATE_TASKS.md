@@ -54,7 +54,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 - [x] Hazard clearing stays immediate; reopening stays a separate action (Lyanis, BRAND.md).
 - [x] Score is people evacuated plus whole seconds left when everyone is out; open doors no longer multiply it (Lyanis, `6ba692a`).
 - [ ] Which judging tracks? Neon needs P0 saving on the live URL; a VR or game track needs the headset check and the P1 VR pass.
-- [ ] Presage breathing sensing: build it or cut it? It is possible on the laptop only (Node SDK `@smartspectra/node-sdk`, Windows x64 supported, needs a Presage API key from physiology.presagetech.com, a few hundred MB of native packages, 30 s before the first reading, cannot see a face inside a headset). Worth about 2 to 3 hours only if the event has a Presage or Encompass prize and a key arrives soon. Recommendation: cut unless both are true.
+- [x] Presage breathing sensing: built for the laptop (`bb45350`); see README "Breathing". Was: build it or cut it? It is possible on the laptop only (Node SDK `@smartspectra/node-sdk`, Windows x64 supported, needs a Presage API key from physiology.presagetech.com, a few hundred MB of native packages, 30 s before the first reading, cannot see a face inside a headset). Worth about 2 to 3 hours only if the event has a Presage or Encompass prize and a key arrives soon. Recommendation: cut unless both are true.
 - [ ] If tonight runs short, cut VR depth or mechanics depth first? (Recommendation: keep the door interaction and the mid-drill hazard; cut balcony art and extra audio.)
 
 ## Lyanis · UX/UI
@@ -78,6 +78,8 @@ Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-dra
 - [ ] P0, P1 items above.
 - [x] ElevenLabs audio: seven spoken lines, a recorded alarm, and a looping crowd ambience generated with `npm run audio` and played in the game (browser voice and synth remain as fallbacks). Someone should listen once on the demo device.
 - [x] Hazard smoke and a railing on the VR post (`e4f64da`).
+- [x] Laptop redesign with the frontend-design skill: gate plates, Overpass/Atkinson type, calmer panels (`91a5766`). Lyanis: please review; it is one commit to adjust or revert.
+- [x] Realistic stadium: Kenney CC0 animated people with exit-colour rings, EXIT signs, floor guidance strips, lighting, closer camera (`5366bd8`); controller haptics (`c83490b`).
 - [ ] Keep tests and CI green; check the deployed build after each push.
 
 Primary files: `public/game.js`, `public/simulation.js`, `public/review.js`, `server.js`, `schema.sql`, `test/`, `tests/`. Own wiring changes to `public/index.html` during an agreed editing window.

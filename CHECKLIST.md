@@ -40,7 +40,7 @@ Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). I
 - [ ] Prepared announcements, positional environment sounds, radio speech (spoken announcements and an alarm done; not positional)
 - [ ] Captions, accessible pause, signage with symbols and text as well as color
 - [x] Failure handling (failed saves never show as successful)
-- [ ] Breathing feedback (only if the first gate passed)
+- [x] Breathing feedback (only if the first gate passed) (laptop only, Presage SmartSpectra helper; readings reached 52-54% confidence on the Snapdragon laptop under x64 emulation)
 - [ ] **Gate · Feature freeze** at hour 28
 
 ## Hours 28–36 · Ship
