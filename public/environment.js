@@ -40,12 +40,13 @@
   });
 
   AFRAME.registerComponent('stadium-door', {
-    schema: { state: { default: 'closed' }, hovered: { default: false } },
+    schema: { state: { default: 'closed' }, hovered: { default: false }, guided: { default: false } },
     init() {
       const letter = this.el.id.slice(-1).toUpperCase();
       let html = box('-1.57 1.1 0', [0.14, 2.2, 0.24], metal)
         + box('1.57 1.1 0', [0.14, 2.2, 0.24], metal)
-        + box('0 2.23 0', [3.28, 0.16, 0.24], metal);
+        + box('0 2.23 0', [3.28, 0.16, 0.24], metal)
+        + `<a-box class="guide-ring" visible="false" position="0 1.2 0.4" width="3.6" height="2.8" depth="0.08" material="shader: flat; color: #2fbf71; opacity: 0.35; transparent: true"></a-box>`;
       for (const [side, sign] of [['left', 1], ['right', -1]]) {
         html += `<a-entity class="${side}-hinge" position="${-sign * 1.5} 0 0"
           animation__open="property: rotation; to: 0 ${sign * 85} 0; dur: 350; startEvents: door-open; pauseEvents: door-close; easing: easeOutQuad"
@@ -68,6 +69,7 @@
       this.hinges = [...this.el.querySelectorAll('.left-hinge, .right-hinge')];
       this.status = this.el.querySelector('.door-status');
       this.light = this.el.querySelector('.status-light');
+      this.guide = this.el.querySelector('.guide-ring');
     },
     update(oldData) {
       const open = this.data.state === 'open';
@@ -75,7 +77,8 @@
       const color = blocked ? '#ffd27d' : open ? '#2fbf71' : '#e5484d';
       this.status.setAttribute('value', blocked ? 'BLOCKED' : open ? 'OPEN' : 'CLOSED');
       this.status.setAttribute('color', color);
-      this.light.setAttribute('material', 'color', this.data.hovered ? '#eef3f8' : color);
+      this.light.setAttribute('material', 'color', this.data.hovered || this.data.guided ? '#eef3f8' : color);
+      this.guide?.setAttribute('visible', this.data.guided);
       if (oldData.state !== this.data.state) {
         this.hinges.forEach((hinge, i) => {
           if (oldData.state === undefined) hinge.setAttribute('rotation', `0 ${open ? (i ? -85 : 85) : 0} 0`);
@@ -86,6 +89,7 @@
   });
 
   AFRAME.registerComponent('equipment-blockage', {
+    schema: { outlined: { default: false } },
     init() {
       const caseMaterial = 'color: #273440; roughness: 0.8';
       let html = `<a-entity position="-0.55 0.4 0.15">
@@ -105,7 +109,23 @@
         html += `<a-cylinder position="${x} 0.17 -0.4" radius="0.16" height="0.13" rotation="0 0 90" segments-radial="8" material="color: #101b28; roughness: 0.9"></a-cylinder>`;
       }
       html += box('-0.25 0.88 -0.72', [2.1, 0.07, 0.07], metal);
+      // Invisible hit volume so laptop/VR can click the blockage itself (same clear action as the door).
+      html += `<a-box class="vr-control block-hit" position="0 0.55 0" width="2.8" height="1.4" depth="1.6" material="visible: false"></a-box>`;
+      // Red outline frame — toggled via outlined when this exit is blocking.
+      const edge = 'shader: flat; color: #e5484d; emissive: #e5484d; emissiveIntensity: 0.55';
+      html += `<a-entity class="block-outline" visible="false">
+        ${box('0 1.25 0', [2.9, 0.05, 1.7], edge)}
+        ${box('0 0.05 0', [2.9, 0.05, 1.7], edge)}
+        ${box('-1.45 0.65 0', [0.05, 1.25, 1.7], edge)}
+        ${box('1.45 0.65 0', [0.05, 1.25, 1.7], edge)}
+        ${box('0 0.65 -0.85', [2.9, 1.25, 0.05], edge)}
+        ${box('0 0.65 0.85', [2.9, 1.25, 0.05], edge)}
+      </a-entity>`;
       this.el.innerHTML = html;
+      this.outline = this.el.querySelector('.block-outline');
+    },
+    update() {
+      this.outline?.setAttribute('visible', this.data.outlined);
     }
   });
 

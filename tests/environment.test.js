@@ -52,6 +52,21 @@ test('hover feedback preserves door motion and restores its current status', () 
   assert.deepEqual(visual.events, [], 'hover must not restart the opening animation');
 });
 
+test('equipment blockage exposes a red outline when marked as blocking', () => {
+  const definition = components.get('equipment-blockage');
+  const outline = { setAttribute(name, value) { this[name] = value; } };
+  const visual = { data: { outlined: false }, el: { querySelector: () => outline, innerHTML: '' }, outline };
+  definition.init.call(visual);
+  assert.ok(visual.el.innerHTML.includes('block-outline'));
+  assert.ok(visual.el.innerHTML.includes('#e5484d'));
+  visual.data.outlined = true;
+  definition.update.call(visual);
+  assert.equal(outline.visible, true);
+  visual.data.outlined = false;
+  definition.update.call(visual);
+  assert.equal(outline.visible, false);
+});
+
 test('floor smoke and flames stay low, become still with reduced motion, and release resources', () => {
   const definitions = new Map();
   const vector = () => ({ set(x, y, z) { Object.assign(this, { x, y, z }); }, setScalar(size) { this.set(size, size, size); } });

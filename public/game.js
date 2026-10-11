@@ -8,6 +8,10 @@ let initial = null;
 let lastRun = null;
 let ghost = null;
 let altSchedule = null;
+let bestCommands = null;
+let comparePlaying = false;
+// Prior best frozen for this review so saving a new best does not erase the side-by-side ghost.
+let reviewBest = null;
 let mode = 'intro';
 let practiceStep = 0;
 let accumulator = 0;
@@ -132,6 +136,10 @@ function selectPerson(id, evt) {
   buzz(evt);
   refresh();
 }
+function setFeedback(text) {
+  // Drill stays quiet: task card + toast only, no "person X" / send chatter.
+  el('feedback').textContent = mode === 'drill' ? '' : text;
+}
 function place(list, s) {
   list.forEach((item, i) => {
     const { figure, body, model } = item;
@@ -188,7 +196,6 @@ function refresh() {
   const active = mode === 'practice' || mode === 'drill';
   for (const exit of EXITS) {
     const suffix = exit.toLowerCase();
-    el(`exit-controls-${suffix}`).hidden = mode === 'practice' && exit !== 'B';
     const hazard = state.hazards.includes(exit);
     const clearing = hazard && state.clearingExit === exit;
     const seconds = clearing ? ((state.clearingUntil - state.tick) * sim.DT).toFixed(1) : null;
@@ -196,27 +203,19 @@ function refresh() {
     el(`state-${suffix}`).textContent = clearing ? `Clearing: ${seconds} s` : hazard ? 'Blocked' : state.open[exit] ? 'Open' : 'Closed';
     el(`count-${suffix}`).textContent = `${stats.queues[exit]} heading here`;
     el(`exit-${suffix}`).setAttribute('stadium-door', 'state', hazard ? 'blocked' : state.open[exit] ? 'open' : 'closed');
-    const available = active && (mode !== 'practice' || exit === 'B');
+    // Hidden button bank stays in sync so tests and any residual handlers share availability with door clicks.
+    // Guided practice steps 0–1 only unlock B; after PRACTICE DONE (step 2) and in drill, all exits work.
+    const available = active && (mode === 'drill' || practiceStep >= 2 || exit === 'B');
     const clear = el(`clear-hazard-${suffix}`);
-    clear.hidden = mode === 'practice';
     clear.disabled = !available || !hazard || state.clearingUntil !== null;
     clear.textContent = clearing ? `Clearing: ${seconds} s` : `Clear ${exit} · 4 s`;
-    const open = el(`open-exit-${suffix}`);
-    const redirect = el(`redirect-${suffix}`);
-    open.hidden = mode === 'practice' && exit !== 'B';
-    redirect.hidden = mode === 'practice' && exit !== 'B';
-    open.disabled = !available || state.open[exit] || hazard;
-    redirect.disabled = !available || !state.open[exit] || hazard || state.lastRedirect === exit || stats.remaining === 0 || state.tick < state.redirectReady;
-    open.classList.toggle('task-target', mode === 'practice' && practiceStep === 0 && exit === 'B');
-    redirect.classList.toggle('task-target', mode === 'practice' && practiceStep === 1 && exit === 'B');
-    for (const kind of ['open-exit', 'redirect']) {
-      const complete = mode === 'practice' && exit === 'B' && practiceStep >= (kind === 'open-exit' ? 1 : 2);
-      el(`check-${kind}-${suffix}`).hidden = !complete;
-      el(`${kind}-${suffix}`).setAttribute('aria-label', `${kind === 'open-exit' ? 'Open Exit' : 'Send people to Exit'} ${exit}${complete ? ', completed' : ''}`);
-    }
+    el(`open-exit-${suffix}`).disabled = !available || state.open[exit] || hazard;
+    el(`redirect-${suffix}`).disabled = !available || !state.open[exit] || hazard || stats.remaining === 0 || state.tick < state.redirectReady;
+    el(`exit-${suffix}`).setAttribute('stadium-door', 'guided', mode === 'practice' && practiceStep < 2 && exit === 'B');
   }
   for (const exit of EXITS) el(`multi-hazard-${exit.toLowerCase()}`).setAttribute('visible', state.hazards.includes(exit));
   el('hazard-marker').setAttribute('visible', !!state.hazard);
+  el('hazard-marker').setAttribute('equipment-blockage', 'outlined', !!state.hazard);
   el('hazard-label').setAttribute('visible', !!state.hazard);
   el('hazard-smoke').setAttribute('visible', !!state.hazard);
   el('floor-effects').setAttribute('visible', !!state.hazard);
@@ -228,18 +227,26 @@ function refresh() {
     el('hazard-label').setAttribute('position', `${x} 3.8 -10.8`);
     el('hazard-smoke').setAttribute('position', `${x} 0 -11`);
   }
-  el('actions').hidden = !active;
+  el('actions').hidden = true;
   el('review').hidden = !lastRun || active;
-  const canReassure = mode === 'drill' && state.people.some(p => !p.evacuated && p.panic);
+  // Both inputs keep a Reassure button available when microphone recognition is unavailable.
+  const panicking = state.people.some(p => p.panic && !p.evacuated);
+  const reassureCooling = mode === 'drill' && lastCalmAt > 0 && (nowMs() - lastCalmAt) < REASSURE_COOLDOWN_MS;
   el('reassure-btn').hidden = mode !== 'drill';
-  el('reassure-btn').disabled = !canReassure;
+  el('reassure-btn').disabled = mode !== 'drill' || !panicking;
+  // Restart: mid-practice step 1, or headset review (laptop review keeps Restart hidden).
+  el('stop-btn').hidden = mode === 'compare'
+    || (mode === 'review' && !laptopPose)
+    || (mode === 'practice' && practiceStep !== 1);
+  el('drill-btn').classList.toggle('guide-pulse', mode === 'practice' && practiceStep >= 2 && !el('drill-btn').hidden);
+  el('reassure-btn').classList.toggle('guide-pulse', mode === 'drill' && panicking && !reassureCooling && !laptopPose);
   place(figures, state);
   el('ghost-crowd').setAttribute('visible', !!ghost);
   if (ghost) place(ghostFigures, ghost);
+  syncCooldownToast();
   syncHeadset();
 }
-// Audio plays the ElevenLabs clips from scripts/generate-audio.js when present, else the browser's own synth
-// and speech. Every announcement is also captioned in #pa-caption and the headset panel, even with sound off.
+// Audio is ElevenLabs clips only (public/audio via scripts/generate-audio.js) — no Windows/browser TTS fallback.
 let soundOn = true;
 let audio = null;
 let playingClip = null;
@@ -252,7 +259,6 @@ const clip = id => (clipIds.has(id) ? (clips[id] ??= new window.Audio(`/audio/${
 function stopAudio() {
   audioGeneration++;
   voiceSequence++;
-  window.speechSynthesis?.cancel();
   for (const item of Object.values(clips)) {
     item.pause();
     item.currentTime = 0;
@@ -298,25 +304,19 @@ function ambience(on) {
   crowd.volume = 0.25;
   crowd.play().catch(() => {});
 }
-function speak(text) {
-  if (!soundOn || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new window.SpeechSynthesisUtterance(text));
-}
 function announce(id) {
-  const text = window.CrowdAnnouncements[id];
-  el('pa-caption').textContent = `PA: ${text}`;
-  // Headset: captions + panel text only — spoken PA stays on the laptop.
+  el('pa-caption').textContent = '';
+  // Headset stays silent; laptop plays the ElevenLabs clip only (no narrator fallback).
   if (!soundOn || laptopPose) return;
+  const voice = clip(id);
+  if (!voice) return;
   const generation = audioGeneration;
   const sequence = ++voiceSequence;
-  const voice = clip(id);
-  if (!voice) return speak(text);
   playingClip?.pause();
   playingClip = voice;
   voice.currentTime = 0;
   voice.play().catch(() => {
-    if (soundOn && generation === audioGeneration && sequence === voiceSequence) speak(text);
+    if (generation === audioGeneration && sequence === voiceSequence) playingClip = null;
   });
 }
 function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null, incidentCount = nextMode === 'drill' ? 2 : 1) {
@@ -330,7 +330,6 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   lastDoorSelection = null;
   selectedPersonId = null;
   figures.forEach(({ figure }) => { figure.hovered = false; });
-  micLoudFor = 0;
   lastCalmAt = 0;
   stopMic();
   ambience(mode === 'drill');
@@ -346,7 +345,6 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   practiceStep = 0;
   if (mode === 'drill') startMic();
   el('results').hidden = true;
-  el('vitals-card').hidden = true;
   el('intro').hidden = true;
   el('game').style.display = 'block';
   syncSceneLifecycle();
@@ -356,11 +354,11 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   el('drill-btn').hidden = true;
   el('mode-title').textContent = mode === 'practice' ? 'Practice' : 'Timed drill';
   if (mode === 'practice') {
-    instructions('STEP 1 OF 2', 'Open Exit B', [{ word: 'Open', tone: 'open' }, ' the middle door, Exit B.']);
-    el('feedback').textContent = 'Take your time. There is no timer.';
+    instructions('STEP 1 OF 2', 'Open Exit B', ['Click ', { word: 'Open', tone: 'open' }, ' on the middle door, Exit B.']);
+    setFeedback('Take your time. There is no timer. Click doors in the scene.');
   } else {
-    instructions(`${sim.DURATION}-SECOND DRILL`, 'Help people get out', [`${incidentCount} blockages can strike during the drill. The first exit becomes `, { word: 'blocked', tone: 'clear' }, ' after 10 to 20 seconds. ', { word: 'Clear', tone: 'clear' }, ' it, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
-    el('feedback').textContent = 'All exits are open. Watch for a blocked door.';
+    instructions(`${sim.DURATION}-SECOND DRILL`, 'Help people get out', [`${incidentCount} blockages can strike during the drill. The first exit becomes `, { word: 'blocked', tone: 'clear' }, ' after 10 to 20 seconds. Click the red blockage to ', { word: 'Clear', tone: 'clear' }, ' it, then click to ', { word: 'open', tone: 'open' }, ' it. Or click another open door to ', { word: 'send people', tone: 'send' }, ' there.']);
+    setFeedback('');
     if (mode === 'drill') announce('drill-start');
   }
   createAllFigures();
@@ -371,50 +369,65 @@ function perform(action, target = 'B') {
   if (mode !== 'practice' && mode !== 'drill') return;
   if (action === 'calm') {
     if (mode !== 'drill') return;
-    if (!sim.act(state, action, target)) {
-      el('feedback').textContent = 'Select an orange-ring panicking guest first.';
-      return;
-    }
+    if (!sim.act(state, action, target)) return;
     const person = state.people.find(p => p.id === Number(target));
-    el('feedback').textContent = person?.panic
-      ? `Still panicking — keep reassuring person ${target}.`
-      : `Person ${target} is calming down.`;
-    if (person && !person.panic) selectedPersonId = null;
+    if (person && !person.panic) {
+      selectedPersonId = null;
+      showCalmEffect(person);
+    }
     refresh();
     return;
   }
-  if (mode === 'practice' && (target !== 'B' || (action !== 'open-exit' && action !== 'redirect'))) return;
+  if (mode === 'practice' && practiceStep < 2 && (target !== 'B' || (action !== 'open-exit' && action !== 'redirect'))) return;
   if (!sim.act(state, action, target)) {
-    el('feedback').textContent = `Not ready yet. Use another open exit, or wait for the current action to finish.`;
+    setFeedback('Not ready yet. Use another open exit, or wait for the current action to finish.');
     return;
   }
   if (action === 'clear-hazard') {
-    el('feedback').textContent = `Clearing Exit ${target} takes ${sim.CLEAR_DURATION * sim.DT} seconds. Use another open exit while you wait.`;
+    setFeedback(`Clearing Exit ${target} takes ${sim.CLEAR_DURATION * sim.DT} seconds. Use another open exit while you wait.`);
   } else if (action === 'open-exit') {
-    el('feedback').textContent = `Exit ${target} is open. Send people there.`;
+    setFeedback(`Exit ${target} is open. Send people there.`);
     if (mode === 'practice' && practiceStep === 0 && state.open.B) {
       practiceStep = 1;
-      instructions('STEP 2 OF 2', 'Send people to B', [{ word: 'Send people', tone: 'send' }, ' to Exit B. Watch them head to the middle door.']);
+      instructions('STEP 2 OF 2', 'Send people to B', ['Click Exit B again to ', { word: 'Send people', tone: 'send' }, ' there. Watch them head to the middle door.']);
     }
   } else {
-    el('feedback').textContent = mode === 'drill'
-      ? `Some people are heading to Exit ${target}. Wait ${sim.REDIRECT_COOLDOWN * sim.DT} seconds before sending more.`
-      : `Some people are heading to Exit ${target}. Watch them move.`;
+    setFeedback(`Some people are heading to Exit ${target}. Watch them move.`);
     announce(`redirect-${target}`);
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
-      instructions('PRACTICE DONE', 'Ready for the drill', [{ word: 'Open', tone: 'open' }, ' a door, then ', { word: 'send people', tone: 'send' }, ' there. Start the timed drill when ready.']);
+      // Free A/C exploration: drop the practice Send cooldown so Exit A is not silently dead.
+      state.redirectReady = state.tick;
+      instructions('PRACTICE DONE', 'Ready for the drill', ['Click a door to ', { word: 'open', tone: 'open' }, ' it, then click again to ', { word: 'send people', tone: 'send' }, ' there. Start the timed drill when ready.']);
       el('drill-btn').textContent = 'Start timed drill';
       el('drill-btn').hidden = false;
     }
   }
   refresh();
 }
-// Presage breathing from the local sensor helper. Readings below 50% confidence only show progress, and only
-// confident ones count toward the practice/drill comparison. Nothing here is saved.
+// Presage webcam vitals = how calm the trainee looked (pulse/breathing/movement). No crowd fallback.
 let breathing = { available: false };
 let breathingSeen = false;
 const breathingLog = { practice: [], drill: [] };
+const VITALS_LOG_CONFIDENCE = 40; // log for review a bit earlier than the "ready" HUD threshold
+const BEST_VITALS_KEY = 'crowdclear-best-vitals';
+const BEST_RUN_KEY = 'crowdclear-best-run';
+function loadBestVitals() {
+  try { return JSON.parse(localStorage.getItem(BEST_VITALS_KEY) || 'null'); } catch { return null; }
+}
+function saveBestVitals(snap) {
+  try { localStorage.setItem(BEST_VITALS_KEY, JSON.stringify(snap)); } catch { /* private mode */ }
+}
+function loadBestRun() {
+  try { return JSON.parse(localStorage.getItem(BEST_RUN_KEY) || 'null'); } catch { return null; }
+}
+function saveBestRun(run, score) {
+  try {
+    localStorage.setItem(BEST_RUN_KEY, JSON.stringify({
+      version: run.version, result: run.result, commands: run.commands, initial: run.initial, score
+    }));
+  } catch { /* private mode */ }
+}
 async function pollBreathing() {
   try {
     breathing = await (await fetch('/api/breathing')).json();
@@ -422,21 +435,38 @@ async function pollBreathing() {
     breathing = { available: false };
   }
   breathingSeen ||= breathing.available;
-  if (breathing.available && breathing.rate !== null && breathing.confidence >= 50 && breathingLog[mode]) breathingLog[mode].push(breathing.rate);
-  el('breathing').hidden = !breathingSeen;
-  el('breathing').textContent = !breathing.available ? 'Breathing: sensor off'
-    : breathing.rate !== null && breathing.confidence >= 50 ? `Breathing: ${Math.round(breathing.rate)} /min`
-    : `Breathing: ${breathing.hint || 'measuring (about 30 s)'}`;
+  const ready = breathing.available && breathing.confidence >= 50;
+  const loggable = breathing.available && breathing.confidence >= VITALS_LOG_CONFIDENCE
+    && (breathing.rate != null || breathing.pulse != null || breathing.amplitude != null);
+  if (loggable && breathingLog[mode]) {
+    breathingLog[mode].push({
+      rate: breathing.rate, pulse: breathing.pulse,
+      amplitude: breathing.amplitude, stress: breathing.stress
+    });
+  }
+  // Only show Presage when the webcam helper is actually posting readings.
+  el('breathing').hidden = !breathing.available && !breathingSeen;
+  if (!breathing.available) {
+    if (breathingSeen) el('breathing').textContent = 'Presage: reconnecting…';
+    syncHeadset();
+    return;
+  }
+  breathingSeen = true;
+  const breathLine = ready && breathing.rate != null ? `Presage: ${Math.round(breathing.rate)} /min`
+    : `Presage: ${breathing.hint || 'measuring (face + chest in view)'}`;
+  const pulseLine = ready && breathing.pulse != null ? ` · Pulse ${Math.round(breathing.pulse)}` : '';
+  el('breathing').textContent = breathLine + pulseLine;
   syncHeadset();
 }
-function breathingSummary() {
-  return review.vitals(breathingLog);
-}
-function analyticsFor(s, commands = s.commands) {
+function analyticsFor(s, commands = s.commands, { rememberBest = false } = {}) {
   const stats = sim.stats(s);
   const score = review.score(stats, s.open);
   const summary = review.result(s);
-  const vitalsText = breathingSeen ? breathingSummary() : '';
+  const best = loadBestVitals();
+  const snap = review.vitalsSnapshot(breathingLog.drill) || review.vitalsSnapshot(breathingLog.practice);
+  const vitalsText = review.vitals(breathingLog, best);
+  // Persist after the line is built so the same finish does not immediately treat itself as "worse than best".
+  if (rememberBest && snap && review.calmerThan(snap, best)) saveBestVitals(snap);
   return review.report({
     result: summary,
     score,
@@ -448,11 +478,32 @@ function analyticsFor(s, commands = s.commands) {
 function finish() {
   ambience(false);
   stopMic();
+  el('pa-caption').textContent = '';
   // Headset has no page chrome — open the score panel once when the drill ends.
   if (laptopPose) scoreExpanded = true;
   showResults(state);
   showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
   save(lastRun);
+}
+function showVitals(text) {
+  // Presage card only when the webcam helper produced a score — never developer setup copy.
+  const show = !!text;
+  const card = el('result-vitals');
+  if (card) card.hidden = !show;
+  const node = el('result-breathing');
+  if (node) {
+    node.textContent = text || '';
+    node.hidden = !show;
+  }
+  const fill = el('calm-scale-fill');
+  if (fill?.style) {
+    const score = Number((text || '').match(/(\d+)\/10/)?.[1]);
+    fill.style.width = score ? `${score * 10}%` : '0%';
+    fill.classList?.remove?.('num-exit', 'num-clear', 'num-stop');
+    if (score >= 8) fill.classList?.add?.('num-exit');
+    else if (score >= 5) fill.classList?.add?.('num-clear');
+    else if (score) fill.classList?.add?.('num-stop');
+  }
 }
 function fillActionLog(entries) {
   el('review-timeline').replaceChildren(...entries.map(entry => {
@@ -472,79 +523,267 @@ function fillActionLog(entries) {
   }));
 }
 function showResults(s, commands = s.commands) {
-  const report = analyticsFor(s, commands);
+  const report = analyticsFor(s, commands, { rememberBest: true });
   el('result-message').textContent = report.headline;
   el('result-tip').textContent = report.tip;
-  el('result-outcome').textContent = report.outcome;
+  el('result-tip').hidden = !report.tip;
   el('result-peak').textContent = report.peak;
   el('result-peak').hidden = !report.peak;
   el('result-evacuated').textContent = report.values.evacuated;
+  el('result-evacuated').className = 'num-exit';
   el('result-time').textContent = report.values.time;
-  el('result-exits').textContent = report.values.exits;
+  el('result-time').className = 'num-send';
   el('result-calmed').textContent = report.values.calmed;
+  el('result-calmed').className = 'num-open';
   el('result-panicking').textContent = report.values.panicking;
+  el('result-panicking').className = 'num-stop';
   el('result-score').textContent = report.values.score;
+  el('result-score').className = 'num-signal';
   fillActionLog(report.timeline);
-  el('breathing-review').textContent = report.vitals;
-  el('breathing-review').hidden = !report.vitals;
-  el('vitals-card').hidden = !report.vitals;
+  showVitals(report.vitals);
   el('results').hidden = false;
   // The results card replaces the scene on a laptop; in a headset the scene is the only view.
   syncSceneLifecycle();
   return report;
 }
-let micStream = null;
-let micAnalyser = null;
-let micData = null;
-let micLoudFor = 0;
-let lastCalmAt = 0;
-function stopMic() {
-  micStream?.getTracks?.().forEach(track => track.stop());
-  micStream = null;
-  micAnalyser = null;
-  micData = null;
-  micLoudFor = 0;
+function syncCompareReadout() {
+  const when = Math.max(0, Math.min(sim.DURATION, Number(el('compare-when').value) || 0));
+  el('compare-when').value = String(when);
+  el('compare-when-readout').textContent = `${when} s`;
+  const vrWhen = el('vr-compare-when');
+  if (vrWhen) vrWhen.setAttribute('value', `At ${when} s`);
+  return when;
 }
-async function startMic() {
+function toneClass(tone) {
+  return ({ exit: 'num-exit', send: 'num-send', open: 'num-open', stop: 'num-stop', signal: 'num-signal', clear: 'num-clear' })[tone] || 'num-send';
+}
+function fillCompareAnalysis(currentResult, currentScore) {
+  const cmp = review.compareBest(currentResult, reviewBest?.result || null, currentScore, reviewBest?.score || null);
+  const box = el('compare-result');
+  box.replaceChildren();
+  const head = document.createElement('p');
+  head.className = 'compare-headline';
+  head.textContent = cmp.headline;
+  box.append(head);
+  const list = document.createElement('dl');
+  list.className = 'compare-metrics';
+  for (const row of cmp.rows) {
+    const rowEl = document.createElement('div');
+    const dt = document.createElement('dt');
+    dt.textContent = row.label;
+    const dd = document.createElement('dd');
+    const cur = document.createElement('span');
+    cur.className = toneClass(row.tone);
+    cur.textContent = row.unit ? `${row.current}${row.unit}` : String(row.current);
+    dd.append(cur);
+    if (row.best != null) {
+      dd.append(document.createTextNode(' · best '));
+      const bestEl = document.createElement('span');
+      const won = row.better === 'lower' ? row.current <= row.best : row.current >= row.best;
+      bestEl.className = won ? 'num-muted' : toneClass(row.tone);
+      bestEl.textContent = row.unit ? `${row.best}${row.unit}` : String(row.best);
+      dd.append(bestEl);
+    }
+    rowEl.append(dt, dd);
+    list.append(rowEl);
+  }
+  box.append(list);
+  if (cmp.note) {
+    const note = document.createElement('p');
+    note.className = 'compare-note';
+    note.textContent = cmp.note;
+    box.append(note);
+  }
+  box.hidden = false;
+  return cmp;
+}
+function replayTo(initial, commands, targetTick) {
+  const s = clone(initial);
+  const maxTick = Math.min(targetTick, Math.round(sim.DURATION / sim.DT));
+  while (s.tick < maxTick) sim.step(s, commands || []);
+  return s;
+}
+function seekCompare(seconds = syncCompareReadout()) {
+  if (!lastRun) return;
+  comparePlaying = false;
+  const target = Math.round(Math.max(0, Math.min(sim.DURATION, seconds)) / sim.DT);
+  state = replayTo(lastRun.initial, lastRun.commands, target);
+  ghost = reviewBest?.initial ? replayTo(reviewBest.initial, reviewBest.commands, target) : null;
+  bestCommands = reviewBest?.commands || null;
+  mode = 'compare';
+  el('results').hidden = true;
+  el('compare-legend').hidden = false;
+  el('compare-legend').textContent = reviewBest
+    ? 'Wireframe = best run. Solid = this run.'
+    : 'Solid = this run. Scrub 0–60s (including after everyone is out).';
+  el('drill-btn').hidden = true;
+  syncSceneLifecycle();
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  instructions('SIDE BY SIDE', 'Comparing runs', reviewBest
+    ? `At ${seconds}s — wireframe is your best run, solid is this run.`
+    : `At ${seconds}s — this run.`);
+  refresh();
+  syncHeadset();
+}
+let calmSpeech = null;
+let lastCalmAt = 0;
+const REASSURE_COOLDOWN_MS = 1200;
+function nowMs() {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+function syncCooldownToast() {
+  const toast = el('cooldown-toast');
+  let label = '';
+  let remaining = 0;
+  let total = 1;
+  if (state.clearingUntil !== null && state.tick < state.clearingUntil) {
+    label = `Clearing Exit ${state.clearingExit}`;
+    remaining = (state.clearingUntil - state.tick) * sim.DT;
+    total = sim.CLEAR_DURATION * sim.DT;
+  } else if ((mode === 'practice' || mode === 'drill') && state.tick < state.redirectReady) {
+    label = 'Send cooldown';
+    remaining = (state.redirectReady - state.tick) * sim.DT;
+    total = sim.REDIRECT_COOLDOWN * sim.DT;
+  } else if (mode === 'drill' && lastCalmAt > 0 && nowMs() - lastCalmAt < REASSURE_COOLDOWN_MS) {
+    label = 'Reassure cooldown';
+    remaining = (REASSURE_COOLDOWN_MS - (nowMs() - lastCalmAt)) / 1000;
+    total = REASSURE_COOLDOWN_MS / 1000;
+  }
+  const vrCd = el('vr-cooldown');
+  if (!label) {
+    toast.hidden = true;
+    vrCd?.setAttribute('visible', false);
+    return;
+  }
+  const left = Math.min(1, Math.max(0, remaining / total));
+  toast.hidden = false;
+  el('cooldown-toast-label').textContent = label;
+  el('cooldown-toast-time').textContent = `${remaining.toFixed(1)}s`;
+  el('cooldown-toast-fill').style.transform = `scaleX(${left})`;
+  // Same wait on the world-fixed VR panel overlay.
+  vrCd?.setAttribute('visible', !!laptopPose);
+  el('vr-cooldown-text')?.setAttribute('value', `${label} · ${remaining.toFixed(1)}s`);
+}
+function stopMic() {
+  if (calmSpeech) {
+    calmSpeech.onresult = null;
+    calmSpeech.onerror = null;
+    calmSpeech.onend = null;
+    try { calmSpeech.stop(); } catch { /* already stopped */ }
+    calmSpeech = null;
+  }
+}
+function heardCalm(transcript) {
+  return /\bcalms?\b/i.test(String(transcript || ''));
+}
+function onCalmHeard() {
+  if (mode !== 'drill' || !calmTargets(1).length) return;
+  const now = nowMs();
+  if (now - lastCalmAt < REASSURE_COOLDOWN_MS) return;
+  lastCalmAt = now;
+  applyReassure();
+}
+// Tests and SpeechRecognition both call this when a transcript contains "calm".
+function hearCalmWord(transcript = 'calm') {
+  if (heardCalm(transcript)) onCalmHeard();
+}
+function startMic() {
   stopMic();
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
   try {
-    const media = window.navigator?.mediaDevices?.getUserMedia;
-    if (!media) return;
-    if (!audio && window.AudioContext) audio = new window.AudioContext();
-    await audio?.resume?.();
-    micStream = await media.call(window.navigator.mediaDevices, { audio: true });
-    if (!audio?.createAnalyser || !audio.createMediaStreamSource) return;
-    const source = audio.createMediaStreamSource(micStream);
-    micAnalyser = audio.createAnalyser();
-    micAnalyser.fftSize = 512;
-    source.connect(micAnalyser);
-    micData = new Uint8Array(micAnalyser.frequencyBinCount);
+    calmSpeech = new SpeechRecognition();
+    calmSpeech.continuous = true;
+    calmSpeech.interimResults = true;
+    calmSpeech.lang = 'en-US';
+    calmSpeech.onresult = event => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        hearCalmWord(event.results[i][0]?.transcript || '');
+      }
+    };
+    calmSpeech.onerror = () => { /* no-speech / aborted — onend restarts */ };
+    calmSpeech.onend = () => {
+      if (mode === 'drill' && calmSpeech) {
+        try { calmSpeech.start(); } catch { /* already started */ }
+      }
+    };
+    calmSpeech.start();
   } catch {
     stopMic();
   }
 }
-function micRms() {
-  if (!micAnalyser || !micData) return 0;
-  micAnalyser.getByteTimeDomainData(micData);
-  let sum = 0;
-  for (let i = 0; i < micData.length; i++) {
-    const v = (micData[i] - 128) / 128;
-    sum += v * v;
-  }
-  return Math.sqrt(sum / micData.length);
+function reducedMotion() {
+  return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 }
-function tryReassureFromMic(dt) {
-  if (mode !== 'drill' || selectedPersonId === null) { micLoudFor = 0; return; }
-  const person = state.people[selectedPersonId];
-  if (!person?.panic) { micLoudFor = 0; return; }
-  if (micRms() > 0.08) micLoudFor += dt;
-  else micLoudFor = 0;
-  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (micLoudFor >= 0.4 && now - lastCalmAt >= 800) {
-    lastCalmAt = now;
-    micLoudFor = 0;
-    perform('calm', selectedPersonId);
+function calmTargets(limit = 3) {
+  const panickers = state.people.filter(p => !p.evacuated && p.panic);
+  if (!panickers.length) return [];
+  // Deterministic shuffle from the current tick so Reassure picks a random batch, replay-stable.
+  const list = [...panickers];
+  let seed = (Math.imul(state.tick + 17, 1664525) + 1013904223) >>> 0;
+  for (let i = list.length - 1; i > 0; i--) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const j = seed % (i + 1);
+    [list[i], list[j]] = [list[j], list[i]];
   }
+  return list.slice(0, limit).map(p => p.id);
+}
+function calmTarget() {
+  return calmTargets(1)[0] ?? null;
+}
+function applyReassure() {
+  const selected = state.people.find(p => p.id === selectedPersonId && !p.evacuated && p.panic);
+  const person = selected || state.people.find(p => !p.evacuated && p.panic);
+  if (!person || !sim.act(state, 'calm', person.id)) return false;
+  showCalmEffect(person);
+  selectedPersonId = null;
+  setFeedback('');
+  refresh();
+  return true;
+}
+function showCalmEffect(person) {
+  const fx = el('calm-fx');
+  if (!fx || reducedMotion()) return;
+  fx.setAttribute('position', `${person.x} 1.15 ${person.z}`);
+  fx.setAttribute('visible', true);
+  fx.setAttribute('scale', '0.7 0.7 0.7');
+  fx.setAttribute('material', 'opacity', 0.9);
+  fx.setAttribute('animation__grow', 'property: scale; to: 2.1 2.1 2.1; dur: 650; easing: easeOutQuad');
+  fx.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 650; easing: easeOutQuad');
+  window.setTimeout?.(() => fx.setAttribute('visible', false), 700);
+}
+function playReassureVoice() {
+  if (!soundOn || laptopPose) return;
+  const voice = clip('reassure');
+  if (!voice) return;
+  const generation = audioGeneration;
+  const sequence = ++voiceSequence;
+  playingClip?.pause();
+  playingClip = voice;
+  voice.currentTime = 0;
+  voice.play().catch(() => {
+    if (generation === audioGeneration && sequence === voiceSequence) playingClip = null;
+  });
+}
+let lastShakeTick = null;
+function maybeWorldShake() {
+  // Sparse, comfort-safe jolts during the drill only — never continuous; skip reduced-motion.
+  if (mode !== 'drill' || reducedMotion()) return;
+  if (state.tick < 40 || state.tick > 520) return;
+  if (state.tick % 150 !== 75) return;
+  if (lastShakeTick === state.tick) return;
+  lastShakeTick = state.tick;
+  const rig = el('rig');
+  const base = laptopPose ? VR_POST : '0 0 0';
+  rig.setAttribute('animation__shake', {
+    property: 'position',
+    from: base,
+    to: laptopPose ? '0.04 6 13.03' : '0.05 0 0.04',
+    dur: 70,
+    dir: 'alternate',
+    loop: 2,
+    easing: 'easeInOutSine'
+  });
 }
 // fetch rejects with a TypeError only when the request never reached the server.
 const reason = error => (error instanceof TypeError ? 'The server could not be reached.' : error.message);
@@ -601,57 +840,52 @@ async function reopen(id) {
 function showReview(run) {
   mode = 'review';
   lastRun = run;
+  reviewBest = loadBestRun();
   const report = analyticsFor(state, lastRun.commands);
-  instructions('DRILL DONE', 'Your drill', report.outcome);
-  el('feedback').textContent = 'Try again, or change when you took one action. These results are for this game only.';
-  el('review-outcome').textContent = report.outcome;
+  const score = review.score(sim.stats(state), state.open);
+  instructions('DRILL DONE', 'Your drill', 'Read the best-vs-this-run analysis, then scrub or play the side-by-side.');
+  el('feedback').textContent = '';
+  el('run-analysis').textContent = report.analysis;
   fillActionLog(report.timeline);
-  el('breathing-review').textContent = report.vitals;
-  el('vitals-card').hidden = !report.vitals;
-  el('compare-action').replaceChildren(...lastRun.commands.map((c, i) => {
-    const option = document.createElement('option');
-    option.value = String(i);
-    option.textContent = review.timeline([c])[0];
-    return option;
-  }));
-  el('compare-form').hidden = !lastRun.commands.length;
-  el('compare-time').max = String(sim.DURATION);
-  el('compare-time').value = lastRun.commands.length ? (lastRun.commands[0].tick * sim.DT).toFixed(1) : '';
-  el('compare-result').textContent = lastRun.commands.length
-    ? 'Pick one action and a new time. Every other action stays the same.'
-    : 'No actions to compare. Try another drill.';
+  fillCompareAnalysis(lastRun.result, score);
+  el('compare-form').hidden = false;
+  el('compare-legend').hidden = false;
+  el('compare-legend').textContent = reviewBest
+    ? 'Wireframe = best run. Solid = this run.'
+    : 'Solid = this run. Scrub 0–60s (including after everyone is out).';
+  el('compare-when').value = '0';
+  syncCompareReadout();
   el('drill-btn').textContent = 'Try another drill';
-  el('drill-btn').hidden = false;
+  el('drill-btn').hidden = !laptopPose;
+  if (!reviewBest || score.score >= (reviewBest.score?.score ?? 0)) saveBestRun(lastRun, score);
   refresh();
+  syncHeadset();
 }
-function compare(index, seconds) {
-  if (!lastRun || !lastRun.commands[index] || !(seconds >= 0 && seconds <= sim.DURATION)) return;
-  altSchedule = review.alternative(lastRun.commands, index, Math.round(seconds / sim.DT));
-  state = clone(lastRun.initial);
-  ghost = clone(lastRun.initial);
-  mode = 'compare';
+function compare(fromSeconds = syncCompareReadout()) {
+  if (!lastRun) return;
+  seekCompare(fromSeconds);
+  comparePlaying = true;
   accumulator = 0;
   previousTime = null;
-  el('results').hidden = true;
-  syncSceneLifecycle();
-  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-  el('compare-result').textContent = 'Replaying both runs from the same start.';
-  refresh();
+  instructions('SIDE BY SIDE', 'Comparing runs', 'Playing — wireframe is your best run, solid is this run. Drag the slider to jump.');
+  syncHeadset();
 }
 function finishCompare() {
+  comparePlaying = false;
   mode = 'review';
-  const rejected = altSchedule.length - state.commands.length;
-  el('compare-result').textContent = review.comparison(lastRun, review.result(ghost), review.result(state), rejected).join('\n');
+  el('drill-btn').textContent = 'Try another drill';
+  el('drill-btn').hidden = false;
+  instructions('DRILL DONE', 'Your drill', 'Scrub the timeline or play again, or try another drill.');
   refresh();
+  syncHeadset();
 }
 el('start-btn').addEventListener('click', () => fresh('practice'));
 el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
 el('reassure-btn').addEventListener('click', () => {
-  const selected = state.people.find(p => p.id === selectedPersonId && !p.evacuated && p.panic);
-  const person = selected || state.people.find(p => !p.evacuated && p.panic);
-  if (!person) return;
-  perform('calm', person.id);
+  if (mode !== 'drill' || !state.people.some(p => !p.evacuated && p.panic)) return;
+  playReassureVoice();
+  applyReassure();
 });
 el('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn;
@@ -665,9 +899,14 @@ for (const exit of EXITS) {
     el(`${action}-${exit.toLowerCase()}`).addEventListener('click', () => perform(action, exit));
   }
 }
+el('compare-when').addEventListener('input', () => {
+  syncCompareReadout();
+  if (lastRun && (mode === 'review' || mode === 'compare')) seekCompare();
+  syncHeadset();
+});
 el('compare-form').addEventListener('submit', event => {
   event.preventDefault();
-  compare(Number(el('compare-action').value), Number(el('compare-time').value));
+  compare(0);
 });
 // In a headset the page is out of sight: the rig lifts the player onto a raised command post, an in-scene
 // panel mirrors the side panel, and controller clicks press the page's own buttons so both inputs share handlers.
@@ -678,63 +917,67 @@ let vrButtons = [];
 let laptopPose = null;
 let scoreExpanded = false;
 let lastDoorSelection = null;
+function vrCopy(text) {
+  // Same steps as the laptop card; only the verb changes for pointing.
+  return String(text || '')
+    .replace(/\bClick\b/g, 'Point at')
+    .replace(/\bclick\b/g, 'point at')
+    .replace(/Point at the red blockage to Clear/g, 'Point at the red blockage and select twice to Clear');
+}
 function syncHeadset() {
   if (!laptopPose) return;
-  const hasResults = !el('results').hidden;
-  const caption = el('pa-caption').textContent;
-  const breathingText = el('breathing').hidden ? '' : el('breathing').textContent;
-  let instructions;
+  const hasResults = !el('results').hidden || mode === 'review' || mode === 'compare';
+  const liveBreathing = el('breathing').hidden ? '' : el('breathing').textContent;
+  const report = lastRun && hasResults ? analyticsFor(state, lastRun.commands) : null;
+  let lines;
   if (hasResults) {
-    const report = lastRun
-      ? analyticsFor(state, lastRun.commands)
-      : null;
-    instructions = report?.briefLines || ['Drill complete', el('result-message').textContent,
-      `People out: ${el('result-evacuated').textContent}`,
-      `Calmed: ${el('result-calmed').textContent}`,
-      `Still panicking: ${el('result-panicking').textContent}`,
-      'Score panel is on your right.', breathingText];
-    el('vr-score-text').setAttribute('value', (report?.scoreLines || [
-      el('result-message').textContent,
-      `Score: ${el('result-score').textContent}`,
-      `People out: ${el('result-evacuated').textContent}`,
-      `Time left: ${el('result-time').textContent}`,
-      `Open exits: ${el('result-exits').textContent}`,
-      `Calmed: ${el('result-calmed').textContent}`,
-      `Still panicking: ${el('result-panicking').textContent}`,
-      el('result-tip').textContent, breathingText
-    ]).filter(Boolean).join('\n\n').replace(/·/g, '-'));
-  } else if (mode === 'practice') {
-    // Mirror laptop step labels: STEP 1/2 → open B, STEP 2/2 → send to B, then start drill.
-    instructions = [
-      ...(practiceStep === 0
-        ? ['STEP 1 OF 2', 'Open Exit B', 'Press Open B below, or point at Exit B and select to open it.']
-        : practiceStep === 1
-          ? ['STEP 2 OF 2', 'Send people to B', 'Press Send to B below, or point at Exit B and select to send people there.']
-          : ['PRACTICE DONE', 'Ready for the drill', 'Start the timed drill when ready.',
-            'Allow microphone access. Select an orange-ring person, then speak to calm them.',
-            'Sound level only, not words. Or press Reassure once. No selection needed.']),
-      caption, breathingText];
-    el('vr-score-text').setAttribute('value', ' ');
+    lines = report?.briefLines || ['Drill complete', el('result-message').textContent];
+    const analysis = (el('run-analysis').textContent || report?.analysis || '').replace(/·/g, '-');
+    const vitals = el('result-breathing')?.textContent || report?.vitals || '';
+    el('vr-analysis-text').setAttribute('value', [el('result-message').textContent, analysis, vitals,
+      `Score ${el('result-score').textContent}`, `People out ${el('result-evacuated').textContent}`]
+      .filter(Boolean).join('\n\n').replace(/·/g, '-'));
+    const when = syncCompareReadout();
+    const compareBody = (el('compare-result').textContent || '').slice(0, 280);
+    const compareNote = mode === 'compare'
+      ? `${comparePlaying ? 'Playing' : 'Paused'} at ${when}s\nWireframe = best\nSolid = this run\nUse -5s / +5s to jump`
+      : `Best vs this run\nJump with -5s / +5s\nNow at ${when}s\n\n${compareBody}`;
+    el('vr-compare-text').setAttribute('value', compareNote.replace(/·/g, '-'));
+    el('vr-score-text').setAttribute('value', (report?.scoreLines || []).join('\n\n').replace(/·/g, '-'));
   } else {
-    instructions = [
-      el('step-label').textContent || `${sim.DURATION}-SECOND DRILL`,
-      el('task-title').textContent,
-      'Point at doors to clear (select twice), open, or send people.',
-      'MIC: allow access, select an orange-ring panicking person, then speak to calm them.',
-      'Sound level only, not words or door commands. Or press Reassure once. No selection needed.',
-      el('feedback').textContent, caption, breathingText];
+    // Mirror the laptop instruction card; drill stays quiet (no person-X / speak directives).
+    const task = vrCopy(el('task-copy').textContent);
+    const feedback = mode === 'drill' ? '' : vrCopy(el('feedback').textContent);
+    const guidance = mode === 'practice' && practiceStep < 2
+      ? practiceStep === 0 ? 'Press Open B below.' : 'Press Send to B below.'
+      : 'MIC: allow access and say “calm”. Or press Reassure once; selection is optional.';
+    lines = [el('step-label').textContent, el('task-title').textContent, task, guidance, feedback, liveBreathing];
     el('vr-score-text').setAttribute('value', ' ');
+    el('vr-analysis-text').setAttribute('value', ' ');
+    el('vr-compare-text').setAttribute('value', ' ');
   }
-  el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n').replace(/·/g, '-'));
-  el('vr-score-toggle').setAttribute('visible', hasResults);
-  el('vr-score-toggle').setAttribute('text', 'value', scoreExpanded ? 'Hide score [-]' : 'View score [+]');
-  el('vr-score-details').setAttribute('visible', hasResults && scoreExpanded);
-  vrButtons.forEach(({ source, button, label, practiceOnly }) => {
-    button.setAttribute('visible', vrButtonShown(source, practiceOnly));
+  const hud = hasResults ? [] : [el('evacuated').textContent, el('timer').textContent];
+  el('vr-text').setAttribute('value', [...lines, ...hud].filter(Boolean).join('\n').replace(/·/g, '-'));
+  // Middle analysis hides while the side-by-side replay is up.
+  el('vr-analysis').setAttribute('visible', hasResults && mode !== 'compare');
+  el('vr-compare').setAttribute('visible', hasResults);
+  el('vr-compare-btn').setAttribute('visible', hasResults && !el('compare-form').hidden);
+  el('vr-compare-minus').setAttribute('visible', hasResults && !el('compare-form').hidden);
+  el('vr-compare-plus').setAttribute('visible', hasResults && !el('compare-form').hidden);
+  el('vr-score-toggle').setAttribute('visible', false);
+  el('vr-score-details').setAttribute('visible', false);
+  vrButtons.forEach(({ source, button, label, practiceOnly, col, row }) => {
+    const on = vrButtonShown(source, practiceOnly);
+    button.setAttribute('visible', on);
+    button.setAttribute('position', `${(col - 0.5) * 0.65} ${-row * 0.2} 0.01`);
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : button.hovered ? '#e6da78' : '#2f7de1');
     button.setAttribute('text', 'value', label || source.textContent);
     button.setAttribute('text', 'color', button.hovered ? '#182230' : '#ffffff');
   });
+}
+function vrButtonShown(source, practiceOnly) {
+  if (practiceOnly) return mode === 'practice' && !source.disabled;
+  return shown(source);
 }
 function hoverControl(button, canInteract) {
   button.addEventListener('mouseenter', () => {
@@ -750,9 +993,6 @@ function hoverControl(button, canInteract) {
     button.setAttribute('text', 'color', '#ffffff');
   });
 }
-function vrButtonShown(source, practiceOnly) {
-  return shown(source) && (!practiceOnly || (mode === 'practice' && !source.disabled));
-}
 function createVrButtons() {
   const layout = [
     { id: 'drill-btn', col: 0, row: 0 },
@@ -767,12 +1007,13 @@ function createVrButtons() {
     button.classList.add('vr-control');
     button.setAttribute('geometry', { primitive: 'plane', width: 0.6, height: 0.16 });
     button.setAttribute('position', `${(col - 0.5) * 0.65} ${-row * 0.2} 0.01`);
+    button.setAttribute('material', { color: '#2f7de1', shader: 'flat' });
     button.setAttribute('text', { align: 'center', width: 0.56, wrapCount: 22, color: '#ffffff' });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
     button.addEventListener('click', evt => { if (vrButtonShown(source, practiceOnly) && !source.disabled) { source.click(); buzz(evt); } });
     hoverControl(button, () => vrButtonShown(source, practiceOnly) && !source.disabled);
     el('vr-navigation').append(button);
-    return { source, button, label, practiceOnly };
+    return { source, button, label, practiceOnly, col, row };
   });
 }
 // Doors are controls too: clicking one (mouse on a laptop, controller in a headset) presses the page button
@@ -782,15 +1023,23 @@ function buzz(evt) {
   evt?.detail?.cursorEl?.components?.['tracked-controls']?.controller?.gamepad?.hapticActuators?.[0]?.pulse?.(0.4, 40);
 }
 function pressDoor(exit, evt) {
-  const x = exit.toLowerCase();
+  // #actions stays hidden for the laptop UI; availability is the button disabled flag, not shown().
   const action = state.hazards.includes(exit) ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
-  const button = el(`${action}-${x}`);
-  if (!shown(button) || button.disabled) return;
+  const button = el(`${action}-${exit.toLowerCase()}`);
+  if (mode !== 'practice' && mode !== 'drill') return;
+  if (button.disabled) {
+    if (action === 'redirect' && state.tick < state.redirectReady) {
+      setFeedback(`Wait ${(Math.max(0, state.redirectReady - state.tick) * sim.DT).toFixed(1)} s before sending again.`);
+      syncCooldownToast();
+      syncHeadset();
+    }
+    return;
+  }
+  // VR only: double-select to start clearing. Laptop single-clicks the door or red-outlined blockage.
   if (laptopPose && action === 'clear-hazard') {
     const now = evt?.timeStamp ?? Date.now();
     if (!lastDoorSelection || lastDoorSelection.exit !== exit || now - lastDoorSelection.time > 450 || now < lastDoorSelection.time) {
       lastDoorSelection = { exit, time: now };
-      el('feedback').textContent = `Select Exit ${exit} again now to start clearing.`;
       syncHeadset();
       return;
     }
@@ -806,10 +1055,13 @@ for (const exit of EXITS) {
   target.addEventListener('mouseenter', () => {
     const action = state.hazards.includes(exit) ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
     const button = el(`${action}-${exit.toLowerCase()}`);
-    if (shown(button) && !button.disabled) door.setAttribute('stadium-door', 'hovered', true);
+    if (!button.disabled) door.setAttribute('stadium-door', 'hovered', true);
   });
   target.addEventListener('mouseleave', () => door.setAttribute('stadium-door', 'hovered', false));
 }
+el('hazard-marker').addEventListener('click', evt => {
+  if (state.hazard) pressDoor(state.hazard, evt);
+});
 el('vr-score-toggle').addEventListener('click', evt => {
   if (!laptopPose || el('results').hidden) return;
   scoreExpanded = !scoreExpanded;
@@ -817,6 +1069,21 @@ el('vr-score-toggle').addEventListener('click', evt => {
   buzz(evt);
 });
 hoverControl(el('vr-score-toggle'), () => !!laptopPose && !el('results').hidden);
+el('vr-compare-btn').addEventListener('click', evt => {
+  if (!laptopPose || el('compare-form').hidden) return;
+  compare(syncCompareReadout());
+  buzz(evt);
+});
+hoverControl(el('vr-compare-btn'), () => !!laptopPose && !el('compare-form').hidden);
+function nudgeCompare(delta) {
+  if (!laptopPose || el('compare-form').hidden) return;
+  el('compare-when').value = String(Math.max(0, Math.min(sim.DURATION, syncCompareReadout() + delta)));
+  seekCompare();
+}
+el('vr-compare-minus').addEventListener('click', evt => { nudgeCompare(-5); buzz(evt); });
+el('vr-compare-plus').addEventListener('click', evt => { nudgeCompare(5); buzz(evt); });
+hoverControl(el('vr-compare-minus'), () => !!laptopPose && !el('compare-form').hidden);
+hoverControl(el('vr-compare-plus'), () => !!laptopPose && !el('compare-form').hidden);
 scene.setAttribute('raycaster', 'objects: .vr-control');
 scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
 // A-Frame and this script both ask for VR support at page load, but an emulator such as the Immersive Web
@@ -861,7 +1128,14 @@ scene.addEventListener('enter-vr', () => {
   const camera = el('camera').object3D;
   laptopPose = { position: camera.position.clone(), rotation: camera.rotation.clone() };
   el('rig').setAttribute('position', VR_POST);
+  // Drop the laptop overhead camera so the post UI sits at chest height in the headset view.
+  const cam = el('camera');
+  Object.assign(cam.object3D.position, { x: 0, y: 1.6, z: 0 });
+  Object.assign(cam.object3D.rotation, { x: 0, y: 0, z: 0 });
+  cam.setAttribute('position', '0 1.6 0');
+  cam.setAttribute('rotation', '0 0 0');
   el('vr-post').setAttribute('visible', true);
+  el('vr-ui').setAttribute('visible', true);
   // The intro and a completed laptop run are not interactive starting points for a headset test.
   // Set the XR pose first so fresh() keeps the current session instead of offering another one.
   if (mode === 'intro' || !el('results').hidden) fresh('practice');
@@ -872,6 +1146,9 @@ scene.addEventListener('exit-vr', () => {
   if (!laptopPose) return;
   el('rig').setAttribute('position', '0 0 0');
   el('vr-post').setAttribute('visible', false);
+  el('vr-ui').setAttribute('visible', false);
+  el('vr-analysis').setAttribute('visible', false);
+  el('vr-compare').setAttribute('visible', false);
   el('camera').object3D.position.copy(laptopPose.position);
   el('camera').object3D.rotation.copy(laptopPose.rotation);
   laptopPose = null;
@@ -879,24 +1156,29 @@ scene.addEventListener('exit-vr', () => {
 });
 function tick() {
   if (mode === 'compare') {
-    if (!sim.isDone(state)) sim.step(state, altSchedule);
-    if (!sim.isDone(ghost)) sim.step(ghost, lastRun.commands);
-    if (sim.isDone(state) && sim.isDone(ghost)) finishCompare();
+    if (!comparePlaying) return;
+    const maxTick = Math.round(sim.DURATION / sim.DT);
+    if (state.tick < maxTick) sim.step(state, lastRun.commands);
+    if (ghost && ghost.tick < maxTick) sim.step(ghost, bestCommands || []);
+    el('compare-when').value = String(Math.min(sim.DURATION, Math.floor(state.tick * sim.DT)));
+    syncCompareReadout();
+    if (state.tick >= maxTick && (!ghost || ghost.tick >= maxTick)) finishCompare();
     return;
   }
   const incidentNow = mode === 'drill' && state.incidentTicks.includes(state.tick);
   const clearingExit = state.clearingExit;
   sim.step(state);
+  maybeWorldShake();
   if (clearingExit && !state.hazards.includes(clearingExit)) {
-    instructions('CLEARED', `Open Exit ${clearingExit}`, [{ word: 'Open', tone: 'open' }, ` Exit ${clearingExit}, then `, { word: 'send people', tone: 'send' }, ' there.']);
-    el('feedback').textContent = `Exit ${clearingExit} is clear. Open it now.`;
+    instructions('CLEARED', `Open Exit ${clearingExit}`, ['Click to ', { word: 'Open', tone: 'open' }, ` Exit ${clearingExit}, then click to `, { word: 'Send people', tone: 'send' }, ' there.']);
+    setFeedback('');
   }
   if (incidentNow) {
     // Fix the original incident in the initial snapshot; alternatives face the same event.
     initial.blockedExit = state.blockedExit;
     initial.fixedIncidents = clone(state.incidents);
-    instructions('BLOCKED EXIT', `Exit ${state.hazard} is blocked`, [{ word: 'Clear', tone: 'clear' }, ' it. Wait 4 seconds, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
-    el('feedback').textContent = `Exit ${state.hazard} is blocked. Other open exits still work.`;
+    instructions('BLOCKED EXIT', `Exit ${state.hazard} is blocked`, ['Click the red blockage to ', { word: 'Clear', tone: 'clear' }, ' it. Wait 4 seconds, then click to ', { word: 'open', tone: 'open' }, ' it. Or click another open door to ', { word: 'send people', tone: 'send' }, ' there.']);
+    setFeedback('');
     alarm();
     announce(`hazard-${state.hazard}`);
   }
@@ -906,7 +1188,7 @@ function frame(now) {
   if (previousTime === null) previousTime = now;
   const delta = (now - previousTime) / 1000;
   previousTime = now;
-  const running = () => mode === 'drill' || mode === 'compare' || (mode === 'practice' && practiceStep === 2);
+  const running = () => mode === 'drill' || (mode === 'compare' && comparePlaying) || (mode === 'practice' && practiceStep === 2);
   // XR owns visibility while a session exists; document.hidden alone must not freeze a visible headset.
   const visible = scene.xrSession ? scene.xrSession.visibilityState === 'visible' : !document.hidden;
   if (!running() || !visible) {
@@ -914,7 +1196,6 @@ function frame(now) {
     return;
   }
   accumulator += Math.min(delta, 0.25);
-  tryReassureFromMic(Math.min(delta, 0.25));
   let stepped = false;
   while (accumulator >= sim.DT && running()) {
     accumulator -= sim.DT;
@@ -929,7 +1210,7 @@ window.AFRAME?.registerComponent('sim-driver', {
 scene.setAttribute('sim-driver', '');
 scene.addEventListener('renderstart', syncSceneLifecycle);
 syncSceneLifecycle();
-window.setInterval?.(pollBreathing, 2000);
+window.setInterval?.(pollBreathing, 1000);
 const savedRun = new URLSearchParams(location.search).get('run');
 if (savedRun) reopen(savedRun);
 if (scene.hasLoaded) createAllFigures();

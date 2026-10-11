@@ -1,6 +1,9 @@
 /* Spoken announcement lines, shared by the game and scripts/generate-voice.js so captions match the audio. */
 (function (root) {
-  const lines = { 'drill-start': 'Attention. This is an evacuation drill. Please follow staff directions to the nearest open exit.' };
+  const lines = {
+    'drill-start': 'Attention. This is an evacuation drill. Please follow staff directions to the nearest open exit.',
+    reassure: 'You are safe. Follow staff to the open exit. Stay calm.'
+  };
   for (const exit of ['A', 'B', 'C']) {
     lines[`hazard-${exit}`] = `Attention. Exit ${exit} is blocked. Staff, respond now.`;
     lines[`redirect-${exit}`] = `Attention please. Proceed to Exit ${exit}.`;

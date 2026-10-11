@@ -11,6 +11,34 @@
   const PERSONAL_SPACE = 0.55; // metres; closer pairs step apart instead of walking through each other
   const CALM_QUEUE = 10; // beyond this many waiting, each extra person slows the exit
   const CRUSH_DELAY = 0.05; // seconds added to the release interval per extra waiting person
+  const REDIRECT_FRONT_KEEP = 2; // leave the nearest couple at an open door; blocked doors release everyone
+  function doorDist(p, exit) {
+    return Math.hypot(p.x - EXIT_X[exit], p.z + 10);
+  }
+  function redirectMovers(state, target) {
+    // Keep the front of each open (non-target) line; blocked exits may empty completely.
+    const keep = new Set();
+    for (const exit of EXITS) {
+      if (exit === target || state.hazards.includes(exit)) continue;
+      const line = state.people
+        .filter(p => !p.evacuated && !p.panic && p.exit === exit)
+        .sort((a, b) => doorDist(a, exit) - doorDist(b, exit) || a.id - b.id);
+      line.slice(0, REDIRECT_FRONT_KEEP).forEach(p => keep.add(p.id));
+    }
+    let movers = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target && !keep.has(p.id));
+    if (!movers.length) {
+      movers = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target);
+    }
+    // Nearest to the target door first; among ties, prefer people already further back in their line.
+    return movers.sort((a, b) => {
+      const aBlocked = state.hazards.includes(a.exit) ? 0 : 1;
+      const bBlocked = state.hazards.includes(b.exit) ? 0 : 1;
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+      const near = doorDist(a, target) - doorDist(b, target);
+      if (Math.abs(near) > 0.05) return near;
+      return doorDist(b, b.exit) - doorDist(a, a.exit) || a.id - b.id;
+    });
+  }
   function createState({ blockedExit = null, hazardTick = null, incidentCount = 1, fixedIncidents = [] } = {}) {
     if (hazardTick !== null && (!Number.isInteger(hazardTick) || hazardTick < 100 || hazardTick > 200)) throw new Error("Hazard must occur between 10 and 20 seconds");
     if (blockedExit !== null && !Object.hasOwn(EXIT_X, blockedExit)) throw new Error("Unknown exit");
@@ -32,7 +60,8 @@
         z: 1 + Math.floor(id / 10) * 1.45 + (random() - 0.5) * 0.8,
         speed: 1.8 + random() * 1.2, hesitation: 4 + Math.floor(random() * 10), pauseUntil: 0,
         exit: id < POPULATION * 0.8 ? familiar : other, evacuated: false,
-        panic: false, heading: random() * Math.PI * 2
+        // lineJoin keeps arrival order so redirects join the back of an exit line.
+        lineJoin: id, panic: false, heading: random() * Math.PI * 2
       }))
     };
   }
@@ -52,10 +81,14 @@
       state.clearingExit = target;
     } else if (action === 'open-exit' && !state.open[target] && !state.hazards.includes(target)) {
       state.open[target] = true;
-    } else if (action === 'redirect' && state.open[target] && !state.hazards.includes(target) && state.lastRedirect !== target && state.tick >= state.redirectReady) {
-      const candidates = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target && (state.hazardTick !== null || state.blockedExit !== null || p.exit === 'A'));
+    } else if (action === 'redirect' && state.open[target] && !state.hazards.includes(target) && state.tick >= state.redirectReady) {
+      const candidates = redirectMovers(state, target);
       if (!candidates.length) return false;
-      candidates.filter((_, i) => i % 2 === 0).forEach(p => { p.exit = target; });
+      const join = (state.tick + 1) * POPULATION;
+      // All from blocked doors; half the open-door backlog (front already kept), nearest to target first.
+      const leavingBlock = candidates.filter(p => state.hazards.includes(p.exit));
+      const fromOpen = candidates.filter(p => !state.hazards.includes(p.exit)).filter((_, i) => i % 2 === 0);
+      [...leavingBlock, ...fromOpen].forEach(p => { p.exit = target; p.lineJoin = join + p.id; });
       state.redirected = true;
       state.lastRedirect = target;
       state.redirectReady = state.tick + REDIRECT_COOLDOWN;
@@ -99,15 +132,19 @@
     for (const p of state.people) {
       if (p.evacuated || !p.panic || state.tick <= p.pauseUntil) continue;
       if ((state.tick + p.id) % 17 === 0) p.heading = (p.heading + ((state.tick * 0.37 + p.id) % (Math.PI * 2))) % (Math.PI * 2);
+      // Wander from the person's current spot (often near an exit queue). Do not clamp into the
+      // lobby centre — the old z≥0.5 bound teleported door-line panickers when panic began.
       const move = p.speed * DT * 0.55;
       p.x += Math.sin(p.heading) * move;
       p.z += Math.cos(p.heading) * move;
       p.x = Math.max(-9.5, Math.min(9.5, p.x));
-      p.z = Math.max(-10, Math.min(10.5, p.z));
+      p.z = Math.max(-10.5, Math.min(10.5, p.z));
     }
     for (const exit of EXITS) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
-      const queue = state.people.filter(p => !p.evacuated && !p.panic && p.exit === exit);
+      // Arrival order (lineJoin): newcomers go behind people already queued for this door.
+      const queue = state.people.filter(p => !p.evacuated && !p.panic && p.exit === exit)
+        .sort((a, b) => a.lineJoin - b.lineJoin || a.id - b.id);
       // Stable columns prevent people swapping places sideways every time someone leaves.
       const ranks = [0, 0, 0];
       const slots = queue.map(p => ({ p, x: EXIT_X[exit] + [0, -1, 1][p.id % 3] * SPACING,
@@ -160,7 +197,7 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 12;
+  const VERSION = 13;
   const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, CLEAR_DURATION, POPULATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;

@@ -3,23 +3,32 @@ const assert = require('node:assert/strict');
 const sim = require('../public/simulation');
 const review = require('../public/review');
 
-test('continuous panic movement uses VERSION 12', () => {
-  assert.equal(sim.VERSION, 12);
+test('continuous panic movement uses VERSION 13', () => {
+  assert.equal(sim.VERSION, 13);
 });
 
 test('incident limits panic to three eligible people; they wander and do not evacuate', () => {
   const state = sim.createState({ hazardTick: 100 });
   assert.ok(state.people.every(p => p.panic === false));
   while (state.tick < 100) sim.step(state);
+  const beforePanic = state.people.filter(p => p.id % 5 === 0 && !p.evacuated).slice(0, 3).map(p => ({ id: p.id, x: p.x, z: p.z, exit: p.exit }));
   sim.step(state);
   const panickers = state.people.filter(p => p.panic);
   assert.equal(panickers.length, 3);
   assert.ok(panickers.every(p => p.id % 5 === 0));
+  // Panic-in-place: no mid-lobby teleport when panic begins (old z≥0.5 clamp snapped exit queues).
+  for (const prior of beforePanic) {
+    const now = state.people.find(p => p.id === prior.id);
+    assert.equal(now.panic, true);
+    assert.equal(now.exit, prior.exit);
+    assert.ok(Math.hypot(now.x - prior.x, now.z - prior.z) < 0.35,
+      `panicker ${prior.id} must keep position at incident (was ${prior.x.toFixed(2)},${prior.z.toFixed(2)}; now ${now.x.toFixed(2)},${now.z.toFixed(2)})`);
+  }
   const before = panickers.map(p => ({ id: p.id, x: p.x, z: p.z }));
   for (let i = 0; i < 40; i++) sim.step(state);
   assert.ok(before.some((b, i) => Math.hypot(panickers[i].x - b.x, panickers[i].z - b.z) > 0.05),
     'panickers must wander');
-  assert.ok(panickers.every(p => !p.evacuated && Math.abs(p.x) <= 10 && p.z >= -10 && p.z <= 11));
+  assert.ok(panickers.every(p => !p.evacuated && Math.abs(p.x) <= 10 && p.z >= -11 && p.z <= 11));
   while (!sim.isDone(state)) sim.step(state);
   assert.ok(state.people.some(p => p.panic && !p.evacuated), 'untreated panickers stay inside');
   assert.ok(sim.stats(state).panicking > 0);

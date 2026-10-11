@@ -50,10 +50,34 @@ test('timeline labels calm and result tracks calmed and panicking', () => {
   assert.ok(r.panicking >= 0);
   assert.match(review.outcome(r), /Calmed/);
 });
-test('vitals summarize Presage practice and drill averages', () => {
-  assert.match(review.vitals({ practice: [], drill: [] }), /not enough steady readings/);
-  assert.equal(review.vitals({ practice: [14, 14], drill: [20, 20] }),
-    'Breathing (Presage): 14 /min in practice, 20 /min during the drill.');
+test('vitals are a short Presage scale and always compare to the best run', () => {
+  assert.equal(review.vitals({ practice: [], drill: [] }), '');
+  assert.match(review.vitals({ practice: [14, 14], drill: [20, 20] }), /^Presage \d+\/10 · .+ · baseline$/);
+  const tense = review.vitals({
+    practice: [{ rate: 14, pulse: 70 }, { rate: 14, pulse: 72 }],
+    drill: [{ rate: 18, pulse: 88 }, { rate: 20, pulse: 90 }]
+  }, { rate: 14, pulse: 70 });
+  assert.match(tense, /^Presage \d+\/10 · /);
+  assert.match(tense, /best \d+\/10/);
+  assert.equal(review.calmerThan({ rate: 13, pulse: 68 }, { rate: 16, pulse: 80 }), true);
+});
+test('compareBest summarizes current against the stored best with metric tones', () => {
+  const baseline = review.compareBest(
+    { evacuated: 40, remaining: 20, ticks: 900, calmed: 2, panicking: 3 },
+    null,
+    { seconds: 0, score: 40 }
+  );
+  assert.match(baseline.headline, /baseline/);
+  assert.equal(baseline.rows.find(r => r.label === 'Score').tone, 'signal');
+  const vs = review.compareBest(
+    { evacuated: 50, remaining: 10, ticks: 900, calmed: 4, panicking: 1 },
+    { evacuated: 40, remaining: 20, ticks: 900, calmed: 2, panicking: 3 },
+    { seconds: 0, score: 50 },
+    { seconds: 0, score: 40 }
+  );
+  assert.match(vs.headline, /beats your best|more people out/i);
+  assert.equal(vs.rows.find(r => r.label === 'People out').best, 40);
+  assert.equal(vs.rows.find(r => r.label === 'Still panicking').tone, 'stop');
 });
 test('report mirrors laptop analytics fields for VR score text', () => {
   const report = review.report({
@@ -61,33 +85,10 @@ test('report mirrors laptop analytics fields for VR score text', () => {
     score: { seconds: 30, exits: 3, score: 60, message: 'Outstanding!', tip: 'Everyone got out. Try another drill.' },
     total: 30,
     commands: [{ tick: 50, action: 'open-exit', target: 'B' }, { tick: 110, action: 'calm', target: 4 }],
-    vitalsText: 'Breathing (Presage): 16 /min during the drill.'
+    vitalsText: 'Presage 8/10 · Steady · baseline'
   });
-  assert.deepEqual(report.values, {
-    evacuated: '30 / 30',
-    time: '30 seconds',
-    exits: '3',
-    calmed: '2',
-    panicking: '1',
-    score: '60'
-  });
-  assert.equal(report.peak, 'Longest line: 12 people at Exit B');
-  assert.equal(report.headline, 'Outstanding!');
-  assert.equal(report.vitals, 'Breathing (Presage): 16 /min during the drill.');
-  assert.deepEqual(report.metrics, [
-    'People out: 30 / 30',
-    'Time left: 30 seconds',
-    'Open exits: 3',
-    'Calmed: 2',
-    'Still panicking: 1',
-    'Score: 60'
-  ]);
-  assert.ok(report.scoreLines.includes('Score: 60'));
-  assert.ok(report.scoreLines.includes('Calmed: 2'));
-  assert.ok(report.scoreLines.includes('Still panicking: 1'));
-  assert.ok(report.scoreLines.includes(report.peak));
-  assert.ok(report.scoreLines.some(line => /Open door · Exit B/.test(line)));
-  assert.ok(report.scoreLines.includes(report.vitals));
-  assert.deepEqual(report.briefLines.slice(0, 2), ['Drill complete', 'Outstanding!']);
-  assert.equal(report.timeline.length, 2);
+  assert.equal(report.vitals, 'Presage 8/10 · Steady · baseline');
+  assert.match(report.analysis, /slider|side-by-side|scrub/i);
+  assert.ok(!report.metrics.some(line => /Open exits/i.test(line)));
+  assert.deepEqual(report.briefLines, ['Drill complete', 'Outstanding!', 'Analysis is in the center panel. Compare is on your right.']);
 });

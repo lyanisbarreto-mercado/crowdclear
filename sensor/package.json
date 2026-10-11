@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Local Presage SmartSpectra helper: laptop webcam breathing rate, posted to the CrowdClear server on this machine.",
   "scripts": {
-    "start": "node --env-file-if-exists=../.env --env-file-if-exists=../.env.local presage.mjs"
+    "start": "node ../scripts/run-sensor.js"
   },
   "dependencies": {
     "@smartspectra/node-sdk": "^3.4.0"

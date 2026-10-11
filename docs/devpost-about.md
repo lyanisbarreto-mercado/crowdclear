@@ -1,94 +1,94 @@
 ## Inspiration
 
-When a stadium lobby fills with people and the familiar exit becomes blocked, a staff member has to decide where the crowd goes next. Real evacuation drills are expensive and disruptive, so opportunities to practice those decisions can be limited.
+When a stadium lobby is full and the exit everyone walked in through gets blocked, a staff member has seconds to decide where the crowd goes. Full evacuation drills are expensive and disruptive, so chances to practice that decision are limited, and staff almost never get to see what would have happened if they had acted differently.
 
-We built CrowdClear to make that practice repeatable and to help trainees understand why a decision worked. Our central idea is a **ghost replay**: change the timing of one action and watch the original and alternative outcomes side by side.
+We built CrowdClear so staff can run that emergency again and again, hear it the way a real one sounds, and then watch their run play back next to their best one. We also wanted to measure the person in charge, not just the crowd. With **Presage**, the laptop webcam shows how calm you stayed.
 
 ## What it does
 
-CrowdClear is an evacuation training game that runs in a laptop browser or in VR through **WebXR**.
+CrowdClear is an evacuation training game that runs in a laptop browser or in VR through **WebXR**. You manage a stadium lobby with 60 people and three exits during a 60-second drill.
 
-You manage a stadium lobby with 60 people and three exits. During a 60-second drill, a hazard blocks the busiest exit. Smoke, an alarm, a closed door, and a captioned announcement signal the incident. You can start four seconds of hazard clearing, reopen exits, and redirect people. Equipment and smoke remain visible during clearing, and reopening is a separate action. People start scattered, walk at varied speeds, and some briefly hesitate when the incident begins.
-
-- **Learn by doing.** Two guided tasks teach you to open an exit and redirect part of the crowd. Each step advances only after you perform the action.
-- **Act directly in the scene.** Click a door with a mouse or point and press the controller trigger in VR. In VR, select a blocked door twice within 450 milliseconds to start clearing it. Laptop users can also use the side panel. A five-second redirect cooldown makes the timing of each instruction matter.
-- **Review your decisions.** See how many people evacuated, how long evacuation took, the longest queue, and a timestamped record of your actions.
-- **Explore an alternative.** Change when one action happened, then replay both versions together. Your original crowd appears as wireframe figures; the alternative appears as solid characters. The comparison checks whether the original reproduced exactly and shows how the change affected evacuation time.
-- **Revisit saved drills.** Runs can be saved to **Neon Postgres**, with a link that reopens the review and replay.
-
-**ElevenLabs** supplies generated PA announcements, the evacuation alarm, and crowd ambience. Announcements also appear as captions on the laptop. On supported laptop setups, **Presage SmartSpectra** measures breathing rate through the webcam so trainees can compare readings from guided practice and the timed drill.
+- **Guided practice first.** Two untimed tasks teach you to open an exit and send people to it. Each step advances only after you actually do it.
+- **A drill that escalates.** Two or three blockages hit during the drill. The first lands 10 to 20 seconds in, and each one strikes the exit most people are heading for at that moment. Blocked exits stay blocked until you deal with them: clearing takes four seconds, one exit at a time, and reopening the door is a separate step. Sending people to another exit has a five-second cooldown, so timing matters.
+- **Panic you have to manage.** Up to three existing guests can panic at a time. They wander, ignore redirects and won't queue until someone calms them. On a laptop, press Reassure and an **ElevenLabs** voice tells the crowd "You are safe. Follow staff to the open exit. Stay calm." while one panicking guest settles per press. In browsers with speech recognition you can also just say "calm" into the microphone. VR also keeps a Reassure button as a fallback.
+- **Act in the scene.** Click a door or blockage with the mouse, or point a controller and pull the trigger in VR. In VR, select a blocked door twice within 450 ms to start clearing it, and the controller pulses when an action goes through.
+- **ElevenLabs voices the incident.** A PA announcer opens the drill, calls out each blocked exit ("Attention. Exit B is blocked. Staff, respond now.") and directs the crowd after every redirect, over an evacuation alarm and looping crowd ambience.
+- **Presage measures the trainee.** With the **Presage SmartSpectra** helper running, the HUD shows your breathing rate and pulse from the laptop webcam. After the drill, the results card turns those readings into a 1 to 10 calm score (Steady, Tense or Panicky) and tells you whether this was your calmest run yet.
+- **Review against your best.** The review puts people out, time left, guests calmed, guests still panicking and your score next to your best run, along with the longest line and a timestamped log of every action. Drag a 0 to 60 second slider or press Play to watch your best run as wireframe figures alongside this run as solid ones. In VR, −5 s / +5 s buttons and Play do the same.
+- **Shareable runs.** Finished drills save to **Neon Postgres**, and the page link reopens that run's review.
 
 ## How we built it
 
-**JavaScript powers a reproducible crowd simulation.** Our dependency-free simulation advances on fixed 0.1-second ticks. The live drill, replay, comparison, and server validation all use the same simulation function, making outcomes reproducible regardless of rendering frame rate.
+**One deterministic simulation drives everything.** The simulation is plain JavaScript with no dependencies and no clock. It advances in fixed 0.1-second ticks, and the live drill, the best-run replay, saved-run reopening and the server's save check all call the same function. A run is just its scenario seed plus a list of timestamped commands (clear, open, redirect, calm), so any run can be rebuilt exactly without recording every person's position.
 
-People walk toward their assigned exit, form queues, and maintain separation. Each exit normally releases one person every 1.2 seconds. Seeded variation gives people walking speeds of 1.8 to 3 metres per second and gives some a brief pause at the incident. Queues longer than 10 people increase that interval, making congestion part of the decision-making challenge.
+The crowd model is simple on purpose. People walk at seeded speeds from 1.8 to 3 m/s toward their assigned exit, queue in three columns and keep 0.55 m of personal space. Each exit lets one person out every 1.2 seconds, and every person beyond ten in line adds 0.05 seconds, so a crowded exit gets slower. The Reassure button picks which panicking guests to calm with a seeded shuffle, so calming replays exactly too.
 
-**A-Frame, Three.js, and WebXR bring the lobby into the browser and VR.** We built the scene with **A-Frame 1.8.0**, which uses **Three.js** for 3D rendering. **WebXR** provides the immersive session and tracked controller input. Mouse clicks and VR controller triggers reach the same game actions, keeping behavior consistent across both ways of playing.
+**ElevenLabs makes every sound the trainee hears.** A Node script (`npm run audio`) calls the **ElevenLabs Text-to-Speech API** with the `eleven_multilingual_v2` model to voice eight lines: the drill start, a blocked-exit call and a redirect call for each of the three exits, and the Reassure line. It calls the **ElevenLabs Sound Effects API** (`eleven_text_to_sound_v2`) for a three-second two-tone evacuation alarm and a 12-second crowd murmur generated to loop.
 
-**Kenney's CC0 Mini Characters** provide the animated crowd. Colored rings show each person's assigned exit, while gate labels communicate exit states alongside color. The VR scene includes a raised command post, separate instruction and expandable score panels, and haptic feedback for successful actions on supported controllers.
+The spoken text lives in one file that both the game and the generator read, so the audio always matches the on-screen copy. We generate the clips ahead of time and serve them as static MP3s. That means no waiting on audio mid-drill, and the API key never reaches the browser. The alarm plays at 45% volume and the ambience at 25%, so the announcer stays clear over both. If the alarm clip is missing, the game falls back to a synthesized Web Audio siren.
 
-**Higgsfield helped create the concourse artwork.** We generated floor, wall, and exterior textures with Higgsfield GPT Image Flare, then compressed the artwork to local WebP files. Three production generations were quoted at 0.75 credits total. The runtime textures total about 156 KB.
+**Presage SmartSpectra reads the trainee's vitals.** A small Node helper (`npm run sensor`) uses the **Presage SmartSpectra Node.js SDK** to read breathing rate, breathing amplitude, pulse and heart-rate variability (Baevsky stress index) from the laptop webcam. It posts the latest reading to the game server about once a second. The page polls it, shows breathing and pulse on the HUD once Presage reports at least 50% confidence, and logs samples for the review from 40%.
 
-We built animated double doors, EXIT sign housings, striped equipment cases, and a trolley with A-Frame geometry based on the approved visual references. Five camera-facing smoke sprites mark the blockage. Small smoke and flame sprites at the front corners add atmosphere during the incident, with a static version for reduced-motion preferences. Decorative fixtures stay at the lobby edges because the crowd simulation does not yet have obstacle pathfinding.
+At the end of the drill we average the samples and combine breathing, pulse and stress into our own 1 to 10 calm score, compared against the calmest run stored in that browser. It's a training signal, not a medical measurement. Readings stay in server memory and are never written to the database. The endpoint only talks to the same machine unless remote posting is switched on for a deployed demo, optionally protected by a shared token.
 
-**ElevenLabs gives the drill its voice and atmosphere.** We used the **ElevenLabs Text-to-Speech API** to generate PA messages for drill instructions, blocked exits, and crowd redirects. Its **Sound Effects API** generated the evacuation alarm and looping stadium crowd ambience. These sounds help communicate what is happening while making the lobby feel occupied.
+**A-Frame, Three.js and WebXR bring the lobby into the browser and VR.** **A-Frame 1.8.0** (built on **Three.js**) renders the lobby, and **WebXR** provides the headset session and tracked controllers. Mouse clicks and controller triggers press the same page buttons, so both ways of playing share one set of rules. In VR you stand on a raised command post with world-fixed instruction, analysis and replay panels. **Kenney's CC0 Mini Characters** make up the animated crowd, with colored foot rings showing each person's exit.
 
-We generate the audio ahead of time and play the clips when their corresponding events occur. This avoids waiting for audio generation during the drill and keeps API keys out of the browser. Spoken announcements share their text with the captions, and missing speech or alarm clips fall back to browser speech and synthesized sound.
+**Higgsfield helped create the concourse art.** We generated the floor, wall and exterior textures with **Higgsfield** (GPT Image Flare): three generations for 0.75 credits, compressed to local WebP files totaling about 156 KB. Doors, EXIT signs, equipment cases, smoke and flames are lightweight A-Frame geometry and SVG sprites.
 
-**Presage SmartSpectra adds breathing feedback to the review.** A local helper uses the **Presage SmartSpectra Node.js SDK** to collect webcam-based breathing-rate readings and their confidence scores. The interface displays numerical readings only when confidence reaches at least 50%; otherwise, it shows measurement progress.
+**Node.js, Express and Neon Postgres make runs shareable and verifiable.** **Express 5** on **Node.js** serves the game and its API. Before saving a run to **Neon**, the server replays the submitted commands with the shared simulation and rejects any run whose result it can't reproduce. The client picks the run ID, so a retried save never creates a duplicate.
 
-The review compares average breathing rates during guided practice and the drill, adding a physiological measure alongside evacuation performance. CrowdClear keeps these readings in local server memory and excludes them from saved database records. This integration is for laptop sessions where the camera can see the trainee.
+**Meta's Immersive Web Emulator let us test VR without a headset.** The **[Immersive Web Emulator](https://github.com/meta-quest/immersive-web-emulator)** browser extension, built on the Immersive Web Emulation Runtime (IWER), emulates a Meta Quest 3 headset and controllers in desktop Chrome. We used it to check VR entry, panel placement, controller-trigger actions and the return to the laptop view.
 
-**Node.js, Express, and Neon Postgres make runs shareable and verifiable.** **Node.js** and **Express 5** serve the game and its API, while **Neon Postgres** stores each run's scenario, simulation version, timestamped commands, and results. Before accepting a save, the server re-simulates the submitted commands and rejects outcomes it cannot reproduce. Storing the decisions lets us reconstruct a run without recording every person's position on every frame.
+**Automated tests and strategy sweeps.** Our 117 automated tests cover the simulation, tutorial gating, panic and calming, multiple blockages, saving and reopening, audio, Presage readings and the VR layout. **GitHub Actions** runs them on every push to `main` and every pull request.
 
-**Meta's Immersive Web Emulator let us test VR without an Oculus/Quest headset.** The **[Immersive Web Emulator (IWE)](https://github.com/meta-quest/immersive-web-emulator)** is a browser extension powered by the **Immersive Web Emulation Runtime (IWER)**. It emulates WebXR headset and controller behavior in a desktop browser. Earlier builds used a Meta Quest 3 profile to check VR entry, panel visibility, controller-trigger actions, and the return to the laptop view. The extension bridge can expose emulator controls to an agent through MCP. The latest 60-person scene and separate VR panels still need emulator and physical-headset visual checks.
+We also ran scripted strategies against all 202 drill scenarios (101 first-incident times, each with two or three blockages):
 
-**Automated tests and strategy measurements guided development.** Our 57 automated tests cover simulation behavior, tutorial progression, replays, saving, audio, and breathing integration. **GitHub Actions** runs the suite on pushes to `main` and pull requests.
+- Doing nothing: 12 to 19 of 60 people get out.
+- Clearing, reopening and redirecting only after each blockage, while calming guests: 34 to 45 get out.
+- Keeping the lines balanced from the start and clearing right away, but never calming anyone: 48 to 58 get out.
+- The same, plus calming two guests every 1.2 seconds: all 60 get out, in 34.2 to 49.3 seconds.
 
-For the current 60-person build, we checked scenarios with incidents at 10, 14, 15, and 20 seconds. Early redirection followed by prompt clearing and reopening evacuated all 60 people in **52.4 to 54.3 seconds**. Without intervention, **42 to 45 people remained inside** at the end.
-
-These are simulation measurements from four checked scenarios, not predictions of real evacuation times. Desktop browser checks also completed practice, timed clearing, local saving and reopening, and an exact original ghost replay without console errors or failed local assets.
+These come from scripted bots in our simulation, not human players or real evacuations.
 
 ## Challenges we ran into
 
-**Making the ghost replay trustworthy.** A comparison only means something if the original outcome can be reproduced. Fixed simulation ticks and a consistent update order made that possible. Testing also caught a bug where replayed redirects lost their intended exit target. Preserving the complete command fixed it.
+**Keeping replays exact as the game grew.** Every new mechanic (timed clearing, multiple blockages, panic, calming) had to stay deterministic or replays would drift. Input at a tick is now applied before that tick's incident, calming goes through recorded commands, and even the Reassure button chooses guests with a seeded shuffle. Testing caught replayed redirects losing their target exit. When the rules change, we bump the simulation version (now 9), so older saved runs say they can't be replayed instead of replaying wrong.
 
-**Making decisions matter.** Early versions sometimes cleared without intervention, while repeated redirects could outperform thoughtful choices. Blocking the busiest exit, adding a redirect cooldown, and slowing congested queues gave the drill more meaningful tradeoffs.
+**Making decisions matter.** Early versions cleared themselves without help, and spamming redirects beat thinking. Blocking the busiest exit, a redirect cooldown, slower crowded lines, repeat blockages and panicking guests turned it into a real tradeoff. In the sweeps above, only the bot that spread the crowd early, cleared right away and calmed guests got everyone out.
 
-**Testing VR without physical hardware.** The **Immersive Web Emulator** exposed issues that laptop testing missed, including controller rays that could not reach the doors and an instruction panel placed too close to the player. It helped us verify the interaction flow; pointing accuracy, comfort, and performance still need testing on a physical Quest.
+**Calming by voice.** Our first microphone version calmed guests whenever it heard moderately loud sound held for a fraction of a second. We switched to the browser's speech recognition, so it only reacts when the trainee actually says "calm", with a 1.2-second cooldown between reassurances.
 
-**Integrating with the hardware and network available.** On our Windows ARM laptop, the **Presage SmartSpectra** helper runs under x64 emulation, with slower camera performance and longer waits for confident readings. Our network also blocked direct Postgres connections, so we verified real **Neon** saves through its serverless driver over port 443.
+**Running Presage on our hardware.** The SmartSpectra Node SDK ships a Windows x64 runtime but not a Windows ARM one, and our laptop is a Snapdragon. We run the helper under x64 Node emulation, where the camera drops below 25 frames per second and readings take longer to become confident; we saw 52 to 54% confidence. A webcam also can't see your face inside a headset, so Presage is a laptop feature for now.
+
+**Testing VR without a headset.** The Immersive Web Emulator found bugs that laptop testing missed. Controller rays reached only 4 m when the doors are about 25 m away. The panel sat 0.9 m from your face. And because the emulator installs its XR runtime after the page loads, VR wouldn't start at all until we rechecked for a headset when practice begins. Pointing accuracy, comfort and performance still need a physical Quest.
+
+**Network limits.** Our network blocked outbound Postgres connections on port 5432, so we verified real Neon saves through Neon's serverless driver over port 443.
 
 ## Accomplishments that we're proud of
 
-- A ghost replay that makes the consequences of a decision visible in the same scene.
-- Reproducible runs that can be saved, reopened, and checked by the server.
-- Shared door interactions for mouse and VR controllers.
-- **ElevenLabs** audio integrated with game events and accessible captions.
-- **Presage SmartSpectra** breathing readings connected to the practice and drill review.
-- Scenario balance supported by automated measurements.
+- A best-run replay that shows, in the same scene, how two runs played out differently.
+- Runs that rebuild exactly from a seed and a command list, checked by the server before saving.
+- **ElevenLabs** audio wired to game events, generated ahead of time with no key in the browser.
+- **Presage** webcam vitals turned into a calm score the trainee can try to beat.
+- One set of door controls shared by mouse and VR controllers.
+- Game balance backed by strategy sweeps over every scenario.
 
 ## What we learned
 
-Determinism is much easier to design in from the beginning than to add later. It gave us a foundation for replay, comparison, save validation, and testing.
-
-We also learned to measure strategies before tuning by feel. Earlier strategy sweeps across all 101 hazard timings exposed weaknesses that individual playthroughs missed. We checked the revised 60-person model separately after changing the flow and clearing duration.
-
-**ElevenLabs** helped communicate the unfolding incident. **Presage** added breathing feedback to reflect on afterward.
-
-The review deserves as much attention as the drill. Seeing how one changed action affects the crowd is where CrowdClear turns a result into a learning opportunity.
+- Build determinism in from the start. It gave us replay, server-side checks and testable balance, and every later feature had to respect it.
+- Measure strategies before tuning by feel. The sweeps showed that a strong strategy without calming tops out at 58 of 60 people. Adding calming gets everyone out.
+- Pre-generating **ElevenLabs** audio suits a timed drill: no delay when an incident hits, no key in the browser, and one source file for every spoken line.
+- **Presage** gave us a second outcome besides people out: how calm the person in charge stayed while making those calls.
+- The review deserves as much attention as the drill. Watching your run next to your best is where a score turns into a lesson.
 
 ## What's next for CrowdClear
 
-CrowdClear is a prototype with a deliberately simplified crowd model. Its results are simulation outputs, not predictions of real evacuations.
+CrowdClear is a prototype with a deliberately simple crowd model. Its results are simulation outputs, not predictions of real evacuations. Next, we want to:
 
-Our next steps are to:
-
-- Mic calm is in the build: select panicking guests and reassure with mic volume or Hold Reassure (no speech-to-text). Richer conversational resistance remains future work.
-- Test pointing accuracy, panel placement, comfort, and performance on a physical Quest.
-- Add navigable obstacles and more floor plans, supported by proper pathfinding.
-- Introduce multiple incidents, people with mobility needs, and staff coordination.
-- Improve breathing-rate collection on hardware supported natively by **Presage**.
+- Test pointing accuracy, panel placement, comfort and performance on a physical Quest.
+- Run **Presage** on hardware it supports natively, and find a way to measure trainees in VR, where the headset hides the face.
+- Replace the single "calm" keyword with real conversations with panicking guests.
+- Add navigable obstacles and more floor plans with proper pathfinding.
+- Add people with mobility needs and coordination between several staff members.
 - Give trainers tools to assign drills and track progress.
-- Compare the crowd model with published evacuation research and seek feedback from venue staff.
+- Compare the crowd model with published evacuation research and get feedback from venue staff.

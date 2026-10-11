@@ -41,7 +41,9 @@ test('closed exit refuses redirection and repeated actions are not recorded', ()
   assert.equal(sim.act(state, 'open-exit'), false);
   assert.equal(sim.act(state, 'redirect'), true);
   assert.equal(sim.act(state, 'redirect'), false);
-  assert.equal(sim.stats(state).queues.B, 24);
+  // Front couple at open A/C stay; about half the backlog is sent to B (nearest first).
+  assert.ok(sim.stats(state).queues.B >= 20 && sim.stats(state).queues.B <= 40, `unexpected B queue ${sim.stats(state).queues.B}`);
+  assert.ok(sim.stats(state).queues.A >= 2, 'front of Exit A stays');
   assert.deepEqual(state.commands.map(c => c.action), ['open-exit', 'redirect']);
 });
 test('opening and redirecting improves throughput over the unchanged scenario', () => {
