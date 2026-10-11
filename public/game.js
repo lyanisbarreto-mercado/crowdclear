@@ -12,6 +12,8 @@ let mode = 'intro';
 let practiceStep = 0;
 let accumulator = 0;
 let previousTime = null;
+let sessionGeneration = 0;
+let sceneActive = null;
 const figures = [];
 const ghostFigures = [];
 const scene = document.querySelector('a-scene');
@@ -111,13 +113,23 @@ function place(list, s) {
     body.setAttribute('color', { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit]);
     if (!model) return;
     // Face the direction of travel; the walker component plays walk while moving and idle otherwise.
-    const dx = person.x - (item.x ?? person.x);
-    const dz = person.z - (item.z ?? person.z);
-    model.moving = Math.hypot(dx, dz) > 0.001;
+    // Same state/tick refreshes keep the last moving flag so walk clips are not restarted every display frame.
+    if (item.state !== s) {
+      item.state = s;
+      item.tick = s.tick;
+      item.x = person.x;
+      item.z = person.z;
+      model.moving = false;
+    } else if (item.tick !== s.tick) {
+      item.tick = s.tick;
+      const dx = person.x - (item.x ?? person.x);
+      const dz = person.z - (item.z ?? person.z);
+      model.moving = Math.hypot(dx, dz) > 0.001;
+      if (model.moving) figure.setAttribute('rotation', `0 ${Math.atan2(dx, dz) * 180 / Math.PI} 0`);
+      item.x = person.x;
+      item.z = person.z;
+    }
     model.pace = person.speed / 2.4;
-    if (model.moving) figure.setAttribute('rotation', `0 ${Math.atan2(dx, dz) * 180 / Math.PI} 0`);
-    item.x = person.x;
-    item.z = person.z;
   });
 }
 function instructions(label, title, copy) {
@@ -195,11 +207,28 @@ function refresh() {
 let soundOn = true;
 let audio = null;
 let playingClip = null;
+let audioGeneration = 0;
+let voiceSequence = 0;
+const tones = new Set();
 const clipIds = new Set(window.CrowdAudioClips || []);
 const clips = {};
 const clip = id => (clipIds.has(id) ? (clips[id] ??= new window.Audio(`/audio/${id}.mp3`)) : null);
+function stopAudio() {
+  audioGeneration++;
+  voiceSequence++;
+  window.speechSynthesis?.cancel();
+  for (const item of Object.values(clips)) {
+    item.pause();
+    item.currentTime = 0;
+  }
+  playingClip = null;
+  for (const tone of tones) {
+    try { tone.stop(); } catch { /* already stopped */ }
+  }
+  tones.clear();
+}
 function beep() {
-  if (!audio) return;
+  if (!soundOn || !audio) return;
   for (let i = 0; i < 6; i++) {
     const at = audio.currentTime + i * 0.25;
     const tone = audio.createOscillator();
@@ -209,18 +238,21 @@ function beep() {
     gain.gain.setValueAtTime(0.06, at);
     gain.gain.setValueAtTime(0, at + 0.2);
     tone.connect(gain).connect(audio.destination);
+    tones.add(tone);
+    tone.onended = () => tones.delete(tone);
     tone.start(at);
     tone.stop(at + 0.22);
   }
 }
 function alarm() {
   if (!soundOn) return;
+  const generation = audioGeneration;
   const siren = clip('alarm');
   if (!siren) return beep();
   // Quieter than the announcement that follows, so the voice stays clear over it.
   siren.volume = 0.45;
   siren.currentTime = 0;
-  siren.play().catch(beep);
+  siren.play().catch(() => { if (soundOn && generation === audioGeneration) beep(); });
 }
 function ambience(on) {
   const crowd = clip('ambience');
@@ -231,7 +263,7 @@ function ambience(on) {
   crowd.play().catch(() => {});
 }
 function speak(text) {
-  if (!window.speechSynthesis) return;
+  if (!soundOn || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(new window.SpeechSynthesisUtterance(text));
 }
@@ -239,15 +271,21 @@ function announce(id) {
   const text = window.CrowdAnnouncements[id];
   el('pa-caption').textContent = `PA: ${text}`;
   if (!soundOn) return;
+  const generation = audioGeneration;
+  const sequence = ++voiceSequence;
   const voice = clip(id);
   if (!voice) return speak(text);
   playingClip?.pause();
   playingClip = voice;
   voice.currentTime = 0;
-  voice.play().catch(() => speak(text));
+  voice.play().catch(() => {
+    if (soundOn && generation === audioGeneration && sequence === voiceSequence) speak(text);
+  });
 }
 function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null) {
   // Browsers only start audio after a user gesture; practice and drills begin from a click.
+  sessionGeneration++;
+  stopAudio();
   if (!audio && window.AudioContext) audio = new window.AudioContext();
   audio?.resume();
   mode = nextMode;
@@ -265,11 +303,12 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   previousTime = null;
   practiceStep = 0;
   el('results').hidden = true;
-  scene.hidden = false;
   el('intro').hidden = true;
   el('game').style.display = 'block';
+  syncSceneLifecycle();
   // Lets a headset browser show its own Enter VR prompt; A-Frame offers once and ignores browsers without it.
-  checkHeadset().then(ok => { if (ok && !laptopPose) scene.enterVR(false, true); });
+  const generation = sessionGeneration;
+  checkHeadset().then(ok => { if (ok && !laptopPose && generation === sessionGeneration) scene.enterVR(false, true); });
   el('drill-btn').hidden = true;
   el('mode-title').textContent = mode === 'practice' ? 'Practice' : 'Timed drill';
   if (mode === 'practice') {
@@ -358,7 +397,7 @@ function showResults(s) {
   el('result-tip').textContent = score.tip;
   el('results').hidden = false;
   // The results card replaces the scene on a laptop; in a headset the scene is the only view.
-  scene.hidden = !laptopPose;
+  syncSceneLifecycle();
 }
 // fetch rejects with a TypeError only when the request never reached the server.
 const reason = error => (error instanceof TypeError ? 'The server could not be reached.' : error.message);
@@ -377,16 +416,36 @@ async function save(run) {
   }
 }
 async function reopen(id) {
+  const generation = sessionGeneration;
   el('load-status').textContent = 'Opening the saved drill…';
   try {
     const res = await fetch(`/api/runs/${encodeURIComponent(id)}`);
     const saved = await res.json().catch(() => ({}));
+    if (generation !== sessionGeneration) return;
     if (!res.ok) throw new Error(saved.error || `Server error ${res.status}.`);
     if (saved.version !== sim.VERSION) throw new Error('It was recorded with a different simulation version, so it cannot be replayed.');
-    fresh('review', saved.blockedExit, saved.hazardTick ?? null);
-    showReview({ ...saved, initial });
+    const hazardTick = saved.hazardTick ?? null;
+    const probe = sim.createState({ blockedExit: hazardTick === null ? saved.blockedExit : null, hazardTick });
+    while (!sim.isDone(probe)) sim.step(probe, saved.commands || []);
+    const sent = (saved.commands || []).map(({ tick, action, target }) => ({ tick, action, target }));
+    const actual = review.result(probe);
+    if (probe.blockedExit !== saved.blockedExit
+      || JSON.stringify(probe.commands) !== JSON.stringify(sent)
+      || !saved.result
+      || !Object.keys(actual).every(key => saved.result[key] === actual[key])) {
+      throw new Error('The saved drill could not be reproduced.');
+    }
+    if (generation !== sessionGeneration) return;
+    fresh('review', saved.blockedExit, hazardTick);
+    const start = clone(initial);
+    while (!sim.isDone(state)) sim.step(state, saved.commands);
+    start.blockedExit = state.blockedExit;
+    showResults(state);
+    showReview({ ...saved, initial: start });
     el('save-status').textContent = 'Opened from the database. Replay checks that it reproduces its saved result.';
+    el('load-status').textContent = '';
   } catch (error) {
+    if (generation !== sessionGeneration) return;
     el('load-status').textContent = `Could not open the saved drill. ${reason(error)}`;
   }
 }
@@ -425,7 +484,7 @@ function compare(index, seconds) {
   accumulator = 0;
   previousTime = null;
   el('results').hidden = true;
-  scene.hidden = false;
+  syncSceneLifecycle();
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
   el('compare-result').textContent = 'Replaying both runs from the same start.';
   refresh();
@@ -441,8 +500,8 @@ el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
 el('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn;
-  if (!soundOn) { window.speechSynthesis?.cancel(); playingClip?.pause(); }
-  ambience(mode === 'drill');
+  if (!soundOn) stopAudio();
+  else ambience(mode === 'drill');
   el('sound-btn').textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
   el('sound-btn').setAttribute('aria-pressed', String(soundOn));
 });
@@ -467,10 +526,12 @@ let lastDoorSelection = null;
 function syncHeadset() {
   if (!laptopPose) return;
   const hasResults = !el('results').hidden;
+  const caption = el('pa-caption').textContent;
+  const breathingText = el('breathing').hidden ? '' : el('breathing').textContent;
   const instructions = hasResults
-    ? ['Drill done', 'Select View score, or try another drill.']
+    ? ['Drill done', 'Select View score, or try another drill.', breathingText]
     : ['Select a door to open it or send people. For blocked doors, select twice. Wait 4 seconds, then open.',
-      ...['task-title', 'feedback'].map(id => el(id).textContent)];
+      ...['task-title', 'feedback'].map(id => el(id).textContent), caption, breathingText];
   el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   el('vr-score-toggle').setAttribute('visible', hasResults);
   el('vr-score-toggle').setAttribute('text', 'value', scoreExpanded ? 'Hide score [-]' : 'View score [+]');
@@ -575,6 +636,26 @@ el('vr-btn').addEventListener('click', () => {
   if (scene.checkHeadsetConnected()) scene.enterVR();
   else el('feedback').textContent = 'VR could not start. Connect your headset and reload.';
 });
+function syncSceneLifecycle() {
+  // Laptop results hide the scene; an active XR session always keeps it running.
+  const wanted = mode !== 'intro' && (!!scene.xrSession || el('results').hidden);
+  scene.hidden = !wanted;
+  if (!scene.renderer || !scene.renderStarted) {
+    sceneActive = null;
+    return;
+  }
+  if (wanted === sceneActive) return;
+  sceneActive = wanted;
+  previousTime = null;
+  accumulator = 0;
+  if (wanted) {
+    scene.play();
+    scene.renderer.setAnimationLoop(scene.render);
+  } else {
+    scene.pause();
+    scene.renderer.setAnimationLoop(null);
+  }
+}
 scene.addEventListener('enter-vr', () => {
   // Laptop fullscreen (A-Frame's "f" key) also emits enter-vr; only a real XR session moves the player.
   if (!scene.xrSession) return;
@@ -583,7 +664,7 @@ scene.addEventListener('enter-vr', () => {
   laptopPose = { position: camera.position.clone(), rotation: camera.rotation.clone() };
   el('rig').setAttribute('position', VR_POST);
   el('vr-post').setAttribute('visible', true);
-  scene.hidden = false;
+  syncSceneLifecycle();
   syncHeadset();
 });
 scene.addEventListener('exit-vr', () => {
@@ -593,7 +674,7 @@ scene.addEventListener('exit-vr', () => {
   el('camera').object3D.position.copy(laptopPose.position);
   el('camera').object3D.rotation.copy(laptopPose.rotation);
   laptopPose = null;
-  scene.hidden = !el('results').hidden;
+  syncSceneLifecycle();
 });
 function tick() {
   if (mode === 'compare') {
@@ -624,19 +705,29 @@ function frame(now) {
   const delta = (now - previousTime) / 1000;
   previousTime = now;
   const running = () => mode === 'drill' || mode === 'compare' || (mode === 'practice' && practiceStep === 2);
-  if (running() && !document.hidden) {
-    accumulator += Math.min(delta, 0.25);
-    while (accumulator >= sim.DT && running()) {
-      accumulator -= sim.DT;
-      tick();
-    }
-    refresh();
+  // XR owns visibility while a session exists; document.hidden alone must not freeze a visible headset.
+  const visible = scene.xrSession ? scene.xrSession.visibilityState === 'visible' : !document.hidden;
+  if (!running() || !visible) {
+    previousTime = null;
+    return;
   }
-  requestAnimationFrame(frame);
+  accumulator += Math.min(delta, 0.25);
+  let stepped = false;
+  while (accumulator >= sim.DT && running()) {
+    accumulator -= sim.DT;
+    tick();
+    stepped = true;
+  }
+  if (stepped) refresh();
 }
+window.AFRAME?.registerComponent('sim-driver', {
+  tick(time) { frame(time); },
+});
+scene.setAttribute('sim-driver', '');
+scene.addEventListener('renderstart', syncSceneLifecycle);
+syncSceneLifecycle();
 window.setInterval?.(pollBreathing, 2000);
 const savedRun = new URLSearchParams(location.search).get('run');
 if (savedRun) reopen(savedRun);
 if (scene.hasLoaded) createAllFigures();
 else scene.addEventListener('loaded', createAllFigures, { once: true });
-requestAnimationFrame(frame);

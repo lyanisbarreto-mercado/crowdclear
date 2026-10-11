@@ -23,7 +23,7 @@ Asset provenance and runtime limits are documented in [public/textures/concourse
 
 The crowd now has 60 people, scattered starting positions, varied walking speeds, and brief hesitation from some people when the incident occurs. Three queue columns keep the crowd inside the lobby. Clearing takes four seconds with a visible countdown; the route stays blocked until work finishes, and reopening remains separate. These game cues are simplified, not a validated model of panic.
 
-These behavior changes use simulation version 6. Older saved drills remain in the database, but the current player reports that it cannot replay their older rules.
+These behavior changes use simulation version 7. Older saved drills remain in the database, but the current player reports that it cannot replay their older rules.
 
 ## Audio (ElevenLabs)
 
@@ -33,21 +33,21 @@ To regenerate, put `ELEVENLABS_API_KEY` (or `ELEVEN_API_KEY`) in `.env` or `.env
 
 ## Breathing (Presage SmartSpectra, laptop only)
 
-A local helper in `sensor/` reads breathing rate from the laptop webcam with Presage's SmartSpectra SDK and posts it to the game server on the same machine. The page then shows a Breathing reading in the HUD and the headset panel, and the review compares practice with the drill. Readings below 50% confidence only show progress. Breathing data stays in memory on that machine; it is never saved, and the server only accepts readings from localhost (so never on Render). It cannot work inside a headset, which hides the face.
+A local helper in `sensor/` reads breathing rate from the laptop webcam with Presage's SmartSpectra SDK and posts it to the game server on the same machine. The page then shows a Breathing reading in the HUD and the headset panel, and the review compares practice with the drill. Readings below 50% confidence only show progress. Breathing data stays in memory on that machine and is never saved. Both reading and posting require localhost, so the sensor is unavailable on Render. A headset hides the face, so the camera cannot measure the person wearing it.
 
 1. Put `PRESAGE_API_KEY` in `.env.local` (from physiology.presagetech.com).
 2. `cd sensor && npm install` once (about 400 MB; Presage ships native builds for macOS Apple Silicon, Linux x64/arm64, and Windows x64).
 3. With `npm start` running, run `npm run sensor` in a second terminal, sit facing the camera with your chest in view, and allow about 30 seconds for the first reading.
 
-On Windows on ARM (Snapdragon), Presage has no native build: install and run the helper with an x64 Node from nodejs.org, which Windows runs under emulation (for example `C:
-ode-x64
-ode.exe C:
-ode-x64
-ode_modules
-pmin
-pm-cli.js install`, then `C:
-ode-x64
-ode.exe --env-file-if-exists=../.env.local presage.mjs` inside `sensor/`). It works but warns the camera is under 25 frames per second, so readings take longer to become confident.
+On Windows on ARM (Snapdragon), Presage has no native build. Install an x64 Node from nodejs.org, which Windows runs under emulation. If you extract Node to `C:\node-x64`, run these commands in PowerShell from the project root:
+
+```powershell
+cd sensor
+& C:\node-x64\node.exe C:\node-x64\node_modules\npm\bin\npm-cli.js install
+& C:\node-x64\node.exe --env-file-if-exists=../.env.local presage.mjs
+```
+
+The emulated helper can report a camera frame rate below 25 frames per second, so readings take longer to become confident.
 
 ## Test
 

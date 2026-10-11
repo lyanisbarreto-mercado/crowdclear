@@ -94,7 +94,7 @@ Door leaves animate with live simulation state. Labels explicitly say OPEN, CLOS
 
 The user requested a clearing delay and selected 60 people with restrained panic cues. Clearing now takes four simulated seconds. Keep the equipment and smoke visible and the door inaccessible during work; show the countdown on the gate controls and above the blocked exit. Ignore repeated clearing presses, then explicitly invite the player to reopen the door when work finishes. Other open routes remain available while clearing proceeds.
 
-Scatter starting positions and vary individual speeds; one quarter of the crowd hesitates briefly at the incident. Staff directions remain reliable. Stable three-column queues fit the crowd inside the lobby, and flow is balanced so prompt clearing plus redirection can evacuate everyone within the existing 60-second drill. All variation is seeded and repeatable for comparison; these are game cues, not validated crowd-psychology rules. Simulation version 6 prevents inaccurate replay of older drills.
+Scatter starting positions and vary individual speeds; one quarter of the crowd hesitates briefly at the incident. Staff directions remain reliable. Stable three-column queues fit the crowd inside the lobby, and flow is balanced so prompt clearing plus redirection can evacuate everyone within the existing 60-second drill. All variation is seeded and repeatable for comparison; these are game cues, not validated crowd-psychology rules. Simulation version 7 aligns live commands and replay at the incident tick and prevents inaccurate replay of older drills.
 
 ## Immersive input and results
 
