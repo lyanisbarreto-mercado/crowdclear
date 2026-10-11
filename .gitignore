@@ -5,3 +5,6 @@ node_modules/
 AGENTS.md
 task_plan.md
 .playwright-mcp/
+.neon
+# `neon skills` links these to .agents/skills with absolute paths, which break on other machines.
+.claude/skills/
