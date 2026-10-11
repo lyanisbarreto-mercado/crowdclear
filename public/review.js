@@ -90,15 +90,24 @@
   }
   // One report for laptop results/review and the headset score panel.
   function report({ result: r, score: s, total, commands = [], vitalsText = '' }) {
-    const peak = r.peakExit ? `Longest line: ${r.peakQueue} at Exit ${r.peakExit}` : '';
+    const peak = r.peakExit ? `Longest line: ${r.peakQueue} people at Exit ${r.peakExit}` : '';
     const entries = timelineEntries(commands);
+    // Laptop <dd> values; metrics/scoreLines reuse the same strings so VR cannot drift.
+    const values = {
+      evacuated: `${r.evacuated} / ${total}`,
+      time: `${s.seconds} seconds`,
+      exits: `${s.exits}`,
+      calmed: `${r.calmed}`,
+      panicking: `${r.panicking}`,
+      score: `${s.score}`
+    };
     const metrics = [
-      `People out: ${r.evacuated} / ${total}`,
-      `Time left: ${s.seconds} seconds`,
-      `Open exits: ${s.exits}`,
-      `Calmed: ${r.calmed}`,
-      `Still panicking: ${r.panicking}`,
-      `Score: ${s.score}`
+      `People out: ${values.evacuated}`,
+      `Time left: ${values.time}`,
+      `Open exits: ${values.exits}`,
+      `Calmed: ${values.calmed}`,
+      `Still panicking: ${values.panicking}`,
+      `Score: ${values.score}`
     ];
     const actionLines = entries[0]?.line === 'No actions taken.'
       ? ['Actions: none']
@@ -108,6 +117,7 @@
       tip: s.tip,
       outcome: outcome(r),
       peak,
+      values,
       metrics,
       timeline: entries,
       vitals: vitalsText,
@@ -115,9 +125,9 @@
       briefLines: [
         'Drill complete',
         s.message,
-        `People out: ${r.evacuated} / ${total}`,
-        `Calmed: ${r.calmed}`,
-        `Still panicking: ${r.panicking}`,
+        `People out: ${values.evacuated}`,
+        `Calmed: ${values.calmed}`,
+        `Still panicking: ${values.panicking}`,
         'Score panel is on your right.',
         vitalsText
       ].filter(Boolean),

@@ -435,36 +435,50 @@ function analyticsFor(s, commands = s.commands) {
 function finish() {
   ambience(false);
   stopMic();
-  const vitalsText = breathingSeen ? breathingSummary() : '';
-  el('breathing-review').hidden = !breathingSeen;
-  el('breathing-review').textContent = vitalsText;
-  el('vitals-card').hidden = !breathingSeen;
   // Headset has no page chrome — open the score panel once when the drill ends.
   if (laptopPose) scoreExpanded = true;
   showResults(state);
   showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
   save(lastRun);
 }
-function showResults(s) {
-  const stats = sim.stats(s);
-  const score = review.score(stats, s.open);
-  const summary = review.result(s);
-  el('result-evacuated').textContent = `${stats.evacuated} / ${s.people.length}`;
-  el('result-time').textContent = `${score.seconds} seconds`;
-  el('result-exits').textContent = `${score.exits}`;
-  el('result-calmed').textContent = `${summary.calmed}`;
-  el('result-panicking').textContent = `${summary.panicking}`;
-  el('result-score').textContent = `${score.score}`;
-  el('result-message').textContent = score.message;
-  el('result-tip').textContent = score.tip;
-  el('result-outcome').textContent = review.outcome(summary);
-  const peak = summary.peakExit
-    ? `Longest line: ${summary.peakQueue} people at Exit ${summary.peakExit}` : '';
-  el('result-peak').textContent = peak;
-  el('result-peak').hidden = !peak;
+function fillActionLog(entries) {
+  el('review-timeline').replaceChildren(...entries.map(entry => {
+    const item = document.createElement('li');
+    if (entry.time) {
+      const time = document.createElement('span');
+      time.className = 'log-time';
+      time.textContent = entry.time;
+      const label = document.createElement('span');
+      label.className = 'log-label';
+      label.textContent = entry.label;
+      item.append(time, label);
+    } else {
+      item.textContent = entry.label;
+    }
+    return item;
+  }));
+}
+function showResults(s, commands = s.commands) {
+  const report = analyticsFor(s, commands);
+  el('result-message').textContent = report.headline;
+  el('result-tip').textContent = report.tip;
+  el('result-outcome').textContent = report.outcome;
+  el('result-peak').textContent = report.peak;
+  el('result-peak').hidden = !report.peak;
+  el('result-evacuated').textContent = report.values.evacuated;
+  el('result-time').textContent = report.values.time;
+  el('result-exits').textContent = report.values.exits;
+  el('result-calmed').textContent = report.values.calmed;
+  el('result-panicking').textContent = report.values.panicking;
+  el('result-score').textContent = report.values.score;
+  fillActionLog(report.timeline);
+  el('breathing-review').textContent = report.vitals;
+  el('breathing-review').hidden = !report.vitals;
+  el('vitals-card').hidden = !report.vitals;
   el('results').hidden = false;
   // The results card replaces the scene on a laptop; in a headset the scene is the only view.
   syncSceneLifecycle();
+  return report;
 }
 let micStream = null;
 let micAnalyser = null;
@@ -572,24 +586,13 @@ async function reopen(id) {
 function showReview(run) {
   mode = 'review';
   lastRun = run;
-  instructions('DRILL DONE', 'Your drill', review.outcome(lastRun.result));
+  const report = analyticsFor(state, lastRun.commands);
+  instructions('DRILL DONE', 'Your drill', report.outcome);
   el('feedback').textContent = 'Try again, or change when you took one action. These results are for this game only.';
-  el('review-outcome').textContent = review.outcome(lastRun.result);
-  el('review-timeline').replaceChildren(...review.timelineEntries(lastRun.commands).map(entry => {
-    const item = document.createElement('li');
-    if (entry.time) {
-      const time = document.createElement('span');
-      time.className = 'log-time';
-      time.textContent = entry.time;
-      const label = document.createElement('span');
-      label.className = 'log-label';
-      label.textContent = entry.label;
-      item.append(time, label);
-    } else {
-      item.textContent = entry.label;
-    }
-    return item;
-  }));
+  el('review-outcome').textContent = report.outcome;
+  fillActionLog(report.timeline);
+  el('breathing-review').textContent = report.vitals;
+  el('vitals-card').hidden = !report.vitals;
   el('compare-action').replaceChildren(...lastRun.commands.map((c, i) => {
     const option = document.createElement('option');
     option.value = String(i);

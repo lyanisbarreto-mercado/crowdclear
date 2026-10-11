@@ -63,10 +63,31 @@ test('report mirrors laptop analytics fields for VR score text', () => {
     commands: [{ tick: 50, action: 'open-exit', target: 'B' }, { tick: 110, action: 'calm', target: 4 }],
     vitalsText: 'Breathing (Presage): 16 /min during the drill.'
   });
+  assert.deepEqual(report.values, {
+    evacuated: '30 / 30',
+    time: '30 seconds',
+    exits: '3',
+    calmed: '2',
+    panicking: '1',
+    score: '60'
+  });
+  assert.equal(report.peak, 'Longest line: 12 people at Exit B');
+  assert.equal(report.headline, 'Outstanding!');
+  assert.equal(report.vitals, 'Breathing (Presage): 16 /min during the drill.');
+  assert.deepEqual(report.metrics, [
+    'People out: 30 / 30',
+    'Time left: 30 seconds',
+    'Open exits: 3',
+    'Calmed: 2',
+    'Still panicking: 1',
+    'Score: 60'
+  ]);
   assert.ok(report.scoreLines.includes('Score: 60'));
   assert.ok(report.scoreLines.includes('Calmed: 2'));
   assert.ok(report.scoreLines.includes('Still panicking: 1'));
+  assert.ok(report.scoreLines.includes(report.peak));
   assert.ok(report.scoreLines.some(line => /Open door · Exit B/.test(line)));
-  assert.ok(report.scoreLines.includes('Breathing (Presage): 16 /min during the drill.'));
+  assert.ok(report.scoreLines.includes(report.vitals));
   assert.deepEqual(report.briefLines.slice(0, 2), ['Drill complete', 'Outstanding!']);
+  assert.equal(report.timeline.length, 2);
 });
