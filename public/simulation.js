@@ -6,6 +6,7 @@
   const EXITS = Object.keys(EXIT_X);
   const REDIRECT_COOLDOWN = 50; // ticks: staff need 5 s to move one group before taking the next order
   const SPACING = 0.65; // metres between people standing in an exit's line
+  const PERSONAL_SPACE = 0.55; // metres; closer pairs step apart instead of walking through each other
   const CALM_QUEUE = 10; // beyond this many waiting, each extra person slows the exit
   const CRUSH_DELAY = 0.05; // seconds added to the release interval per extra waiting person
   function createState({ blockedExit = null, hazardTick = null } = {}) {
@@ -75,7 +76,23 @@
         state.cooldown[exit] = 1.8 + CRUSH_DELAY * Math.max(0, crowd - CALM_QUEUE);
       }
     }
+    separate(state);
     return state;
+  }
+  // Fixed pair order keeps the push deterministic, so replays still reproduce exactly. A few passes,
+  // because fixing one close pair can push another pair together.
+  function separate(state) {
+    const present = state.people.filter(p => !p.evacuated);
+    for (let pass = 0; pass < 3; pass++) for (let i = 0; i < present.length; i++) {
+      for (let j = i + 1; j < present.length; j++) {
+        const a = present[i], b = present[j];
+        const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+        if (!d || d >= PERSONAL_SPACE) continue;
+        const push = (PERSONAL_SPACE - d) / 2 / d;
+        a.x -= dx * push; a.z -= dz * push;
+        b.x += dx * push; b.z += dz * push;
+      }
+    }
   }
   function stats(state) {
     const evacuated = state.people.filter(p => p.evacuated).length;
@@ -88,7 +105,7 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 4;
+  const VERSION = 5;
   const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;

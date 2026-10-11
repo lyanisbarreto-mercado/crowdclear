@@ -92,3 +92,18 @@ test('spreading the crowd early shortens the longest line and clears the venue s
   assert.ok(spread.peak < waited.peak, `longest line ${spread.peak} vs ${waited.peak}`);
   assert.ok(spread.ticks < waited.ticks, `cleared at ${spread.ticks} vs ${waited.ticks}`);
 });
+test('people keep a body width apart instead of walking through each other', () => {
+  const state = sim.createState({ hazardTick: 150 });
+  const schedule = [{ tick: 10, action: 'redirect', target: 'B' }];
+  let closest = Infinity;
+  while (!sim.isDone(state)) {
+    if (state.tick === 151) schedule.push({ tick: 151, action: 'clear-hazard', target: state.blockedExit }, { tick: 151, action: 'open-exit', target: state.blockedExit });
+    sim.step(state, schedule);
+    const present = state.people.filter(p => !p.evacuated);
+    for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) {
+      closest = Math.min(closest, Math.hypot(present[i].x - present[j].x, present[i].z - present[j].z));
+    }
+  }
+  assert.ok(closest >= 0.45, `closest pair ${closest.toFixed(2)} m`);
+  assert.equal(sim.stats(state).remaining, 0);
+});
