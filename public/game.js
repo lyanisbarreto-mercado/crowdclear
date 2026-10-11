@@ -226,6 +226,7 @@ function showReview(run) {
     return option;
   }));
   el('compare-form').hidden = !lastRun.commands.length;
+  el('compare-time').max = String(sim.DURATION);
   el('compare-time').value = lastRun.commands.length ? (lastRun.commands[0].tick * sim.DT).toFixed(1) : '';
   el('compare-result').textContent = lastRun.commands.length
     ? 'Pick one action and a new time. Every other action stays the same.'
