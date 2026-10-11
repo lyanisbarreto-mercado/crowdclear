@@ -5,12 +5,13 @@
   const secs = ticks => `${(ticks * sim.DT).toFixed(1)} s`;
   function result(state) {
     const { evacuated, remaining } = sim.stats(state);
-    return { evacuated, remaining, ticks: state.tick };
+    return { evacuated, remaining, ticks: state.tick, peakQueue: state.peak.size, peakExit: state.peak.exit };
   }
   function outcome(r) {
-    return r.remaining
+    const queue = r.peakExit ? ` Longest line: ${r.peakQueue} people at Exit ${r.peakExit}.` : '';
+    return (r.remaining
       ? `Time ran out after ${secs(r.ticks)}. ${r.evacuated} of ${r.evacuated + r.remaining} people evacuated; ${r.remaining} still inside.`
-      : `All ${r.evacuated} people evacuated in ${secs(r.ticks)}.`;
+      : `All ${r.evacuated} people evacuated in ${secs(r.ticks)}.`) + queue;
   }
   function timeline(commands) {
     return commands.length ? commands.map(c => `${secs(c.tick)} · ${LABELS[c.action]} ${c.target}`) : ['No actions taken during the drill.'];

@@ -29,3 +29,7 @@ test('comparison reports the measured difference and flags an unreproduced origi
   assert.match(review.comparison(run, later, cleared, 0)[0], /^Warning/);
   assert.equal(review.comparison(run, cleared, expired, 0)[3], 'The alternative evacuated 8 fewer people.');
 });
+test('outcome names the longest line when the run recorded one', () => {
+  assert.equal(review.outcome({ evacuated: 30, remaining: 0, ticks: 321, peakQueue: 14, peakExit: 'B' }),
+    'All 30 people evacuated in 32.1 s. Longest line: 14 people at Exit B.');
+});

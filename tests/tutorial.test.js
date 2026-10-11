@@ -97,8 +97,8 @@ test('a finished drill records only drill decisions and opens the review and res
   const run = ui.value('lastRun');
   assert.equal(ui.value('mode'), 'review');
   assert.equal(run.version, sim.VERSION);
-  assert.equal(JSON.stringify(run.initial), JSON.stringify(sim.createState({ blockedExit: 'A', hazardTick: 140 })));
-  assert.equal(run.commands.map(c => `${c.action}-${c.target}`).join(), 'clear-hazard-A,open-exit-A,redirect-B');
+  assert.equal(JSON.stringify(run.initial), JSON.stringify(sim.createState({ blockedExit: 'C', hazardTick: 140 })));
+  assert.equal(run.commands.map(c => `${c.action}-${c.target}`).join(), 'clear-hazard-C,open-exit-C,redirect-B');
   assert.ok(run.commands[0].tick >= 140);
   assert.ok(run.commands[2].tick >= 50);
   assert.equal(run.result.remaining, 0);
@@ -120,8 +120,9 @@ test('a blocked main exit left alone runs out of time and the review says so', (
   assert.equal(ui.element('compare-form').hidden, true);
   assert.equal(ui.element('review-timeline').children[0].textContent, 'No actions taken during the drill.');
   assert.ok(ui.value('lastRun.result.remaining') > 0);
-  assert.equal(ui.value('state.hazard'), 'A');
+  assert.equal(ui.value('state.hazard'), 'B', 'random 0 gives hazard tick 100, whose crowd heads for Exit B');
   assert.equal(ui.element('result-message').textContent, 'Keep building your skills!');
+  assert.match(ui.element('task-copy').textContent, /Longest line: \d+ people at Exit B\./);
 });
 test('comparison replays the original exactly and changes only the chosen action', () => {
   const ui = setup();
@@ -150,7 +151,7 @@ test('a finished drill is saved once with its scenario and the page address then
   const [url, options] = ui.requests[0];
   assert.equal(url, '/api/runs');
   assert.equal(options.method, 'POST');
-  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, blockedExit: "A", hazardTick: 140, commands: lastRun.commands, result: lastRun.result })'));
+  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, blockedExit: "C", hazardTick: 140, commands: lastRun.commands, result: lastRun.result })'));
   assert.deepEqual(ui.urls, [`?run=${ui.value('lastRun.id')}`]);
   assert.match(ui.element('save-status').textContent, /^Saved\./);
 });

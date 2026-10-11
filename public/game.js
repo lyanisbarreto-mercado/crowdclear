@@ -86,7 +86,7 @@ function refresh() {
     open.hidden = mode === 'practice' && exit !== 'B';
     redirect.hidden = mode === 'practice' && exit !== 'B';
     open.disabled = !available || state.open[exit] || hazard;
-    redirect.disabled = !available || !state.open[exit] || hazard || state.lastRedirect === exit || stats.remaining === 0;
+    redirect.disabled = !available || !state.open[exit] || hazard || state.lastRedirect === exit || stats.remaining === 0 || state.tick < state.redirectReady;
     open.classList.toggle('task-target', mode === 'practice' && practiceStep === 0 && exit === 'B');
     redirect.classList.toggle('task-target', mode === 'practice' && practiceStep === 1 && exit === 'B');
     for (const kind of ['open-exit', 'redirect']) {
@@ -151,7 +151,9 @@ function perform(action, target = 'B') {
       instructions('TASK 2 OF 2', 'Direct people to the new route', 'Redirect the crowd to Exit B. Watch the blue figures move toward the middle exit.');
     }
   } else {
-    el('feedback').textContent = `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
+    el('feedback').textContent = mode === 'drill'
+      ? `Well done! Part of the crowd is now heading to Exit ${target}. Staff can give the next direction in ${sim.REDIRECT_COOLDOWN * sim.DT} seconds.`
+      : `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
       instructions('PRACTICE COMPLETE', 'You have tried both actions', 'Opening an exit makes a route available; redirecting sends people toward it. Watch the response, then start a fresh timed drill when ready.');
