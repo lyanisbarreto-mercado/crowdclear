@@ -1,4 +1,4 @@
--- The initial state is rebuilt from blocked_exit: createState() has no other input, and version pins the rules.
+-- Rebuild scenarios from blocked_exit and hazard_tick; version pins simulation rules.
 CREATE TABLE IF NOT EXISTS runs (
     id uuid PRIMARY KEY,
     version integer NOT NULL,
@@ -7,3 +7,6 @@ CREATE TABLE IF NOT EXISTS runs (
     result jsonb NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Preserve existing saved rows; timed incidents add their schedule alongside the exit.
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS hazard_tick integer CHECK (hazard_tick BETWEEN 100 AND 200);

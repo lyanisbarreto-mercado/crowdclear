@@ -71,3 +71,15 @@ Next visible checkpoint: try these two tasks in the laptop prototype and check w
 - Results replace the scene at drill completion with evacuated people, whole seconds remaining, usable open exits, total score, and encouraging feedback.
 - Score formula: (evacuated + whole seconds remaining) × usable open exits. Thus 30 evacuated, 45 seconds, and 3 open exits gives 225. The sketch's 165 does not match that breakdown; display the formula explicitly.
 - Every outcome receives praise or an improvement tip. An incomplete evacuation invites another attempt and explains a specific action to try; no failure labels.
+
+## Latest scoring and hazard presentation
+
+Carol chose timing over open-door count: score is people evacuated plus whole seconds remaining when everyone finishes; incomplete runs receive points for people evacuated without a timing bonus. Open-exit count remains informational. Hazard obstruction and label are yellow; blocked/closed door is red and remains inaccessible until cleared and opened.
+
+Accepted end-screen hierarchy: lead with the score and encouraging outcome, then the action timeline and comparison controls as the learning follow-up. The score and encouragement lead; the action timeline and comparison controls follow directly below. Restart remains available after the review.
+
+## Mid-drill hazard: accepted refinement
+
+The independent drill starts with every exit open. Select the incident time between 10 and 20 seconds once per run. At that time, block the exit with the largest number of non-evacuated people heading toward it; ties use A/B/C order. Show the yellow obstruction, red inaccessible door, and a clear reaction instruction. Clearing remains immediate and reopening remains separate. Practice retains its predictable untimed Exit B tasks.
+
+Record incident time and the actual chosen exit. Original and alternative replay face that same fixed event even when a changed decision shifts the alternative crowd distribution. Saved-run validation re-simulates the original to verify the target was its busiest route. Simulation version is now 3; older versioned runs stay stored but are not replayed against new rules.

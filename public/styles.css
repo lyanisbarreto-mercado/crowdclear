@@ -123,3 +123,14 @@ a-scene { margin-inline: auto; border-radius: 12px; overflow: hidden; }
 #actions fieldset { border: 1px solid #596679; border-radius: 8px; margin: 0; padding: 10px; min-width: 0; }
 #actions legend { color: #e6da78; padding: 0 6px; font-weight: 700; }
 #actions fieldset button { display: block; width: 100%; margin: 6px 0; }
+
+/* Let the outcome lead, with learning controls immediately below it. */
+#review { width: 90%; margin: 24px auto; padding: 24px; border: 1px solid #596679; border-radius: 12px; background: #182230; }
+.play-layout:has(#results:not([hidden])) { display: flex; flex-direction: column; }
+.play-layout:has(#results:not([hidden])) .scene-wrap { order: -1; }
+.play-layout:has(#results:not([hidden])) #actions,
+.play-layout:has(#results:not([hidden])) #step-label,
+.play-layout:has(#results:not([hidden])) #task-title,
+.play-layout:has(#results:not([hidden])) #task-copy { display: none; }
+.play-layout:has(#results:not([hidden])) #instruction { text-align: center; }
+@media (max-width: 600px) { #review { width: 100%; padding: 16px; } }

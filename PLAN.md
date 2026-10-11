@@ -163,3 +163,9 @@ Next: Carol reviews tutorial checkmarks, per-exit controls, and the results comp
 - Skills `neon` and `neon-postgres` are in `.agents/skills/` (Codex, committed) and linked into `.claude/skills/` (Claude Code, gitignored because the links use absolute paths). `skills-lock.json` pins their hashes. The Neon MCP server is in Colin's user-level Claude Code config only.
 - Evidence: the real `server.js` routes against Neon created the `runs` table, saved a hazard-A run (201), treated the retry as already saved (200, one row), returned it on reopen with identical commands and result, and rejected a tampered result (422). In a browser, `?run=c7743bbf-…` reopened from Neon showed the three-action timeline and replayed exactly. That row stays in the table as the test record.
 - This network blocks outbound port 5432 (also outside the agent sandbox; a public port tester is refused too), so the test used Neon's serverless driver over port 443 with the same `query()` interface. Locally on this network, `npm start` with `DATABASE_URL` will report "Not saved"; Render connects normally over 5432.
+
+## Mid-drill reaction checkpoint
+
+Implemented timed hazard at the live busiest exit, with all exits initially open. Live alert, clear/open controls, original/alternative event locking, and database save/load retain the same scenario. Added nullable `hazard_tick` with an additive schema migration; no remote database operation performed here. Bumped simulation version to 3 to prevent inaccurate replay of older rules.
+
+Verification: `npm test` passed all 32 tests including timed incidents and PostgreSQL-compatible save/load. `git diff --check` passed. Browser/device verification and deployed migration remain pending. Current 60-second duration is preserved.

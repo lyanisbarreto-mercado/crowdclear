@@ -76,7 +76,7 @@ function refresh() {
     const hazard = state.hazard === exit;
     const status = hazard ? 'HAZARD · clear before opening' : state.open[exit] ? 'OPEN' : 'CLOSED';
     el(`status-${suffix}`).textContent = `Exit ${exit} · ${status} · ${stats.queues[exit]} heading here`;
-    el(`exit-${suffix}`).setAttribute('color', hazard ? '#e6da78' : state.open[exit] ? '#2ecc71' : '#e74c3c');
+    el(`exit-${suffix}`).setAttribute('color', state.open[exit] && !hazard ? '#2ecc71' : '#e74c3c');
     const available = active && (mode !== 'practice' || exit === 'B');
     const clear = el(`clear-hazard-${suffix}`);
     clear.hidden = mode === 'practice';
@@ -109,9 +109,9 @@ function refresh() {
   if (ghost) place(ghostFigures, ghost);
   syncHeadset();
 }
-function fresh(nextMode, blockedExit = nextMode === 'drill' ? EXITS[Math.floor(Math.random() * EXITS.length)] : null) {
+function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null) {
   mode = nextMode;
-  state = sim.createState({ blockedExit });
+  state = sim.createState({ blockedExit, hazardTick });
   initial = clone(state);
   ghost = null;
   lastRun = null;
@@ -128,7 +128,7 @@ function fresh(nextMode, blockedExit = nextMode === 'drill' ? EXITS[Math.floor(M
     instructions('TASK 1 OF 2', 'Open an alternative route', 'Open Exit B to give the crowd another route. Use the highlighted control for the closed exit in the middle.');
     el('feedback').textContent = 'No timer is running. Complete the task when you are ready.';
   } else {
-    instructions('INDEPENDENT DRILL', 'Restore the blocked route', `A hazard blocks Exit ${state.hazard}. Clear it, open the exit, and direct people toward available routes. You can also use the other open exits.`);
+    instructions('INDEPENDENT DRILL', 'Watch the crowd and stay ready', 'All exits start open. Between 10 and 20 seconds, a hazard will block the route most people are heading toward. Clear it, reopen the door, or redirect people to another route.');
     el('feedback').textContent = 'A fresh drill has started. Your practice actions have been cleared.';
   }
   createAllFigures();
@@ -186,7 +186,7 @@ async function save(run) {
   try {
     run.id = crypto.randomUUID();
     const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: run.id, version: run.version, blockedExit: run.initial.blockedExit, commands: run.commands, result: run.result }) });
+      body: JSON.stringify({ id: run.id, version: run.version, blockedExit: run.initial.blockedExit, hazardTick: run.initial.hazardTick, commands: run.commands, result: run.result }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Server error ${res.status}.`);
     if (lastRun !== run) return;
     history.replaceState(null, '', `?run=${run.id}`);
@@ -202,7 +202,7 @@ async function reopen(id) {
     const saved = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(saved.error || `Server error ${res.status}.`);
     if (saved.version !== sim.VERSION) throw new Error('It was recorded with a different simulation version, so it cannot be replayed.');
-    fresh('review', saved.blockedExit);
+    fresh('review', saved.blockedExit, saved.hazardTick ?? null);
     showReview({ ...saved, initial });
     el('save-status').textContent = 'Opened from the database. Replay checks that it reproduces its saved result.';
   } catch (error) {
@@ -333,7 +333,14 @@ function tick() {
     if (sim.isDone(state) && sim.isDone(ghost)) finishCompare();
     return;
   }
+  const incidentNow = mode === 'drill' && state.hazardTick !== null && state.tick === state.hazardTick;
   sim.step(state);
+  if (incidentNow) {
+    // Fix the original incident in the initial snapshot; alternatives face the same event.
+    initial.blockedExit = state.blockedExit;
+    instructions('HAZARD DETECTED', `Exit ${state.hazard} is blocked`, 'Clear the yellow obstruction, then reopen the red door. You can also direct people to another open exit.');
+    el('feedback').textContent = `Stay focused: Exit ${state.hazard} needs your attention. Choose a route to keep the crowd moving.`;
+  }
   if (mode === 'drill' && sim.isDone(state)) finish();
 }
 function frame(now) {

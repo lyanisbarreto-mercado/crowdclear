@@ -19,7 +19,7 @@ const post = body => fetch(`${base}/api/runs`, { method: 'POST', headers: { 'Con
 
 before(async () => {
   app.locals.db = new PGlite();
-  await app.locals.db.query(fs.readFileSync('schema.sql', 'utf8'));
+  await app.locals.db.exec(fs.readFileSync('schema.sql', 'utf8'));
   server = app.listen(0);
   await new Promise(resolve => server.once('listening', resolve));
   base = `http://localhost:${server.address().port}`;
@@ -64,4 +64,20 @@ test('without a database, saving reports that it is not set up instead of preten
   } finally {
     app.locals.db = db;
   }
+});
+
+test('timed incident saves and reopens with its fixed exit and onset', async () => {
+  const state = sim.createState({ hazardTick: 150 });
+  const schedule = [
+    { tick: 151, action: 'clear-hazard', target: 'A' },
+    { tick: 151, action: 'open-exit', target: 'A' },
+    { tick: 160, action: 'redirect', target: 'B' }
+  ];
+  while (!sim.isDone(state)) sim.step(state, schedule);
+  const timed = { id: '2c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f', version: sim.VERSION,
+    blockedExit: 'A', hazardTick: 150, commands: state.commands, result: review.result(state) };
+  assert.equal((await post(timed)).status, 201);
+  assert.deepEqual(await (await fetch(`${base}/api/runs/${timed.id}`)).json(), timed);
+  assert.equal((await post({ ...timed, hazardTick: 50 })).status, 400);
+  assert.equal((await post({ ...timed, blockedExit: 'C' })).status, 400);
 });

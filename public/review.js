@@ -36,7 +36,7 @@
       rejected ? `${rejected} scheduled action(s) could not happen at the new time. An exit must be cleared before it opens, and open before people can be redirected to it.` : ''
     ].filter(Boolean);
   }
-  // Score = (evacuated + whole seconds remaining) × usable open exits, as agreed in BRAND.md.
+  // Reward people evacuated and a completion-time bonus; door count is informational.
   function score(stats, open) {
     const seconds = Math.floor(stats.seconds);
     const exits = Object.values(open).filter(Boolean).length;
@@ -44,7 +44,7 @@
     const tip = stats.remaining === 0
       ? 'You helped everyone reach an exit. Try another drill to practice a different hazard.'
       : 'You are learning the controls. Next time, try clearing and opening the blocked exit early, then spread the crowd across open routes.';
-    return { seconds, exits, score: (stats.evacuated + seconds) * exits, message, tip };
+    return { seconds, exits, score: stats.evacuated + (stats.remaining === 0 ? seconds : 0), message, tip };
   }
   const api = { result, outcome, timeline, alternative, comparison, score };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

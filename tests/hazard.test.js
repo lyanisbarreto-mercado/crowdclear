@@ -31,3 +31,31 @@ test('targeted commands reproduce a hazard run without rerolling the scenario', 
   for (const c of state.commands) sim.act(replay, c.action, c.target);
   assert.deepEqual(replay, state);
 });
+
+test('mid-drill hazard waits for its tick and blocks the busiest exit', () => {
+  const state = sim.createState({ hazardTick: 100 });
+  assert.deepEqual(state.open, { A: true, B: true, C: true });
+  for (let i = 0; i < 100; i++) sim.step(state);
+  assert.equal(state.hazard, null);
+  sim.step(state);
+  assert.equal(state.hazard, 'A');
+  assert.equal(state.open.A, false);
+  assert.equal(state.hazardTick, 100);
+});
+test('hazard targets the actual busiest crowd after pre-incident redirection', () => {
+  const state = sim.createState({ hazardTick: 150 });
+  sim.act(state, 'redirect', 'B');
+  sim.act(state, 'redirect', 'C');
+  while (state.tick < 150) sim.step(state);
+  const q = sim.stats(state).queues;
+  const busiest = ['A', 'B', 'C'].reduce((best, e) => q[e] > q[best] ? e : best, 'A');
+  sim.step(state);
+  assert.equal(state.hazard, busiest);
+});
+test('an unattended mid-drill incident leaves people waiting for a reaction', () => {
+  for (const hazardTick of [100, 150, 200]) {
+    const state = sim.createState({ hazardTick });
+    while (!sim.isDone(state)) sim.step(state);
+    assert.ok(sim.stats(state).remaining > 0);
+  }
+});

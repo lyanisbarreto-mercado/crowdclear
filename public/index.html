@@ -76,20 +76,7 @@
 <p id="feedback" role="status" aria-live="polite">
 							Your task stays here until you complete it.
 						</p>
-						<section id="review" hidden aria-labelledby="review-heading">
-							<h4 id="review-heading">Your actions</h4>
-							<ol id="review-timeline"></ol>
-							<p id="save-status" role="status" aria-live="polite"></p>
-							<form id="compare-form">
-								<h4>Compare another decision</h4>
-								<label for="compare-action">Action to re-time</label>
-								<select id="compare-action"></select>
-								<label for="compare-time">New time (seconds into the drill)</label>
-								<input id="compare-time" type="number" min="0" max="90" step="0.1" required />
-								<button type="submit">Replay original and alternative</button>
-							</form>
-							<p id="compare-result" role="status" aria-live="polite"></p>
-						</section>
+
 						<button id="drill-btn" hidden>Start timed drill</button>
 						<p class="muted">
 							The fixed overhead view lets you watch all three routes.
@@ -103,10 +90,24 @@
     <div><dt>Time remaining</dt><dd id="result-time"></dd></div>
     <div><dt>Open exits</dt><dd id="result-exits"></dd></div>
     <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div></dl>
-    <p class="muted">Score = (evacuated + whole seconds remaining) × open exits</p>
+    <p class="muted">Score = people evacuated + timing bonus. Evacuate everyone to earn 1 bonus point per whole second remaining.</p>
   </div>
   <h3 id="result-message"></h3><p id="result-tip"></p>
 </section>
+<section id="review" hidden aria-labelledby="review-heading">
+							<h4 id="review-heading">Your actions</h4>
+							<ol id="review-timeline"></ol>
+							<p id="save-status" role="status" aria-live="polite"></p>
+							<form id="compare-form">
+								<h4>Compare another decision</h4>
+								<label for="compare-action">Action to re-time</label>
+								<select id="compare-action"></select>
+								<label for="compare-time">New time (seconds into the drill)</label>
+								<input id="compare-time" type="number" min="0" max="90" step="0.1" required />
+								<button type="submit">Replay original and alternative</button>
+							</form>
+							<p id="compare-result" role="status" aria-live="polite"></p>
+						</section>
 						<a-scene
 							embedded
 							xr-mode-ui="enabled: false"
