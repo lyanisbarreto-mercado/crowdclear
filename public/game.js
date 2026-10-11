@@ -300,7 +300,6 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   scoreExpanded = false;
   lastDoorSelection = null;
   selectedPersonId = null;
-  micLoudFor = 0;
   lastCalmAt = 0;
   stopMic();
   ambience(mode === 'drill');
@@ -596,10 +595,7 @@ function seekCompare(seconds = syncCompareReadout()) {
   refresh();
   syncHeadset();
 }
-let micStream = null;
-let micAnalyser = null;
-let micData = null;
-let micLoudFor = 0;
+let calmSpeech = null;
 let lastCalmAt = 0;
 const REASSURE_COOLDOWN_MS = 1200;
 function nowMs() {
@@ -639,39 +635,52 @@ function syncCooldownToast() {
   el('vr-cooldown-text')?.setAttribute('value', `${label} · ${remaining.toFixed(1)}s`);
 }
 function stopMic() {
-  micStream?.getTracks?.().forEach(track => track.stop());
-  micStream = null;
-  micAnalyser = null;
-  micData = null;
-  micLoudFor = 0;
+  if (calmSpeech) {
+    calmSpeech.onresult = null;
+    calmSpeech.onerror = null;
+    calmSpeech.onend = null;
+    try { calmSpeech.stop(); } catch { /* already stopped */ }
+    calmSpeech = null;
+  }
 }
-async function startMic() {
+function heardCalm(transcript) {
+  return /\bcalms?\b/i.test(String(transcript || ''));
+}
+function onCalmHeard() {
+  if (mode !== 'drill' || !calmTargets(1).length) return;
+  const now = nowMs();
+  if (now - lastCalmAt < REASSURE_COOLDOWN_MS) return;
+  lastCalmAt = now;
+  applyReassure();
+}
+// Tests and SpeechRecognition both call this when a transcript contains "calm".
+function hearCalmWord(transcript = 'calm') {
+  if (heardCalm(transcript)) onCalmHeard();
+}
+function startMic() {
   stopMic();
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
   try {
-    const media = window.navigator?.mediaDevices?.getUserMedia;
-    if (!media) return;
-    if (!audio && window.AudioContext) audio = new window.AudioContext();
-    await audio?.resume?.();
-    micStream = await media.call(window.navigator.mediaDevices, { audio: true });
-    if (!audio?.createAnalyser || !audio.createMediaStreamSource) return;
-    const source = audio.createMediaStreamSource(micStream);
-    micAnalyser = audio.createAnalyser();
-    micAnalyser.fftSize = 512;
-    source.connect(micAnalyser);
-    micData = new Uint8Array(micAnalyser.frequencyBinCount);
+    calmSpeech = new SpeechRecognition();
+    calmSpeech.continuous = true;
+    calmSpeech.interimResults = true;
+    calmSpeech.lang = 'en-US';
+    calmSpeech.onresult = event => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        hearCalmWord(event.results[i][0]?.transcript || '');
+      }
+    };
+    calmSpeech.onerror = () => { /* no-speech / aborted — onend restarts */ };
+    calmSpeech.onend = () => {
+      if (mode === 'drill' && calmSpeech) {
+        try { calmSpeech.start(); } catch { /* already started */ }
+      }
+    };
+    calmSpeech.start();
   } catch {
     stopMic();
   }
-}
-function micRms() {
-  if (!micAnalyser || !micData) return 0;
-  micAnalyser.getByteTimeDomainData(micData);
-  let sum = 0;
-  for (let i = 0; i < micData.length; i++) {
-    const v = (micData[i] - 128) / 128;
-    sum += v * v;
-  }
-  return Math.sqrt(sum / micData.length);
 }
 function reducedMotion() {
   return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
@@ -736,20 +745,6 @@ function playReassureVoice() {
   voice.play().catch(() => {
     if (generation === audioGeneration && sequence === voiceSequence) playingClip = null;
   });
-}
-function tryReassureFromMic(dt) {
-  // Moderate calm speech — not silence, not shouting. Brief pauses do not reset the hold.
-  if (mode !== 'drill') { micLoudFor = 0; return; }
-  if (!calmTargets(1).length) { micLoudFor = 0; return; }
-  const rms = micRms();
-  if (rms >= 0.02 && rms <= 0.22) micLoudFor += dt;
-  else micLoudFor = Math.max(0, micLoudFor - dt * 1.5);
-  const now = nowMs();
-  if (micLoudFor >= 0.22 && now - lastCalmAt >= REASSURE_COOLDOWN_MS) {
-    lastCalmAt = now;
-    micLoudFor = 0;
-    applyReassure();
-  }
 }
 let lastShakeTick = null;
 function maybeWorldShake() {
@@ -912,7 +907,7 @@ function vrCopy(text) {
     .replace(/\bClick\b/g, 'Point at')
     .replace(/\bclick\b/g, 'point at')
     .replace(/Point at the red blockage to Clear/g, 'Point at the red blockage and select twice to Clear')
-    .replace(/press Reassure/gi, 'speak to reassure');
+    .replace(/press Reassure/gi, 'say “calm”');
 }
 function syncHeadset() {
   if (!laptopPose) return;
@@ -1186,7 +1181,6 @@ function frame(now) {
     return;
   }
   accumulator += Math.min(delta, 0.25);
-  tryReassureFromMic(Math.min(delta, 0.25));
   let stepped = false;
   while (accumulator >= sim.DT && running()) {
     accumulator -= sim.DT;

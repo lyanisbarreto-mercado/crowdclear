@@ -109,7 +109,7 @@
     const tip = stats.remaining === 0
       ? 'Everyone got out. Try another drill.'
       : (stats.panicking > 0
-        ? 'Next time, reassure panicking guests (Reassure on laptop, or speak in VR), clear the blocked door early, then send people to open exits.'
+        ? 'Next time, reassure panicking guests (Reassure on laptop, or say “calm” in VR), clear the blocked door early, then send people to open exits.'
         : 'Next time, clear the blocked door early. Open it, then send people to open exits.');
     return { seconds, exits, score: stats.evacuated + (stats.remaining === 0 ? seconds : 0), message, tip };
   }

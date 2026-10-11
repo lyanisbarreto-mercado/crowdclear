@@ -795,12 +795,14 @@ test('headset practice copy points at Exit B and mic voice calms a panicker', ()
   assert.equal(ui.element('reassure-btn').hidden, true, 'Hold Reassure is not the VR calm path');
   assert.equal(ui.element('feedback').textContent, '', 'drill stays quiet — no person-X chatter');
   const before = ui.value('state.people.filter(p => p.panic).length');
-  ui.value('micRms = () => 0.2');
   ui.value('lastCalmAt = 0');
-  ui.value('tryReassureFromMic(0.5)');
+  ui.value('hearCalmWord("please stay calm")');
   assert.ok(ui.value('state.commands.some(c => c.action === "calm")'));
-  assert.ok(ui.value('state.people.filter(p => p.panic).length') < before, 'mic calm reduces panickers');
+  assert.ok(ui.value('state.people.filter(p => p.panic).length') < before, 'saying calm reduces panickers');
   assert.equal(ui.element('feedback').textContent, '', 'calm does not write drill feedback');
+  ui.value('lastCalmAt = 0');
+  assert.equal(ui.value('heardCalm("quiet please")'), false);
+  assert.equal(ui.value('heardCalm("calm down")'), true);
 });
 
 test('headset results text includes score fields after the drill without redundant outcome prose', () => {
