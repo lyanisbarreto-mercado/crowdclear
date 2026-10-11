@@ -25,7 +25,7 @@ Phases and gates come from [docs/plan/09-roadmap.md](docs/plan/09-roadmap.md). I
 - [ ] Desktop clicks and VR controller selection share the same handlers; controls and instructions live inside the 3D scene (shared handlers done; in-scene panel shows in VR only, since the laptop keeps the side panel per BRAND.md; headset untested)
 - [ ] `schema.sql`: `runs`, `commands`, `measurements` (`runs` done, with commands as jsonb; `measurements` only if sensing ships)
 - [ ] Save/load API: validated input, per-session write token, stable event IDs, non-blocking batched uploads (done except the write token, which an insert-only API doesn't need: the server replays each save and rejects mismatches; client run IDs make retries safe; one non-blocking upload per run)
-- [ ] **Gate · Crowd reroutes:** opening an exit changes paths; a run saves to Neon
+- [x] **Gate · Crowd reroutes:** opening an exit changes paths; a run saves to Neon (saved through the app's API on 2026-10-10)
 
 ## Hours 12–22 · Full loop
 

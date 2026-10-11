@@ -72,7 +72,7 @@ A fresh clone of `main` runs `npm ci` and `npm start` cleanly with `PORT=10000`:
 
 ### Neon saving (`DATABASE_URL`)
 
-1. console.neon.tech → the CrowdClear project → **Connect**. Pick the branch and database, keep connection pooling on, and copy the `postgresql://…?sslmode=require…` string.
+1. Copy the pooled `DATABASE_URL` from `.env.local` on Colin's machine (`neon link` wrote it), or from console.neon.tech → CrowdClear → **Connect** with connection pooling on.
 2. Render → the CrowdClear service → **Environment** → add `DATABASE_URL` with that string → save and deploy.
 3. On the live URL, finish a drill. The review should say "Saved." and the address should end in `?run=…`; reload it and the same review opens. In Neon's SQL Editor, `SELECT id, blocked_exit, result, created_at FROM runs ORDER BY created_at DESC LIMIT 5;` shows the row. The server creates the table at startup.
 4. Keep the string only in Render (and a local `.env` if needed); never in the repo or chat.
@@ -155,3 +155,11 @@ Next: Carol reviews tutorial checkmarks, per-exit controls, and the results comp
 - `npm test`: 28 pass, including a new check that a hazard at Exit A left alone runs out of time ("6 of 30 people evacuated"). Browser (PGlite-backed server): practice checkmarks; drill with Exit A blocked; clear and open A; results card (score 219) and review; comparison with opening moved to 20 s replayed exactly and cleared 19.8 s later; the saved link reopened the Exit A scenario; simulated headset grid ignored Open A while blocked and opened it after Clear A.
 - Measured mechanics (no action / clear and open at 0 s / clear and open at 30 s): hazard A 6 of 30 out at 90 s / 45.9 s / 75.9 s; hazard B 45.9 s / 45.9 s / 45.9 s; hazard C 24 of 30 out at 90 s / 45.9 s / 48.1 s. Nine alternating redirects are all accepted.
 - One browser run recorded 11 redirects that the test script did not issue; a rerun with a click logger saw only scripted clicks. Probably manual clicks in the visible test window; not reproduced.
+
+## Neon setup (Colin, October 10, night)
+
+- Neon CLI 8.3.5 signed in as Colin. Repo linked to project CrowdClear (`quiet-mouse-43259915`), branch `production`; `.neon` (gitignored) holds the IDs, `.env.local` (gitignored) holds `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_BRANCH`.
+- `neon.ts` declares nothing (`defineConfig({})`); `neon config plan` and `neon deploy` both reported "No changes", so Neon was not modified. `@neon/config` and `@neon/env` were added by `neon config init`.
+- Skills `neon` and `neon-postgres` are in `.agents/skills/` (Codex, committed) and linked into `.claude/skills/` (Claude Code, gitignored because the links use absolute paths). `skills-lock.json` pins their hashes. The Neon MCP server is in Colin's user-level Claude Code config only.
+- Evidence: the real `server.js` routes against Neon created the `runs` table, saved a hazard-A run (201), treated the retry as already saved (200, one row), returned it on reopen with identical commands and result, and rejected a tampered result (422). In a browser, `?run=c7743bbf-…` reopened from Neon showed the three-action timeline and replayed exactly. That row stays in the table as the test record.
+- This network blocks outbound port 5432 (also outside the agent sandbox; a public port tester is refused too), so the test used Neon's serverless driver over port 443 with the same `query()` interface. Locally on this network, `npm start` with `DATABASE_URL` will report "Not saved"; Render connects normally over 5432.

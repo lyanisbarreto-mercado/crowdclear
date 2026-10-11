@@ -25,7 +25,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 **P0. Unblock the demo (Colin, by 9 p.m.)**
 
 - [ ] Fix the Render deploy loop. The app starts cleanly from a fresh clone on Render's port, so the cause is a Render setting; read the service's Events and Logs (checks listed in PLAN.md, "Render").
-- [ ] Set `DATABASE_URL` on Render to the Neon connection string; finish one drill on the live URL, reload its link, confirm the row in Neon.
+- [ ] Copy `DATABASE_URL` into Render's Environment; the value is in Colin's local `.env.local` (written by `neon link`). Then finish one drill on the live URL and reload its link. *Neon side done: repo linked to project CrowdClear (`quiet-mouse-43259915`, branch `production`), `runs` table created, and save, retry, reopen, and replay verified against the real database.*
 - [ ] Open the live HTTPS URL on the headset: Enter headset view, press Clear/Open/Redirect with a controller, note where the platform and panel should move.
 
 **P1. Make it feel like VR (Colin, about 3 h)**
@@ -69,7 +69,7 @@ Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-dra
 - [x] Expose a completed run (initial state, version, tick-stamped actions, results); practice stays out of scored runs.
 - [x] Decision review data and text in `public/review.js`, including no actions, time expiry (now reachable: a hazard at A or C left alone), and early completion.
 - [x] Alternative replay from the same start and scenario, changing one action's time; the original reproduces exactly.
-- [x] Save/load with server-side replay validation and honest failure messages (`b60aafa`, scenario added in the merge). Live Neon check is P0.
+- [x] Save/load with server-side replay validation and honest failure messages (`b60aafa`, scenario added in the merge). Verified against the real Neon database; the Render variable is P0.
 - [x] Headset controls that press the page's own buttons (`e3cd908`, per-exit grid in the merge). Headset check is P0.
 - [x] Merge Lyanis's hazard/results branch with review, replay, saving, and headset work (`212243f`).
 - [ ] P0, P1 items above.
