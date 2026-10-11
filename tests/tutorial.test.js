@@ -26,8 +26,8 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   let tones = 0;
   const node = { connect: next => next || node, gain: { setValueAtTime() {} }, frequency: {}, start() { tones++; }, stop() {} };
   const context = vm.createContext({
-    window: { CrowdSimulation: sim, CrowdReview: review, CrowdAnnouncements: require('../public/announcements'), CrowdVoiceClips: clips, dispatchEvent() {},
-      Audio: class { constructor(src) { this.src = src; } play() { played.push(this.src); return Promise.resolve(); } pause() {} },
+    window: { CrowdSimulation: sim, CrowdReview: review, CrowdAnnouncements: require('../public/announcements'), CrowdAudioClips: clips, dispatchEvent() {},
+      Audio: class { constructor(src) { this.src = src; } play() { played.push(this.src); return Promise.resolve(); } pause() { played.push(`paused ${this.src}`); } },
       speechSynthesis: { cancel() {}, speak: u => spoken.push(u.text) }, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
       AudioContext: class { currentTime = 0; destination = {}; resume() {} createOscillator() { return { ...node }; } createGain() { return node; } } },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
@@ -229,6 +229,7 @@ test('the hazard sounds an alarm and both it and redirects are announced, unless
   practice(ui);
   assert.deepEqual(ui.spoken, ['Attention please. Proceed to Exit B.']);
   ui.click('drill-btn');
+  assert.equal(ui.spoken.at(-1), 'Attention. This is an evacuation drill. Please follow staff directions to the nearest open exit.');
   ui.playTicks(ui.value('state.hazardTick') + 1);
   const hazard = ui.value('state.hazard');
   assert.equal(ui.tones(), 6, 'six alarm tones');
@@ -237,7 +238,7 @@ test('the hazard sounds an alarm and both it and redirects are announced, unless
   assert.equal(ui.element('sound-btn').textContent, 'Sound: off');
   ui.click(`clear-hazard-${hazard.toLowerCase()}`); ui.click(`open-exit-${hazard.toLowerCase()}`);
   ui.click(`redirect-${hazard.toLowerCase()}`);
-  assert.equal(ui.spoken.length, 2, 'nothing more is spoken with sound off');
+  assert.equal(ui.spoken.length, 3, 'nothing more is spoken with sound off');
 });
 test('generated ElevenLabs clips play instead of the browser voice, with the browser voice for missing ones', () => {
   const ui = setup({ clips: ['redirect-B'] });
@@ -247,5 +248,17 @@ test('generated ElevenLabs clips play instead of the browser voice, with the bro
   ui.click('drill-btn');
   ui.playTicks(ui.value('state.hazardTick') + 1);
   assert.equal(ui.spoken.at(-1), `Attention. Exit ${ui.value('state.hazard')} is blocked. Staff, respond now.`, 'no clip for this line, so the browser voice reads it');
+});
+test('generated alarm and crowd ambience clips replace the synth beeps and run only during the drill', () => {
+  const ui = setup({ clips: ['alarm', 'ambience'] });
+  practice(ui);
+  assert.equal(ui.played.filter(src => src === '/audio/ambience.mp3').length, 0, 'no crowd noise during practice');
+  ui.click('drill-btn');
+  assert.ok(ui.played.includes('/audio/ambience.mp3'), 'crowd noise starts with the drill');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  assert.ok(ui.played.includes('/audio/alarm.mp3'));
+  assert.equal(ui.tones(), 0, 'the alarm clip replaces the synth beeps');
+  ui.play('drill');
+  assert.equal(ui.played.at(-1), 'paused /audio/ambience.mp3', 'crowd noise stops when the drill ends');
 });
 

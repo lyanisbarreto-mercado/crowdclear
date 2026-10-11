@@ -76,7 +76,7 @@ Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-dra
 - [x] Headset controls that press the page's own buttons (`e3cd908`, per-exit grid in the merge). Headset check is P0.
 - [x] Merge Lyanis's hazard/results branch with review, replay, saving, and headset work (`212243f`).
 - [ ] P0, P1 items above.
-- [ ] ElevenLabs voice: put `ELEVENLABS_API_KEY` in `.env`, run `npm run voice`, listen, commit `public/audio/*.mp3` and `clips.js` (pipeline in `4092db5`; the game falls back to the browser voice until then).
+- [x] ElevenLabs audio: seven spoken lines, a recorded alarm, and a looping crowd ambience generated with `npm run audio` and played in the game (browser voice and synth remain as fallbacks). Someone should listen once on the demo device.
 - [x] Hazard smoke and a railing on the VR post (`e4f64da`).
 - [ ] Keep tests and CI green; check the deployed build after each push.
 

@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --test test/*.test.js tests/*.test.js",
     "start": "node server.js",
-    "voice": "node --env-file-if-exists=.env scripts/generate-voice.js"
+    "audio": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/generate-audio.js"
   },
   "repository": {
     "type": "git",

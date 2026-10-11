@@ -111,12 +111,16 @@ function refresh() {
   if (ghost) place(ghostFigures, ghost);
   syncHeadset();
 }
-// Sound uses the browser's own synth and speech, so there are no audio files. Every spoken line also
-// appears in the feedback text and the headset panel, which double as captions.
+// Audio plays the ElevenLabs clips from scripts/generate-audio.js when present, else the browser's own synth
+// and speech. Every spoken line also appears in the feedback text and headset panel, which double as captions.
 let soundOn = true;
 let audio = null;
-function alarm() {
-  if (!soundOn || !audio) return;
+let playingClip = null;
+const clipIds = new Set(window.CrowdAudioClips || []);
+const clips = {};
+const clip = id => (clipIds.has(id) ? (clips[id] ??= new window.Audio(`/audio/${id}.mp3`)) : null);
+function beep() {
+  if (!audio) return;
   for (let i = 0; i < 6; i++) {
     const at = audio.currentTime + i * 0.25;
     const tone = audio.createOscillator();
@@ -130,9 +134,23 @@ function alarm() {
     tone.stop(at + 0.22);
   }
 }
-// Announcements play the ElevenLabs clips from scripts/generate-voice.js when present, else the browser's voice.
-const voiceClips = Object.fromEntries((window.CrowdVoiceClips || []).map(id => [id, null]));
-let playingClip = null;
+function alarm() {
+  if (!soundOn) return;
+  const siren = clip('alarm');
+  if (!siren) return beep();
+  // Quieter than the announcement that follows, so the voice stays clear over it.
+  siren.volume = 0.45;
+  siren.currentTime = 0;
+  siren.play().catch(beep);
+}
+function ambience(on) {
+  const crowd = clip('ambience');
+  if (!crowd) return;
+  if (!on || !soundOn) return crowd.pause();
+  crowd.loop = true;
+  crowd.volume = 0.25;
+  crowd.play().catch(() => {});
+}
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
@@ -141,17 +159,19 @@ function speak(text) {
 function announce(id) {
   if (!soundOn) return;
   const text = window.CrowdAnnouncements[id];
-  if (!(id in voiceClips)) return speak(text);
+  const voice = clip(id);
+  if (!voice) return speak(text);
   playingClip?.pause();
-  playingClip = voiceClips[id] ??= new window.Audio(`/audio/${id}.mp3`);
-  playingClip.currentTime = 0;
-  playingClip.play().catch(() => speak(text));
+  playingClip = voice;
+  voice.currentTime = 0;
+  voice.play().catch(() => speak(text));
 }
 function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null) {
   // Browsers only start audio after a user gesture; practice and drills begin from a click.
   if (!audio && window.AudioContext) audio = new window.AudioContext();
   audio?.resume();
   mode = nextMode;
+  ambience(mode === 'drill');
   state = sim.createState({ blockedExit, hazardTick });
   initial = clone(state);
   ghost = null;
@@ -173,6 +193,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   } else {
     instructions('INDEPENDENT DRILL', 'Watch the crowd and stay ready', 'All exits start open. Between 10 and 20 seconds, a hazard will block the route most people are heading toward. Clear it, reopen the door, or redirect people to another route.');
     el('feedback').textContent = 'A fresh drill has started. Your practice actions have been cleared.';
+    if (mode === 'drill') announce('drill-start');
   }
   createAllFigures();
   refresh();
@@ -208,6 +229,7 @@ function perform(action, target = 'B') {
   refresh();
 }
 function finish() {
+  ambience(false);
   showResults(state);
   showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
   save(lastRun);
@@ -307,6 +329,7 @@ el('drill-btn').addEventListener('click', () => fresh('drill'));
 el('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn;
   if (!soundOn) { window.speechSynthesis?.cancel(); playingClip?.pause(); }
+  ambience(mode === 'drill');
   el('sound-btn').textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
   el('sound-btn').setAttribute('aria-pressed', String(soundOn));
 });
