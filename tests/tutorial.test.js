@@ -21,8 +21,13 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   const scene = element('scene'); scene.hasLoaded = true;
   const requests = [];
   const urls = [];
+  const spoken = [];
+  let tones = 0;
+  const node = { connect: next => next || node, gain: { setValueAtTime() {} }, frequency: {}, start() { tones++; }, stop() {} };
   const context = vm.createContext({
-    window: { CrowdSimulation: sim, CrowdReview: review, dispatchEvent() {} },
+    window: { CrowdSimulation: sim, CrowdReview: review, dispatchEvent() {},
+      speechSynthesis: { cancel() {}, speak: u => spoken.push(u.text) }, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
+      AudioContext: class { currentTime = 0; destination = {}; resume() {} createOscillator() { return { ...node }; } createGain() { return node; } } },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
       createElement: () => element(Symbol()) },
     requestAnimationFrame() {}, Event: class {},
@@ -34,7 +39,7 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   vm.runInContext(fs.readFileSync('public/game.js', 'utf8'), context);
   const value = expression => vm.runInContext(expression, context);
   let clock = 0;
-  return { element, context, value, requests, urls, scene, click: id => element(id).listeners.click(),
+  return { element, context, value, requests, urls, scene, spoken, tones: () => tones, click: id => element(id).listeners.click(),
     play: whileMode => { while (value('mode') === whileMode) value('frame')(clock += 250); },
     playTicks: ticks => { while (value('state.tick') < ticks) value('frame')(clock += 250); } };
 }
@@ -216,4 +221,19 @@ test('clicking the doors plays practice and handles a hazard through the same bu
   const commands = ui.value('state.commands.length');
   door(ui.value(`['A','B','C'].find(e => e !== '${hazard}')`));
   assert.equal(ui.value('state.commands.length'), commands, 'redirect cooldown also applies to door clicks');
+});
+test('the hazard sounds an alarm and both it and redirects are announced, unless sound is off', () => {
+  const ui = setup();
+  practice(ui);
+  assert.deepEqual(ui.spoken, ['Attention please. Proceed to Exit B.']);
+  ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  const hazard = ui.value('state.hazard');
+  assert.equal(ui.tones(), 6, 'six alarm tones');
+  assert.equal(ui.spoken.at(-1), `Attention. Exit ${hazard} is blocked. Staff, respond now.`);
+  ui.click('sound-btn');
+  assert.equal(ui.element('sound-btn').textContent, 'Sound: off');
+  ui.click(`clear-hazard-${hazard.toLowerCase()}`); ui.click(`open-exit-${hazard.toLowerCase()}`);
+  ui.click(`redirect-${hazard.toLowerCase()}`);
+  assert.equal(ui.spoken.length, 2, 'nothing more is spoken with sound off');
 });

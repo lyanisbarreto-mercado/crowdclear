@@ -109,7 +109,34 @@ function refresh() {
   if (ghost) place(ghostFigures, ghost);
   syncHeadset();
 }
+// Sound uses the browser's own synth and speech, so there are no audio files. Every spoken line also
+// appears in the feedback text and the headset panel, which double as captions.
+let soundOn = true;
+let audio = null;
+function alarm() {
+  if (!soundOn || !audio) return;
+  for (let i = 0; i < 6; i++) {
+    const at = audio.currentTime + i * 0.25;
+    const tone = audio.createOscillator();
+    const gain = audio.createGain();
+    tone.type = 'square';
+    tone.frequency.value = i % 2 ? 660 : 880;
+    gain.gain.setValueAtTime(0.06, at);
+    gain.gain.setValueAtTime(0, at + 0.2);
+    tone.connect(gain).connect(audio.destination);
+    tone.start(at);
+    tone.stop(at + 0.22);
+  }
+}
+function announce(text) {
+  if (!soundOn || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(new window.SpeechSynthesisUtterance(text));
+}
 function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null) {
+  // Browsers only start audio after a user gesture; practice and drills begin from a click.
+  if (!audio && window.AudioContext) audio = new window.AudioContext();
+  audio?.resume();
   mode = nextMode;
   state = sim.createState({ blockedExit, hazardTick });
   initial = clone(state);
@@ -154,6 +181,7 @@ function perform(action, target = 'B') {
     el('feedback').textContent = mode === 'drill'
       ? `Well done! Part of the crowd is now heading to Exit ${target}. Staff can give the next direction in ${sim.REDIRECT_COOLDOWN * sim.DT} seconds.`
       : `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
+    announce(`Attention please. Proceed to Exit ${target}.`);
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
       instructions('PRACTICE COMPLETE', 'You have tried both actions', 'Opening an exit makes a route available; redirecting sends people toward it. Watch the response, then start a fresh timed drill when ready.');
@@ -260,6 +288,12 @@ function finishCompare() {
 el('start-btn').addEventListener('click', () => fresh('practice'));
 el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
+el('sound-btn').addEventListener('click', () => {
+  soundOn = !soundOn;
+  if (!soundOn) window.speechSynthesis?.cancel();
+  el('sound-btn').textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
+  el('sound-btn').setAttribute('aria-pressed', String(soundOn));
+});
 for (const exit of EXITS) {
   for (const action of ['clear-hazard', 'open-exit', 'redirect']) {
     el(`${action}-${exit.toLowerCase()}`).addEventListener('click', () => perform(action, exit));
@@ -361,6 +395,8 @@ function tick() {
     initial.blockedExit = state.blockedExit;
     instructions('HAZARD DETECTED', `Exit ${state.hazard} is blocked`, 'Clear the yellow obstruction, then reopen the red door. You can also direct people to another open exit.');
     el('feedback').textContent = `Stay focused: Exit ${state.hazard} needs your attention. Choose a route to keep the crowd moving.`;
+    alarm();
+    announce(`Attention. Exit ${state.hazard} is blocked. Staff, respond now.`);
   }
   if (mode === 'drill' && sim.isDone(state)) finish();
 }
