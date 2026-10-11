@@ -75,7 +75,7 @@
     const tip = stats.remaining === 0
       ? 'Everyone got out. Try another drill.'
       : (stats.panicking > 0
-        ? 'Next time, reassure panicking guests (mic or Hold Reassure), clear the blocked door early, then send people to open exits.'
+        ? 'Next time, reassure panicking guests (Reassure on laptop, or speak in VR), clear the blocked door early, then send people to open exits.'
         : 'Next time, clear the blocked door early. Open it, then send people to open exits.');
     return { seconds, exits, score: stats.evacuated + (stats.remaining === 0 ? seconds : 0), message, tip };
   }
@@ -121,23 +121,19 @@
       metrics,
       timeline: entries,
       vitals: vitalsText,
-      // Compact brief for the left VR instruction panel after the drill.
+      // Compact brief for the left VR instruction panel after the drill (no repeated metric prose / PA).
       briefLines: [
         'Drill complete',
         s.message,
-        `People out: ${values.evacuated}`,
-        `Calmed: ${values.calmed}`,
-        `Still panicking: ${values.panicking}`,
         'Score panel is on your right.',
         vitalsText
       ].filter(Boolean),
-      // Full analytics for the expandable VR score panel (mirrors laptop).
+      // Full analytics for the expandable VR score panel (mirrors laptop metrics + log + vitals).
       scoreLines: [
         s.message,
         ...metrics,
         peak,
         s.tip,
-        outcome(r),
         ...actionLines,
         vitalsText
       ].filter(Boolean)

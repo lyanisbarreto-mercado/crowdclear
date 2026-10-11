@@ -86,6 +86,7 @@
   });
 
   AFRAME.registerComponent('equipment-blockage', {
+    schema: { outlined: { default: false } },
     init() {
       const caseMaterial = 'color: #273440; roughness: 0.8';
       let html = `<a-entity position="-0.55 0.4 0.15">
@@ -105,7 +106,23 @@
         html += `<a-cylinder position="${x} 0.17 -0.4" radius="0.16" height="0.13" rotation="0 0 90" segments-radial="8" material="color: #101b28; roughness: 0.9"></a-cylinder>`;
       }
       html += box('-0.25 0.88 -0.72', [2.1, 0.07, 0.07], metal);
+      // Invisible hit volume so laptop/VR can click the blockage itself (same clear action as the door).
+      html += `<a-box class="vr-control block-hit" position="0 0.55 0" width="2.8" height="1.4" depth="1.6" material="visible: false"></a-box>`;
+      // Red outline frame — toggled via outlined when this exit is blocking.
+      const edge = 'shader: flat; color: #e5484d; emissive: #e5484d; emissiveIntensity: 0.55';
+      html += `<a-entity class="block-outline" visible="false">
+        ${box('0 1.25 0', [2.9, 0.05, 1.7], edge)}
+        ${box('0 0.05 0', [2.9, 0.05, 1.7], edge)}
+        ${box('-1.45 0.65 0', [0.05, 1.25, 1.7], edge)}
+        ${box('1.45 0.65 0', [0.05, 1.25, 1.7], edge)}
+        ${box('0 0.65 -0.85', [2.9, 1.25, 0.05], edge)}
+        ${box('0 0.65 0.85', [2.9, 1.25, 0.05], edge)}
+      </a-entity>`;
       this.el.innerHTML = html;
+      this.outline = this.el.querySelector('.block-outline');
+    },
+    update() {
+      this.outline?.setAttribute('visible', this.data.outlined);
     }
   });
 

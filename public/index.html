@@ -76,7 +76,8 @@
 						<p id="task-copy">
 							<strong class="word-open">Open</strong> the middle door, Exit B.
 						</p>
-						<div id="actions">
+						<!-- Hidden programmatic targets: laptop/VR act by clicking doors and the blockage in the scene. -->
+						<div id="actions" hidden>
 <fieldset id="exit-controls-a"><legend>Exit A</legend>
 <button id="clear-hazard-a" class="action-clear" hidden>Clear A · 4 s</button>
 <button id="open-exit-a" class="action-open">Open A<span class="completion-check" id="check-open-exit-a" aria-hidden="true" hidden> ✓</span></button>
@@ -97,7 +98,7 @@
 							Take your time. There is no timer.
 						</p>
 						<p id="pa-caption" class="pa-caption" aria-live="polite"></p>
-						<button id="reassure-btn" class="action-send" type="button" hidden>Hold Reassure</button>
+						<button id="reassure-btn" class="action-send" type="button" hidden>Reassure</button>
 
 						<button id="drill-btn" hidden>Start timed drill</button>
 						<p class="muted">
@@ -110,7 +111,6 @@
     <p class="result-kicker" id="results-title">Drill results</p>
     <h2 id="result-message"></h2>
     <p id="result-tip"></p>
-    <p id="result-outcome" class="result-outcome"></p>
     <p id="result-peak" class="result-peak" hidden></p>
     <dl class="result-metrics">
       <div><dt>People out</dt><dd id="result-evacuated"></dd></div>
@@ -120,12 +120,14 @@
       <div><dt>Still panicking</dt><dd id="result-panicking"></dd></div>
       <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div>
     </dl>
-    <p class="muted result-formula">1 point per person out. Clear the venue to earn 1 extra point per full second left.</p>
+    <div id="result-vitals" class="vitals-card" hidden>
+      <h4>Breathing vitals</h4>
+      <p id="result-breathing"></p>
+    </div>
   </div>
 </section>
 <section id="review" hidden aria-labelledby="review-heading">
 							<h3 id="review-heading">After-action review</h3>
-							<p id="review-outcome" class="review-outcome"></p>
 							<h4>Action log</h4>
 							<ol id="review-timeline" class="action-log"></ol>
 							<div id="vitals-card" class="vitals-card" hidden>
@@ -201,9 +203,10 @@
 									</a-entity>
 								</a-entity>
 							</a-entity>
-							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage></a-entity>
+							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage="outlined: false"></a-entity>
 							<a-entity id="hazard-smoke" visible="false" position="0 0 -11" hazard-puffs></a-entity>
 							<a-text id="hazard-label" font="aileronsemibold" visible="false" value="BLOCKED - CLEAR FIRST" position="0 3.8 -10.8" align="center" width="5" wrap-count="28" color="#ffd27d"></a-text>
+							<a-ring id="calm-fx" visible="false" radius-inner="0.28" radius-outer="0.62" rotation="-90 0 0" material="color: #9be7ff; opacity: 0.85; transparent: true; shader: flat"></a-ring>
 							<a-entity id="floor-effects" visible="false">
 								<a-entity position="-10.5 0 9.5" hazard-puffs="ground: true"></a-entity>
 								<a-entity position="10.5 0 9.5" hazard-puffs="ground: true"></a-entity>
@@ -220,7 +223,8 @@
 						</a-scene>
 						<p class="scene-caption">
 							Click a door to <span class="word-open">open</span> it or <span class="word-send">send people</span> there.
-							A <span class="word-clear">blocked</span> door must be cleared first. Wait 4 seconds, then open it.
+							Click the red-outlined blockage to <span class="word-clear">clear</span> a blocked exit, wait 4 seconds, then open it.
+							On a laptop, use <span class="word-send">Reassure</span> for panicking guests. In VR, speak to calm them.
 							Wireframe people show your first run. Solid people show the new one.
 						</p>
 					</div>

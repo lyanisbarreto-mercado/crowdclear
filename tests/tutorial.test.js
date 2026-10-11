@@ -12,7 +12,7 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
     if (!elements.has(id)) elements.set(id, {
       style: {},
       // Match index.html hidden defaults so failed loads do not look like an open results card.
-      hidden: typeof id === 'string' && /^(drill-btn|reassure-btn|results|review|vr-btn|breathing|breathing-review|vitals-card|result-peak|clear-hazard-|check-)/.test(id),
+      hidden: typeof id === 'string' && /^(drill-btn|reassure-btn|results|review|vr-btn|breathing|breathing-review|vitals-card|result-vitals|result-peak|clear-hazard-|check-|actions)/.test(id),
       disabled: false, _textContent: '', value: '',
       get textContent() { return this.children.length ? this.children.map(child => child.textContent).join('') : this._textContent; },
       set textContent(value) { this._textContent = value; this.children = []; },
@@ -113,17 +113,17 @@ test('practice waits indefinitely for its task and rejected redirect cannot adva
 test('plain action words keep their colors and floor effects follow the blocked exit', () => {
   const ui = setup();
   ui.click('start-btn');
-  assert.equal(ui.element('task-copy').textContent, 'Open the middle door, Exit B.');
-  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Open').classList.contains('word-open'));
+  assert.match(ui.element('task-copy').textContent, /middle door, Exit B/);
+  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Open')?.classList.contains('word-open'));
   assert.equal(ui.element('floor-effects').getAttribute('visible'), false);
   ui.click('open-exit-b');
-  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Send people').classList.contains('word-send'));
+  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Send people')?.classList.contains('word-send'));
   ui.click('redirect-b');
   ui.click('drill-btn');
   assert.equal(ui.element('step-label').textContent, `${sim.DURATION}-SECOND DRILL`);
   ui.playTicks(ui.value('state.hazardTick') + 1);
   const exit = ui.value('state.hazard').toLowerCase();
-  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Clear').classList.contains('word-clear'));
+  assert.ok(ui.element('task-copy').children.find(child => /clear/i.test(child.textContent))?.classList.contains('word-clear'));
   assert.equal(ui.element('floor-effects').getAttribute('visible'), true);
   ui.click(`clear-hazard-${exit}`);
   assert.equal(ui.element('floor-effects').getAttribute('visible'), true, 'fire and smoke stay during clearing');
@@ -155,16 +155,17 @@ test('both successful tasks unlock the drill and starting clears practice state'
   assert.equal(ui.value('practiceStep'), 0);
   assert.equal(ui.element('drill-btn').hidden, true);
 });
-test('yellow completion indicators appear only after successful practice actions and reset', () => {
+test('practice advances through door clicks without a visible action button bank', () => {
   const ui = setup(); ui.click('start-btn');
-  assert.equal(ui.element('check-open-exit-b').hidden, true);
-  ui.click('open-exit-b');
-  assert.equal(ui.element('check-open-exit-b').hidden, false);
-  assert.equal(ui.element('check-redirect-b').hidden, true);
-  ui.click('redirect-b');
-  assert.equal(ui.element('check-redirect-b').hidden, false);
+  assert.equal(ui.element('actions').hidden, true);
+  assert.equal(ui.value('practiceStep'), 0);
+  ui.element('door-target-b').listeners.click();
+  assert.equal(ui.value('practiceStep'), 1);
+  ui.element('door-target-b').listeners.click();
+  assert.equal(ui.value('practiceStep'), 2);
   ui.click('stop-btn');
-  assert.equal(ui.element('check-open-exit-b').hidden, true);
+  assert.equal(ui.value('practiceStep'), 0);
+  assert.equal(ui.element('actions').hidden, true);
 });
 test('a finished drill records only drill decisions and opens the review and results', () => {
   const ui = setup();
@@ -198,7 +199,8 @@ test('a blocked main exit left alone runs out of time and the review says so', (
   assert.ok(ui.value('lastRun.result.remaining') > 0);
   assert.ok(ui.value('state.hazards.includes("B")'), 'the first blocked exit remains inaccessible');
   assert.equal(ui.element('result-message').textContent, 'Try again');
-  assert.match(ui.element('task-copy').textContent, /Longest line: \d+ people at Exit B\./);
+  assert.match(ui.element('result-peak').textContent, /Longest line: \d+ people at Exit B/);
+  assert.match(ui.element('task-copy').textContent, /action log|different time/i);
 });
 test('comparison replays the original exactly and changes only the chosen action', () => {
   const ui = setup();
@@ -424,11 +426,12 @@ test('immersive hazard requires two selections and then a separate open action',
   select(6000);
   assert.equal(ui.value(`state.open.${exit}`), true);
 });
-test('immersive action panel contains drill navigation and reassure, not overlapping exit buttons', () => {
+test('immersive action panel contains drill navigation only — VR calm is voice, not Reassure', () => {
   const ui = setup();
   ui.value('createVrButtons()');
-  assert.equal(ui.value('vrButtons.length'), 3);
-  assert.ok(ui.value('vrButtons.some(b => b.source === document.getElementById("reassure-btn"))'));
+  assert.equal(ui.value('vrButtons.length'), 2);
+  assert.ok(!ui.value('vrButtons.some(b => b.source === document.getElementById("reassure-btn"))'));
+  assert.ok(ui.value('vrButtons.every(b => b.source === document.getElementById("drill-btn") || b.source === document.getElementById("stop-btn"))'));
 });
 
 test('immersive score can expand and collapse after the drill and resets for practice', () => {
@@ -731,7 +734,7 @@ test('immersive PA captions stay silent while laptop still speaks', () => {
   assert.equal(ui.spoken.at(-1), 'Attention please. Proceed to Exit B.');
 });
 
-test('headset practice copy points at Exit B and reassure calms a panicker', () => {
+test('headset practice copy points at Exit B and mic voice calms a panicker', () => {
   const ui = setup();
   ui.click('start-btn');
   ui.scene.xrSession = { visibilityState: 'visible' }; ui.scene.listeners['enter-vr']();
@@ -744,21 +747,24 @@ test('headset practice copy points at Exit B and reassure calms a panicker', () 
   assert.match(ui.element('vr-text').getAttribute('value'), /PRACTICE DONE/);
   ui.click('drill-btn');
   ui.playTicks(ui.value('state.hazardTick') + 1);
-  assert.match(ui.element('vr-text').getAttribute('value'), /Orange rings|panicking/i);
+  assert.match(ui.element('vr-text').getAttribute('value'), /Orange rings|panicking|speak/i);
   assert.match(ui.element('vr-text').getAttribute('value'), /SECOND DRILL|Help people|BLOCKED/i);
+  assert.equal(ui.element('reassure-btn').hidden, true, 'Hold Reassure is not the VR calm path');
   const id = ui.value('state.people.find(p => p.panic).id');
   ui.value(`selectPerson(${id})`);
-  assert.match(ui.element('feedback').textContent, new RegExp(`Reassure ${id}`));
+  assert.match(ui.element('feedback').textContent, /speak to reassure/i);
+  ui.value('micRms = () => 0.2');
+  ui.value('lastCalmAt = 0');
   let clock = 80_000;
-  for (let i = 0; i < 20 && ui.value(`state.people[${id}].panic`); i++) {
-    ui.click('reassure-btn');
+  for (let i = 0; i < 40 && ui.value(`state.people[${id}].panic`); i++) {
+    ui.value('tryReassureFromMic(0.5)');
     ui.componentTick(clock += 250);
   }
   assert.equal(ui.value(`state.people[${id}].panic`), false);
   assert.ok(ui.value('state.commands.some(c => c.action === "calm")'));
 });
 
-test('headset results text includes score fields after the drill', () => {
+test('headset results text includes score fields after the drill without redundant outcome prose', () => {
   const ui = setup();
   drillWithActions(ui);
   ui.value('laptopPose = {}');
@@ -770,8 +776,10 @@ test('headset results text includes score fields after the drill', () => {
   assert.match(panel, /Still panicking:/);
   assert.match(panel, /Actions:/);
   assert.match(panel, /Clear hazard|Open door|Redirect crowd|Reassure guest/);
-  assert.match(ui.element('vr-text').getAttribute('value'), /Drill complete|People out/);
-  assert.equal(ui.element('result-outcome').textContent, ui.value('review.outcome(lastRun.result)'));
+  assert.equal(panel.includes('Time is up.') || /people got out/.test(panel) && /still inside/.test(panel), false,
+    'long outcome prose must not clutter the VR score panel');
+  assert.match(ui.element('vr-text').getAttribute('value'), /Drill complete/);
+  assert.ok(!/PA:/.test(ui.element('vr-text').getAttribute('value') || ''), 'end-state VR brief must not show PA captions');
 });
 
 test('headset score panel mirrors Presage vitals from the laptop review', async () => {
@@ -788,6 +796,51 @@ test('headset score panel mirrors Presage vitals from the laptop review', async 
   ui.value('syncHeadset()');
   const vitals = 'Breathing (Presage): 16 /min in practice, 18 /min during the drill.';
   assert.equal(ui.element('breathing-review').textContent, vitals);
+  assert.equal(ui.element('result-breathing').textContent, vitals);
+  assert.equal(ui.element('result-vitals').hidden, false);
+  assert.equal(ui.element('vitals-card').hidden, false);
   assert.match(ui.element('vr-score-text').getAttribute('value'), /Breathing \(Presage\): 16 \/min in practice, 18 \/min during the drill/);
   assert.match(ui.element('vr-text').getAttribute('value'), /Breathing \(Presage\)/);
+});
+
+test('laptop door click clears a hazard on one click and shows a red outline', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  const hazard = ui.value('state.hazard');
+  assert.equal(ui.element('hazard-marker').getAttribute('equipment-blockage').outlined, true);
+  ui.element(`door-target-${hazard.toLowerCase()}`).listeners.click();
+  assert.ok(ui.value('state.clearingUntil') > ui.value('state.tick'), 'laptop single-click starts clearing');
+  ui.element('hazard-marker').listeners.click();
+  assert.ok(ui.value('state.clearingUntil') > ui.value('state.tick'), 'blockage click is the same clear action');
+});
+
+test('laptop Reassure plays a voice line and attempts calm; drill shake is sparse', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  assert.equal(ui.element('reassure-btn').hidden, false);
+  ui.click('reassure-btn');
+  assert.match(ui.spoken.at(-1) || ui.element('pa-caption').textContent, /safe|calm|Follow staff/i);
+  assert.ok(ui.value('state.commands.some(c => c.action === "calm")'));
+  let clock = 200_000;
+  const shakeAt = 225;
+  while (ui.value('state.tick') < shakeAt && ui.value('mode') === 'drill') ui.componentTick(clock += 250);
+  assert.equal(ui.value('lastShakeTick'), shakeAt, 'world shake fires on sparse drill ticks without touching sim RNG');
+});
+
+test('results omit scoring formula and long outcome prose; Presage stays on the results card', async () => {
+  let reading = { available: true, rate: 14, confidence: 90, stable: true, hint: '' };
+  const ui = setup({ fetch: async url => ({ ok: true, json: async () => (url === '/api/breathing' ? reading : {}) }) });
+  ui.click('start-btn');
+  await ui.value('pollBreathing()');
+  practice(ui); ui.click('drill-btn');
+  reading = { available: true, rate: 20, confidence: 80, stable: true, hint: '' };
+  await ui.value('pollBreathing()');
+  ui.play('drill');
+  assert.equal(ui.element('result-vitals').hidden, false);
+  assert.match(ui.element('result-breathing').textContent, /Breathing \(Presage\)/);
+  assert.equal(ui.element('pa-caption').textContent, '', 'PA captions clear at end-state');
+  assert.match(ui.element('task-copy').textContent, /action log|different time/i);
+  assert.ok(!/1 point per person/i.test(ui.element('results').textContent || ''));
 });

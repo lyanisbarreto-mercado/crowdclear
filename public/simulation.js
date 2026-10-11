@@ -101,11 +101,13 @@
     for (const p of state.people) {
       if (p.evacuated || !p.panic || state.tick <= p.pauseUntil) continue;
       if ((state.tick + p.id) % 17 === 0) p.heading = (p.heading + ((state.tick * 0.37 + p.id) % (Math.PI * 2))) % (Math.PI * 2);
+      // Wander from the person's current spot (often near an exit queue). Do not clamp into the
+      // lobby centre — the old z≥0.5 bound teleported door-line panickers when panic began.
       const move = p.speed * DT * 0.55;
       p.x += Math.sin(p.heading) * move;
       p.z += Math.cos(p.heading) * move;
       p.x = Math.max(-9.5, Math.min(9.5, p.x));
-      p.z = Math.max(0.5, Math.min(10.5, p.z));
+      p.z = Math.max(-10.5, Math.min(10.5, p.z));
     }
     for (const exit of EXITS) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);

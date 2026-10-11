@@ -88,6 +88,7 @@ test('report mirrors laptop analytics fields for VR score text', () => {
   assert.ok(report.scoreLines.includes(report.peak));
   assert.ok(report.scoreLines.some(line => /Open door · Exit B/.test(line)));
   assert.ok(report.scoreLines.includes(report.vitals));
-  assert.deepEqual(report.briefLines.slice(0, 2), ['Drill complete', 'Outstanding!']);
+  assert.ok(!report.scoreLines.includes(report.outcome), 'score panel must not repeat the long outcome prose');
+  assert.deepEqual(report.briefLines, ['Drill complete', 'Outstanding!', 'Score panel is on your right.', report.vitals]);
   assert.equal(report.timeline.length, 2);
 });

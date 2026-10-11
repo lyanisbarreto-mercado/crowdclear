@@ -211,16 +211,9 @@ button.action-clear:not(:disabled) { background: var(--word-clear); }
 }
 .eyebrow::first-letter { text-transform: uppercase; }
 #task-title { margin-bottom: 8px; }
-#actions { display: grid; gap: 10px; margin: 16px 0; }
-#actions fieldset {
-  margin: 0;
-  padding: 10px 12px 12px;
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-#actions legend { padding: 0 6px; font: 800 0.95rem/1 var(--display); color: var(--ink); }
-#actions fieldset button { display: block; width: 100%; margin-top: 8px; }
+/* Per-exit Clear/Open/Send bank stays in the DOM for tests/handlers but is not the laptop UI. */
+#actions[hidden] { display: none !important; }
+#reassure-btn { width: 100%; margin-top: 14px; }
 #feedback {
   margin: 16px 0 0;
   padding-top: 14px;
@@ -267,13 +260,13 @@ button.action-clear:not(:disabled) { background: var(--word-clear); }
   color: var(--ink);
 }
 #result-tip { max-width: 52ch; margin: 0 auto 14px; color: var(--muted); }
-.result-outcome, .result-peak {
+.result-peak {
   max-width: 54ch;
   margin: 0 auto 8px;
-  color: var(--ink);
+  color: var(--word-clear);
+  font-weight: 700;
   font-size: 0.98rem;
 }
-.result-peak { color: var(--word-clear); font-weight: 700; }
 .result-metrics { margin: 18px 0 0; display: grid; gap: 6px; }
 .result-metrics div {
   display: flex;
