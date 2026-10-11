@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const sim = require('../public/simulation');
+const review = require('../public/review');
 test('each exit can be selected as the fixed hazard scenario', () => {
   for (const exit of ['A', 'B', 'C']) {
     const state = sim.createState({ blockedExit: exit });
@@ -72,6 +73,63 @@ test('hazard targets the actual busiest crowd after pre-incident redirection', (
   const busiest = ['A', 'B', 'C'].reduce((best, e) => q[e] > q[best] ? e : best, 'A');
   sim.step(state);
   assert.equal(state.hazard, busiest);
+});
+test('incident-tick live redirects replay with identical commands, state, and results', () => {
+  for (const target of ['B', 'C']) {
+    const state = sim.createState({ hazardTick: 100 });
+    while (state.tick < state.hazardTick) sim.step(state);
+    assert.equal(sim.act(state, 'redirect', target), true);
+    sim.step(state);
+    const replay = sim.createState({ hazardTick: 100 });
+    while (replay.tick < state.tick) sim.step(replay, state.commands);
+    assert.deepEqual(replay.commands, state.commands, 'accepted live input must remain accepted in replay');
+    assert.deepEqual(replay, state, 'incident selection and motion must agree at the boundary');
+    while (!sim.isDone(state)) sim.step(state);
+    while (!sim.isDone(replay)) sim.step(replay, state.commands);
+    assert.deepEqual(review.result(replay), review.result(state));
+    assert.deepEqual(replay, state);
+  }
+});
+test('incident-tick redirects change the busiest exit before live and scheduled selection', () => {
+  const live = sim.createState({ hazardTick: 100 });
+  while (live.tick < live.hazardTick) sim.step(live);
+  assert.ok(sim.stats(live).queues.B > sim.stats(live).queues.C);
+  assert.equal(sim.act(live, 'redirect', 'C'), true);
+  const queues = sim.stats(live).queues;
+  assert.ok(queues.C > queues.A && queues.C > queues.B);
+  sim.step(live);
+  assert.equal(live.blockedExit, 'C');
+  const replay = sim.createState({ hazardTick: 100 });
+  while (replay.tick < live.tick) sim.step(replay, live.commands);
+  assert.equal(replay.blockedExit, 'C');
+  assert.deepEqual(replay, live);
+});
+test('comparison replays retain the original incident exit when alternative redirects change the busiest exit', () => {
+  const original = sim.createState({ hazardTick: 100 });
+  while (original.tick < original.hazardTick) sim.step(original);
+  assert.equal(sim.act(original, 'redirect', 'B'), true);
+  while (!sim.isDone(original)) sim.step(original);
+  const fixed = sim.createState({ blockedExit: original.blockedExit, hazardTick: original.hazardTick });
+  while (!sim.isDone(fixed)) sim.step(fixed, original.commands);
+  assert.deepEqual(fixed, original);
+  const alternative = sim.createState({ blockedExit: original.blockedExit, hazardTick: original.hazardTick });
+  const changed = [{ tick: 100, action: 'redirect', target: 'C' }];
+  while (alternative.tick <= alternative.hazardTick) sim.step(alternative, changed);
+  assert.deepEqual(alternative.commands, changed);
+  assert.equal(alternative.blockedExit, 'B', 'comparison uses the original incident, not a rerolled one');
+  assert.equal(alternative.hazard, 'B');
+});
+test('scheduled commands at the same tick preserve live input order', () => {
+  const live = sim.createState();
+  assert.equal(sim.act(live, 'open-exit', 'B'), true);
+  assert.equal(sim.act(live, 'redirect', 'B'), true);
+  sim.step(live);
+  const replay = sim.createState();
+  sim.step(replay, live.commands);
+  assert.deepEqual(replay, live);
+  const reversed = sim.createState();
+  sim.step(reversed, [...live.commands].reverse());
+  assert.deepEqual(reversed.commands, [{ tick: 0, action: 'open-exit', target: 'B' }]);
 });
 test('an unattended mid-drill incident leaves people waiting for a reaction', () => {
   for (const hazardTick of [100, 150, 200]) {

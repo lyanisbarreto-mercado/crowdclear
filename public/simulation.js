@@ -50,7 +50,8 @@
     return true;
   }
   function step(state, schedule = []) {
-    // Trigger before commands at this tick, so reaction commands replay consistently.
+    // Live input at this tick precedes the incident, so scheduled input must too.
+    schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action, c.target));
     if (state.hazardTick !== null && state.tick === state.hazardTick) {
       const queues = stats(state).queues;
       const exit = state.blockedExit || Object.keys(EXIT_X).reduce((best, e) => queues[e] > queues[best] ? e : best, 'A');
@@ -61,7 +62,6 @@
       state.redirectReady = state.tick;
       state.people.forEach(p => { if (!p.evacuated && p.id % 4 === 0) p.pauseUntil = state.tick + p.hesitation; });
     }
-    schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action, c.target));
     state.tick++;
     if (state.clearingUntil !== null && state.tick >= state.clearingUntil) {
       state.hazard = null;
@@ -121,7 +121,7 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 6;
+  const VERSION = 7;
   const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, CLEAR_DURATION, POPULATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;
