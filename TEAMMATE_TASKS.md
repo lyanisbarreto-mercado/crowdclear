@@ -18,7 +18,8 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 
 - **VR is not proven.** The live site does not deploy (Render loops on its startup page), so no headset has run it. In VR the player presses flat menu buttons on a panel; nothing in the world is interactive. No audio, primitive shapes.
 - **Decisions now matter (fixed in `6ba692a`).** Measured: no reaction leaves 15 to 20 people inside at 60 s; clearing and reopening at once clears everyone in 45.9 s (score 44); reacting 15 s late costs 14 to 15 points or fails.
-- **Still shallow.** 24 of 30 people start toward Exit A, so the hazard nearly always hits A. Redirects can be spammed between exits. People walk in straight lines through each other, and each exit lets one person out every 1.8 s however crowded it is.
+- **Deeper since `0eaf90f`.** The hazard now hits A, B, or C depending on the drill; redirects have a 5 s cooldown; a long line slows its exit, and the review names the longest line. Measured over all 101 hazard times: no reaction never clears; fixing at once clears in 52.8 s; fixing plus one good redirect in 37.5 s; spreading people early, then fixing, in 32.1 s with a 14-person longest line instead of 24.
+- **Still simple.** People walk in straight lines through each other, and the scene is primitive shapes.
 
 ## Tonight, in order
 
@@ -30,17 +31,17 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 
 **P1. Make it feel like VR (Colin, about 3 h)**
 
-- [ ] Point at the exit doors themselves. Trigger on a door does its next sensible action (clear hazard, then open, then send the crowd there). Same handler on a laptop when clicking the door. Keep the panel for instructions.
+- [x] Point at the exit doors themselves: a click or trigger on a door clears its hazard, opens it, or sends people there, through the page buttons (`ab6ddb9`). Laptop verified with real mouse raycasts.
 - [ ] Give the post presence: a balcony with a railing at the lobby edge, doors that visibly slide open, the hazard as smoke or flicker instead of a yellow box.
-- [ ] Audio: alarm at drill start, a short PA line on each redirect, positional sound at the hazard. Captions on the panel (Lyanis writes the lines).
+- [x] Audio: two-tone alarm when the hazard hits, spoken announcements for the hazard and each redirect, Sound on/off button; the feedback line and headset panel carry the same words (`5b91a4f`). Not positional. Lyanis can rewrite the lines in `game.js` (`announce(...)`).
 
 **P1. Make decisions matter (Colin builds; Lyanis decides the tuning, about 3 h)**
 
 - [x] The hazard strikes mid-drill (10 to 20 s) at the exit most people are heading to (Lyanis, `6ba692a`).
-- [ ] Vary which exit gets hit: spread the starting crowd across exits so the busiest exit is not always A.
-- [ ] Congestion: exits slow down when their queue is long, and the review shows peak queue per exit (CHECKLIST "max queue").
-- [ ] A redirect cooldown (or a limited number of staff orders) so spamming stops being the best play.
-- [ ] Raise the crowd to about 60 and retune so a slow or wrong call can still fail at 90 s.
+- [x] Vary which exit gets hit (`0eaf90f`).
+- [x] Congestion: a long line slows its exit, and the review names the longest line (`0eaf90f`).
+- [x] A 5 s redirect cooldown; spamming now scores below one well-chosen redirect (`0eaf90f`).
+- [x] Wrong or slow calls now fail within the 60 s drill without raising the crowd size (no reaction, redirect only, and a 15 s late fix all fail).
 
 **P2. Lyanis**
 

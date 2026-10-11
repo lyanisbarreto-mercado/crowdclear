@@ -175,3 +175,11 @@ Verification: `npm test` passed all 32 tests including timed incidents and Postg
 - Pulled Lyanis's mid-drill hazard, timing score, 60-second drill, and score-first end screen; `npm test` 32 pass locally and CI is green on that commit.
 - Measured (hazard at 10 s / 20 s): no reaction leaves 20 / 15 people inside; clearing and reopening 0.1 s after the incident clears everyone in 45.9 s (score 44); reacting 15 s later clears in 59.3 s / leaves 1 inside; redirecting to C alone leaves 10 / 7 inside. The busiest exit was A in every case, because 24 of 30 people start toward it.
 - Fixed: the comparison time box still allowed up to 90 s after the drill became 60 s, so 60 to 90 submitted and did nothing. Its maximum now comes from `sim.DURATION`.
+
+## Open issues pass (Colin, October 10, late night)
+
+- `0eaf90f` (VERSION 4): the hazard tick also picks the exit 24 of 30 people start toward, so hazards land on A, B, or C; a redirect needs 5 s before the next; an exit's release slows by 0.05 s per person beyond 10 standing in its line; the review names the longest line.
+- Measured over all 101 hazard ticks (cleared / average time / average score / longest line): no reaction 0 / - / 10 / 24; redirect only 0 / - / 20; fix 15 s late 0 / - / 26; fix at once 101 / 52.8 s / 37; fix and spam redirects 101 / 44.8 s / 45; fix and one good redirect 101 / 37.5 s / 52; spread at 1 s, then fix 101 / 32.1 s / 58 / 14.
+- `ab6ddb9`: doors are controls. A mouse click or controller trigger on a door presses the page button for its next step. Verified in Chromium with real mouse raycasts: hover highlight and pointer cursor, practice completed by two clicks on door B, a hazard cleared and reopened by clicking its door.
+- `5b91a4f`: alarm and spoken announcements (hazard, redirects) with a Sound toggle. In Chromium the audio context was running after the start click and speech was queued; nobody listened to it yet.
+- 38 tests pass. Real headset still untested; the IWER emulator (Meta Quest 3 profile) is paired on Colin's Chrome for the emulated check.

@@ -2,7 +2,7 @@
 
 Laptop-first evacuation training prototype for venue staff. Complete action-based practice, then run a timed stadium drill: open Exit B and redirect the crowd. Built with A-Frame and Express.
 
-A finished drill opens a decision review, can be replayed against one re-timed decision, and is saved to Postgres (Neon) so its link reopens it. Saving has been tested against an in-process Postgres (PGlite), not yet against the team's Neon database. Headset support is not yet verified. Crowd behavior is simplified, not a validated real-world evacuation model.
+A finished drill opens a decision review, can be replayed against one re-timed decision, and is saved to Postgres (Neon) so its link reopens it. Saving is verified against the team's Neon database; the live site needs `DATABASE_URL` set on Render. Headset support is not yet verified. Crowd behavior is simplified, not a validated real-world evacuation model.
 
 ## Run locally
 
