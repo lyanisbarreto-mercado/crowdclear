@@ -122,23 +122,29 @@
 						<a-scene
 							embedded
 							xr-mode-ui="enabled: false"
-							renderer="antialias: true"
-							background="color: #182230"
+							renderer="antialias: true; foveationLevel: 1"
+							background="color: #0f1b2b"
 						>
-							<a-sky color="#182230"></a-sky>
+							<a-sky color="#0f1b2b"></a-sky>
+							<a-entity light="type: hemisphere; color: #eef3ff; groundColor: #3a4658; intensity: 1.5"></a-entity>
+							<a-entity light="type: directional; color: #fff6e0; intensity: 0.7" position="-6 12 8"></a-entity>
 							<a-plane
 								rotation="-90 0 0"
 								width="24"
 								height="24"
-								color="#555b63"
+								material="color: #687284; roughness: 0.95"
 							></a-plane>
+							<!-- Green floor guidance strips toward each exit, as on a concourse evacuation route. -->
+							<a-plane rotation="-90 0 0" position="-8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.35; transparent: true; shader: flat"></a-plane>
+							<a-plane rotation="-90 0 0" position="0 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.35; transparent: true; shader: flat"></a-plane>
+							<a-plane rotation="-90 0 0" position="8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.35; transparent: true; shader: flat"></a-plane>
 
 							<a-box
 								position="0 1.5 -12"
 								width="24"
 								height="3"
 								depth="0.3"
-								color="#8a929d"
+								color="#6f7a8b"
 							></a-box>
 
 							<a-box
@@ -146,7 +152,7 @@
 								width="0.3"
 								height="3"
 								depth="24"
-								color="#8a929d"
+								color="#6f7a8b"
 							></a-box>
 
 							<a-box
@@ -154,7 +160,7 @@
 								width="0.3"
 								height="3"
 								depth="24"
-								color="#8a929d"
+								color="#6f7a8b"
 							></a-box>
 
 							<a-box
@@ -185,7 +191,7 @@
 							></a-box>
 
 							<a-entity id="rig">
-								<a-entity id="camera" camera position="0 22 18" rotation="-42 0 0"></a-entity>
+								<a-entity id="camera" camera position="0 16 14" rotation="-52 0 0"></a-entity>
 								<a-entity laser-controls="hand: left" raycaster="objects: .vr-control; far: 40"></a-entity>
 								<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 40"></a-entity>
 								<a-entity id="vr-post" visible="false">
@@ -202,24 +208,21 @@
 									</a-entity>
 								</a-entity>
 							</a-entity>
-							<a-text
-								value="A"
-								position="-8 3.5 -11"
-								align="center"
-								width="8"
-							></a-text>
-							<a-text
-								value="B"
-								position="0 3.5 -11"
-								align="center"
-								width="8"
-							></a-text>
-							<a-text
-								value="C"
-								position="8 3.5 -11"
-								align="center"
-								width="8"
-							></a-text>
+							<!-- Illuminated exit sign above door A. -->
+							<a-entity position="-8 2.55 -11.8">
+								<a-box width="2.8" height="0.8" depth="0.06" material="color: #1f9d57; emissive: #2fbf71; emissiveIntensity: 0.6"></a-box>
+								<a-text value="EXIT A" align="center" width="7" color="#ffffff" position="0 0 0.04"></a-text>
+							</a-entity>
+							<!-- Illuminated exit sign above door B. -->
+							<a-entity position="0 2.55 -11.8">
+								<a-box width="2.8" height="0.8" depth="0.06" material="color: #1f9d57; emissive: #2fbf71; emissiveIntensity: 0.6"></a-box>
+								<a-text value="EXIT B" align="center" width="7" color="#ffffff" position="0 0 0.04"></a-text>
+							</a-entity>
+							<!-- Illuminated exit sign above door C. -->
+							<a-entity position="8 2.55 -11.8">
+								<a-box width="2.8" height="0.8" depth="0.06" material="color: #1f9d57; emissive: #2fbf71; emissiveIntensity: 0.6"></a-box>
+								<a-text value="EXIT C" align="center" width="7" color="#ffffff" position="0 0 0.04"></a-text>
+							</a-entity>
 							<a-box id="hazard-marker" visible="false" position="0 0.6 -10.5" width="2.8" height="1.2" depth="1" color="#e6da78"></a-box>
 <!-- Smoke rising from the hazard; game.js moves it with the yellow obstruction. -->
 							<a-entity id="hazard-smoke" visible="false" position="0 0 -10.5">

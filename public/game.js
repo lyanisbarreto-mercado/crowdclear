@@ -16,30 +16,86 @@ const figures = [];
 const ghostFigures = [];
 const scene = document.querySelector('a-scene');
 
+// Live crowd: CC0 characters from Kenney's Mini Characters (public/models/kenney/License.txt), each with walk
+// and idle animations. The comparison's ghost crowd keeps simple wireframe shapes so the two crowds stay distinct.
+const CHARACTERS = ['female-a', 'male-a', 'female-b', 'male-b', 'female-c', 'male-c', 'female-d', 'male-d', 'female-e', 'male-e', 'female-f', 'male-f'];
+// All characters share one colour-map texture. Loaded once here: when 30 models decoded it in parallel, only one got
+// image data and three.js warned every frame about the rest.
+let characterTexture = null;
+function shareCharacterTexture(model) {
+  model.traverse(node => {
+    if (!node.isMesh || !node.material.map) return;
+    if (!characterTexture) {
+      const original = node.material.map;
+      characterTexture = new window.AFRAME.THREE.TextureLoader().load('/models/kenney/Textures/colormap.png');
+      Object.assign(characterTexture, { flipY: false, colorSpace: original.colorSpace, magFilter: original.magFilter, minFilter: original.minFilter });
+    }
+    node.material.map = characterTexture;
+  });
+}
+window.AFRAME?.registerComponent('walker', {
+  init() {
+    this.el.addEventListener('model-loaded', () => {
+      const model = this.el.getObject3D('mesh');
+      shareCharacterTexture(model);
+      const clip = name => model.animations.find(a => a.name === name);
+      this.mixer = new window.AFRAME.THREE.AnimationMixer(model);
+      this.walk = this.mixer.clipAction(clip('walk'));
+      this.idle = this.mixer.clipAction(clip('idle'));
+      this.idle.play();
+      // Start each person at a different point in the cycle so the crowd does not move in lockstep.
+      this.mixer.setTime(Math.random() * 2);
+    });
+  },
+  tick(time, delta) {
+    if (!this.mixer) return;
+    const moving = !!this.el.moving;
+    if (moving !== this.wasMoving) {
+      const [on, off] = moving ? [this.walk, this.idle] : [this.idle, this.walk];
+      on.reset().fadeIn(0.2).play();
+      off.fadeOut(0.2);
+      this.wasMoving = moving;
+    }
+    this.mixer.update(delta / 1000);
+  },
+});
 function createFigures(list, container, faded) {
   if (list.length) return;
-  state.people.forEach(() => {
+  state.people.forEach((_, i) => {
     const figure = document.createElement('a-entity');
-    const body = document.createElement('a-cylinder');
-    body.setAttribute('radius', '0.22');
-    body.setAttribute('height', '0.9');
-    body.setAttribute('position', '0 0.65 0');
-    const head = document.createElement('a-sphere');
-    head.setAttribute('radius', '0.23');
-    head.setAttribute('position', '0 1.3 0');
-    head.setAttribute('color', '#f4f7fb');
-    // Low-poly wireframe, not just a paler color, so the original crowd reads as different without color vision.
-    // Default segment counts make a wireframe so dense it looks solid at this camera distance.
     if (faded) {
+      const body = document.createElement('a-cylinder');
+      body.setAttribute('radius', '0.22');
+      body.setAttribute('height', '0.9');
+      body.setAttribute('position', '0 0.65 0');
+      const head = document.createElement('a-sphere');
+      head.setAttribute('radius', '0.23');
+      head.setAttribute('position', '0 1.3 0');
+      head.setAttribute('color', '#f4f7fb');
+      // Low-poly wireframe, not just a paler color, so the original crowd reads as different without color vision.
+      // Default segment counts make a wireframe so dense it looks solid at this camera distance.
       body.setAttribute('segments-radial', '6');
       body.setAttribute('segments-height', '1');
       head.setAttribute('segments-width', '6');
       head.setAttribute('segments-height', '4');
       [body, head].forEach(part => part.setAttribute('material', { wireframe: true, transparent: true, opacity: 0.6 }));
+      figure.append(body, head);
+      list.push({ figure, body });
+    } else {
+      // The ring at the feet carries the exit colour the cylinders used to; the model shows a person.
+      const ring = document.createElement('a-ring');
+      ring.setAttribute('radius-inner', '0.3');
+      ring.setAttribute('radius-outer', '0.46');
+      ring.setAttribute('rotation', '-90 0 0');
+      ring.setAttribute('position', '0 0.03 0');
+      const model = document.createElement('a-entity');
+      model.setAttribute('gltf-model', `/models/kenney/character-${CHARACTERS[i % CHARACTERS.length]}.glb`);
+      model.setAttribute('scale', '1.6 1.6 1.6');
+      model.setAttribute('walker', '');
+      figure.append(ring, model);
+      list.push({ figure, body: ring, model, x: null, z: null });
     }
-    figure.append(body, head);
     el(container).append(figure);
-    list.push({ figure, body });
   });
 }
 function createAllFigures() {
@@ -47,11 +103,20 @@ function createAllFigures() {
   createFigures(ghostFigures, 'ghost-crowd', true);
 }
 function place(list, s) {
-  list.forEach(({ figure, body }, i) => {
+  list.forEach((item, i) => {
+    const { figure, body, model } = item;
     const person = s.people[i];
     figure.setAttribute('visible', !person.evacuated);
     figure.setAttribute('position', `${person.x} 0 ${person.z}`);
     body.setAttribute('color', { A: '#f1d673', B: '#76bcff', C: '#d6a9ed' }[person.exit]);
+    if (!model) return;
+    // Face the direction of travel; the walker component plays walk while moving and idle otherwise.
+    const dx = person.x - (item.x ?? person.x);
+    const dz = person.z - (item.z ?? person.z);
+    model.moving = Math.hypot(dx, dz) > 0.001;
+    if (model.moving) figure.setAttribute('rotation', `0 ${Math.atan2(dx, dz) * 180 / Math.PI} 0`);
+    item.x = person.x;
+    item.z = person.z;
   });
 }
 function instructions(label, title, copy) {
