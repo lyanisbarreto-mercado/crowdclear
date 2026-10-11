@@ -327,3 +327,43 @@ test('without a breathing sensor nothing about breathing is shown', async () => 
   assert.equal(ui.element('breathing-review').hidden, true);
 });
 
+
+test('immersive hazard requires two selections and then a separate open action', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  ui.value('laptopPose = {}');
+  const exit = ui.value('state.hazard');
+  const select = timeStamp => ui.value('pressDoor')(exit, { timeStamp });
+  select(1000);
+  assert.equal(ui.value('state.hazard'), exit, 'one selection must not clear');
+  select(1250);
+  assert.equal(ui.value('state.hazard'), exit, 'two selections start clearing');
+  assert.ok(ui.value('state.clearingUntil') > ui.value('state.tick'));
+  select(1400);
+  assert.equal(ui.value(`state.open.${exit}`), false, 'cannot reopen during clearing');
+  ui.playTicks(ui.value('state.clearingUntil'));
+  assert.equal(ui.value('state.hazard'), null);
+  assert.equal(ui.value(`state.open.${exit}`), false);
+  select(6000);
+  assert.equal(ui.value(`state.open.${exit}`), true);
+});
+test('immersive action panel contains only drill navigation, not overlapping exit buttons', () => {
+  const ui = setup();
+  ui.value('createVrButtons()');
+  assert.equal(ui.value('vrButtons.length'), 2);
+});
+
+test('immersive score can expand and collapse after the drill and resets for practice', () => {
+  const ui = setup(); drillWithActions(ui);
+  ui.value('laptopPose = {}');
+  ui.click('vr-score-toggle');
+  assert.equal(ui.value('scoreExpanded'), true);
+  ui.click('vr-score-toggle');
+  assert.equal(ui.value('scoreExpanded'), false);
+  ui.click('vr-score-toggle');
+  ui.click('stop-btn');
+  assert.equal(ui.value('scoreExpanded'), false);
+  ui.click('vr-score-toggle');
+  assert.equal(ui.value('scoreExpanded'), false, 'no stale score opens during practice');
+});
