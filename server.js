@@ -48,11 +48,19 @@ app.post("/api/runs", async (req, res) => {
         return res.status(422).json({ error: "The server's replay did not reproduce this result." });
     }
     // The client picks the id, so a retried save hits the conflict instead of storing a duplicate.
+    const values = [id, version, blockedExit, hazardTick, JSON.stringify(state.commands), JSON.stringify(actual)];
     const { rows } = await req.app.locals.db.query(
         "INSERT INTO runs (id, version, blocked_exit, hazard_tick, commands, result) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb) ON CONFLICT (id) DO NOTHING RETURNING id",
-        [id, version, blockedExit, hazardTick, JSON.stringify(state.commands), JSON.stringify(actual)],
+        values,
     );
-    res.status(rows.length ? 201 : 200).json({ id });
+    if (rows.length) return res.status(201).json({ id });
+    // A separate query sees the winning insert even when the conflicting request was concurrent.
+    const existing = await req.app.locals.db.query(
+        "SELECT id FROM runs WHERE id = $1 AND version = $2 AND blocked_exit = $3 AND hazard_tick IS NOT DISTINCT FROM $4 AND commands = $5::jsonb AND result = $6::jsonb",
+        values,
+    );
+    if (!existing.rows.length) return res.status(409).json({ error: "This id already belongs to a different drill record." });
+    res.json({ id });
 });
 
 app.get("/api/runs/:id", async (req, res) => {
@@ -65,11 +73,14 @@ app.get("/api/runs/:id", async (req, res) => {
 });
 
 // Latest breathing reading from the local Presage helper (sensor/presage.mjs). Biometric, so it stays in memory
-// on this machine and is never saved. Only the helper on the same machine may post; behind Render's proxy this is never true.
+// on this machine and is never saved. Reading and posting require the same machine's socket; Render's proxy does not qualify.
 const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 let breathing = null;
+app.use("/api/breathing", (req, res, next) => {
+    if (!LOOPBACK.has(req.socket.remoteAddress)) return res.status(403).json({ error: "Readings are only available on this machine." });
+    next();
+});
 app.post("/api/breathing", (req, res) => {
-    if (!LOOPBACK.has(req.socket.remoteAddress)) return res.status(403).json({ error: "Readings are only accepted from this machine." });
     const { rate = null, confidence = 0, stable = false, hint = "" } = req.body ?? {};
     const valid = (rate === null || (typeof rate === "number" && rate >= 0 && rate <= 80))
         && typeof confidence === "number" && confidence >= 0 && confidence <= 100 && typeof hint === "string" && hint.length <= 200;

@@ -29,10 +29,19 @@ sdk.on('metrics', buf => {
   if (Date.now() - lastPost > 1000) post();
 });
 sdk.on('validationStatus', (code, ts, hint) => {
-  reading = { ...reading, hint: code === ValidationCode.kOk ? '' : hint };
+  if (code === ValidationCode.kOk) {
+    reading = { ...reading, hint: '' };
+    if (reading.rate !== null) return;
+  } else {
+    reading = { rate: null, confidence: 0, stable: false, hint: hint.slice(0, 200) };
+  }
   post();
 });
-sdk.on('error', (code, message) => console.error(`SmartSpectra error ${code}: ${message}`));
+sdk.on('error', (code, message) => {
+  console.error(`SmartSpectra error ${code}: ${message}`);
+  reading = { rate: null, confidence: 0, stable: false, hint: message.slice(0, 200) };
+  post();
+});
 
 sdk.useCamera(CameraSelection.default);
 sdk.start();

@@ -1,5 +1,6 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const os = require('node:os');
 const app = require('../server');
 
 let server;
@@ -27,4 +28,24 @@ test('readings that are not breathing data are refused', async () => {
   assert.equal((await post({ rate: 500, confidence: 80 })).status, 400);
   assert.equal((await post({ rate: 15, confidence: 900 })).status, 400);
   assert.equal((await post({ rate: 'fast', confidence: 80 })).status, 400);
+});
+
+test('network clients cannot read or replace local breathing data', async t => {
+  const address = Object.values(os.networkInterfaces()).flat().find(info => !info.internal && info.family === 'IPv4')?.address;
+  if (!address) return t.skip('No non-loopback IPv4 interface is available.');
+  await post({ rate: 18, confidence: 83, stable: true, hint: '' });
+  const url = `http://${address}:${server.address().port}/api/breathing`;
+  for (const method of ['GET', 'POST']) {
+    const res = await fetch(url, {
+      method, signal: AbortSignal.timeout(3000),
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '127.0.0.1' },
+      ...(method === 'POST' ? { body: JSON.stringify({ rate: 1, confidence: 99 }) } : {})
+    });
+    assert.equal(res.status, 403, `${method} must use the socket address, not forwarded headers`);
+    const body = await res.json();
+    assert.deepEqual(Object.keys(body), ['error'], 'denial must contain no biometric fields');
+    assert.equal(typeof body.error, 'string');
+  }
+  const local = await (await fetch(`${base}/api/breathing`)).json();
+  assert.equal(local.rate, 18, 'a denied write leaves the local reading intact');
 });
