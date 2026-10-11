@@ -742,10 +742,17 @@ let vrButtons = [];
 let laptopPose = null;
 let scoreExpanded = false;
 let lastDoorSelection = null;
+function vrCopy(text) {
+  // Same steps as the laptop card; only the verb changes for pointing.
+  return String(text || '')
+    .replace(/\bClick\b/g, 'Point at')
+    .replace(/\bclick\b/g, 'point at')
+    .replace(/Point at the red blockage to Clear/g, 'Point at the red blockage and select twice to Clear')
+    .replace(/press Reassure/gi, 'speak to reassure');
+}
 function syncHeadset() {
   if (!laptopPose) return;
   const hasResults = !el('results').hidden;
-  const caption = el('pa-caption').textContent;
   const liveBreathing = el('breathing').hidden ? '' : el('breathing').textContent;
   let lines;
   if (hasResults) {
@@ -764,23 +771,16 @@ function syncHeadset() {
       el('result-tip').textContent,
       el('result-breathing')?.textContent || el('breathing-review').textContent
     ]).filter(Boolean).join('\n\n').replace(/·/g, '-'));
-  } else if (mode === 'practice') {
-    // Mirror laptop step labels: STEP 1/2 → open B, STEP 2/2 → send to B, then start drill.
-    lines = [
-      ...(practiceStep === 0
-        ? ['STEP 1 OF 2', 'Open Exit B', 'Point at Exit B and select to open it.']
-        : practiceStep === 1
-          ? ['STEP 2 OF 2', 'Send people to B', 'Point at Exit B and select to send people there.']
-          : ['PRACTICE DONE', 'Ready for the drill', 'Start the timed drill when ready.']),
-      caption, liveBreathing];
-    el('vr-score-text').setAttribute('value', ' ');
   } else {
-    lines = [
-      el('step-label').textContent || `${sim.DURATION}-SECOND DRILL`,
-      el('task-title').textContent,
-      'Point at doors to clear (select twice), open, or send people.',
-      'Orange rings are panicking. Speak to calm them.',
-      el('feedback').textContent, caption, liveBreathing];
+    // Mirror the laptop instruction card (and PA caption text) so practice/drill steps stay in sync.
+    // Audio stays off in VR; the caption still appears on the panel like the laptop HUD.
+    const task = vrCopy(el('task-copy').textContent);
+    const feedback = vrCopy(el('feedback').textContent);
+    const caption = el('pa-caption').textContent;
+    const vrExtra = mode === 'drill'
+      ? 'Blocked doors: select twice to clear. Speak to calm orange rings.'
+      : '';
+    lines = [el('step-label').textContent, el('task-title').textContent, task, feedback, caption, vrExtra, liveBreathing];
     el('vr-score-text').setAttribute('value', ' ');
   }
   const hud = hasResults ? [] : [el('evacuated').textContent, el('timer').textContent];
@@ -811,17 +811,19 @@ function hoverControl(button, canInteract) {
 }
 function createVrButtons() {
   // Navigation only — VR calms via microphone, not a Hold Reassure control.
+  // Buttons sit on the instruction panel plane so controller rays hit the visible mesh.
   const layout = [
-    { id: 'drill-btn', col: 0, row: 0 },
-    { id: 'stop-btn', col: 1, row: 0 }
+    { id: 'drill-btn', col: 0 },
+    { id: 'stop-btn', col: 1 }
   ];
-  vrButtons = layout.map(({ id, label, col, row }) => {
+  vrButtons = layout.map(({ id, label, col }) => {
     const source = el(id);
     const button = document.createElement('a-entity');
     button.classList.add('vr-control');
-    button.setAttribute('geometry', { primitive: 'plane', width: 0.6, height: 0.16 });
-    button.setAttribute('position', `${(col - 0.5) * 0.65} ${-row * 0.2} 0.01`);
-    button.setAttribute('text', { align: 'center', width: 0.56, wrapCount: 22, color: '#ffffff' });
+    button.setAttribute('geometry', { primitive: 'plane', width: 0.56, height: 0.2 });
+    button.setAttribute('position', `${(col - 0.5) * 0.6} 0 0`);
+    button.setAttribute('material', { color: '#2f7de1', shader: 'flat', opacity: 1, transparent: false });
+    button.setAttribute('text', { align: 'center', width: 0.52, wrapCount: 18, color: '#ffffff', zOffset: 0.012 });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
     button.addEventListener('click', evt => { if (shown(source) && !source.disabled) { source.click(); buzz(evt); } });
     hoverControl(button, () => shown(source) && !source.disabled);
@@ -919,6 +921,12 @@ scene.addEventListener('enter-vr', () => {
   const camera = el('camera').object3D;
   laptopPose = { position: camera.position.clone(), rotation: camera.rotation.clone() };
   el('rig').setAttribute('position', VR_POST);
+  // Drop the laptop overhead camera so the post UI sits at chest height in the headset view.
+  const cam = el('camera');
+  Object.assign(cam.object3D.position, { x: 0, y: 1.6, z: 0 });
+  Object.assign(cam.object3D.rotation, { x: 0, y: 0, z: 0 });
+  cam.setAttribute('position', '0 1.6 0');
+  cam.setAttribute('rotation', '0 0 0');
   el('vr-post').setAttribute('visible', true);
   // The intro and a completed laptop run are not interactive starting points for a headset test.
   // Set the XR pose first so fresh() keeps the current session instead of offering another one.

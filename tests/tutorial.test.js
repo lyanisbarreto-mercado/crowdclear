@@ -739,10 +739,11 @@ test('headset practice copy points at Exit B and mic voice calms a panicker', ()
   ui.click('start-btn');
   ui.scene.xrSession = { visibilityState: 'visible' }; ui.scene.listeners['enter-vr']();
   assert.match(ui.element('vr-text').getAttribute('value'), /STEP 1 OF 2/);
-  assert.match(ui.element('vr-text').getAttribute('value'), /Point at Exit B/);
+  assert.match(ui.element('vr-text').getAttribute('value'), /Open Exit B/);
+  assert.match(ui.element('vr-text').getAttribute('value'), /Point at Open on the middle door, Exit B/);
   ui.click('open-exit-b');
   assert.match(ui.element('vr-text').getAttribute('value'), /STEP 2 OF 2/);
-  assert.match(ui.element('vr-text').getAttribute('value'), /send people/);
+  assert.match(ui.element('vr-text').getAttribute('value'), /Send people/);
   ui.click('redirect-b');
   assert.match(ui.element('vr-text').getAttribute('value'), /PRACTICE DONE/);
   ui.click('drill-btn');
