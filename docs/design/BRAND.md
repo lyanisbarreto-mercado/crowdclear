@@ -83,3 +83,9 @@ Accepted end-screen hierarchy: lead with the score and encouraging outcome, then
 The independent drill starts with every exit open. Select the incident time between 10 and 20 seconds once per run. At that time, block the exit with the largest number of non-evacuated people heading toward it; ties use A/B/C order. Show the yellow obstruction, red inaccessible door, and a clear reaction instruction. Clearing remains immediate and reopening remains separate. Practice retains its predictable untimed Exit B tasks.
 
 Record incident time and the actual chosen exit. Original and alternative replay face that same fixed event even when a changed decision shifts the alternative crowd distribution. Saved-run validation re-simulates the original to verify the target was its busiest route. Simulation version is now 3; older versioned runs stay stored but are not replayed against new rules.
+
+## Immersive input and results
+
+In the emulator/headset, remove the mirrored per-exit button grid. Single-select a closed door to open it, or an open door to redirect the crowd. Two selections on the same blocked door within 450 ms clear its hazard; reopening remains a separate selection. Available doors highlight on pointer hover; navigation and score controls change color on hover.
+
+Instructions occupy their own panel. Start/restart sits below it; View score expands a separate panel on the other side, with the actual score, completion message, and metrics. Desktop buttons and results/review remain available. Emulator panel spacing still requires visual verification.

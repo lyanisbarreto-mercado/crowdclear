@@ -206,3 +206,7 @@ Verification: `npm test` passed all 32 tests including timed incidents and Postg
 - Laptop redesign (`91a5766`): gate plates for exit status, Overpass + Atkinson Hyperlegible, one action colour, scene fills its column, briefing opens with the three gates. Inside BRAND.md's constraints; for Lyanis to review.
 - Realism (`5366bd8`): Kenney Mini Characters (CC0) with walk/idle animation and facing; exit-colour foot rings; EXIT signs; floor guidance strips; lighting; closer camera; foveated rendering. Fixed a texture bug found on the way (1 of 30 models textured, thousands of warnings a second; now one shared texture, zero warnings).
 - VR (`c83490b`): haptic pulse on presses that act. Emulated Quest 3: trigger on door B opened it with one pulse; 258 draw calls and 103k triangles for both eyes.
+
+## Immersive overlap fix
+
+Implemented direct door selection (single to open/redirect, double to clear hazard), hover affordances, separate immersive navigation, and expandable score details. Desktop controls retained; `.env` untouched. `npm test`: all 48 tests passed, including new immersive selection and score-toggle/reset checks. Visual emulator/headset validation remains for Carol at this checkpoint; no deployment performed.

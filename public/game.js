@@ -238,6 +238,8 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   if (!audio && window.AudioContext) audio = new window.AudioContext();
   audio?.resume();
   mode = nextMode;
+  scoreExpanded = false;
+  lastDoorSelection = null;
   ambience(mode === 'drill');
   if (mode === 'practice') breathingLog.practice = [];
   breathingLog.drill = [];
@@ -444,37 +446,60 @@ el('compare-form').addEventListener('submit', event => {
 // panel mirrors the side panel, and controller clicks press the page's own buttons so both inputs share handlers.
 // ponytail: post and panel positions are first guesses; tune them on the headset.
 const VR_POST = '0 6 13';
-const VR_LABELS = { 'clear-hazard': 'Clear', 'open-exit': 'Open', redirect: 'Redirect to' };
 const shown = button => !button.closest('[hidden]');
 let vrButtons = [];
 let laptopPose = null;
+let scoreExpanded = false;
+let lastDoorSelection = null;
 function syncHeadset() {
   if (!laptopPose) return;
-  const timeline = el('review').hidden ? [] : [...el('review-timeline').children].map(item => item.textContent);
-  const results = el('results').hidden ? [] : [`${el('result-message').textContent} Score: ${el('result-score').textContent}`];
-  el('vr-text').setAttribute('value', ['Point at a door and pull the trigger to act on it.', ...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
-    el('pa-caption').textContent, ...results, ...timeline, el('evacuated').textContent, el('timer').textContent, el('breathing').hidden ? '' : el('breathing').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
+  const hasResults = !el('results').hidden;
+  const instructions = hasResults
+    ? ['Drill complete', 'Point at View score to see your result. Select Try another drill to keep practicing.']
+    : ['Click a closed door to open it. Click an open door to redirect. Double-click a blocked door to clear its hazard.',
+      ...['task-title', 'feedback'].map(id => el(id).textContent)];
+  el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
+  el('vr-score-toggle').setAttribute('visible', hasResults);
+  el('vr-score-toggle').setAttribute('text', 'value', scoreExpanded ? 'Hide score [-]' : 'View score [+]');
+  el('vr-score-details').setAttribute('visible', hasResults && scoreExpanded);
+  el('vr-score-text').setAttribute('value', [el('result-message').textContent,
+    `Score: ${el('result-score').textContent}`, el('evacuated').textContent,
+    `Time remaining: ${el('result-time').textContent}`, el('result-tip').textContent,
+    `Open exits: ${el('result-exits').textContent}`].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
-    button.setAttribute('material', 'color', source.disabled ? '#4a5260' : '#2f7de1');
+    button.setAttribute('material', 'color', source.disabled ? '#4a5260' : button.hovered ? '#e6da78' : '#2f7de1');
     button.setAttribute('text', 'value', label || source.textContent);
+    button.setAttribute('text', 'color', button.hovered ? '#182230' : '#ffffff');
+  });
+}
+function hoverControl(button, canInteract) {
+  button.addEventListener('mouseenter', () => {
+    button.hovered = canInteract();
+    if (button.hovered) {
+      button.setAttribute('material', 'color', '#e6da78');
+      button.setAttribute('text', 'color', '#182230');
+    }
+  });
+  button.addEventListener('mouseleave', () => {
+    button.hovered = false;
+    button.setAttribute('material', 'color', '#2f7de1');
+    button.setAttribute('text', 'color', '#ffffff');
   });
 }
 function createVrButtons() {
-  // One column per exit (clear, open, redirect), then the drill and restart buttons on the last row.
-  const layout = EXITS.flatMap((exit, col) => Object.keys(VR_LABELS).map((action, row) =>
-    ({ id: `${action}-${exit.toLowerCase()}`, label: `${VR_LABELS[action]} ${exit}`, col, row })))
-    .concat({ id: 'drill-btn', col: 0, row: 3 }, { id: 'stop-btn', col: 2, row: 3 });
-  vrButtons = layout.map(({ id, label, col, row }) => {
+  const layout = [{ id: 'drill-btn', col: 0 }, { id: 'stop-btn', col: 1 }];
+  vrButtons = layout.map(({ id, label, col }) => {
     const source = el(id);
     const button = document.createElement('a-entity');
     button.classList.add('vr-control');
-    button.setAttribute('geometry', { primitive: 'plane', width: 0.36, height: 0.1 });
-    button.setAttribute('position', `${(col - 1) * 0.38} ${-0.08 - row * 0.12} 0.01`);
-    button.setAttribute('text', { align: 'center', width: 0.34, wrapCount: 18, color: '#ffffff' });
+    button.setAttribute('geometry', { primitive: 'plane', width: 0.6, height: 0.16 });
+    button.setAttribute('position', `${(col - 0.5) * 0.65} 0 0.01`);
+    button.setAttribute('text', { align: 'center', width: 0.56, wrapCount: 22, color: '#ffffff' });
     // The raycaster can still hit an invisible button, so check the page button is actually showing.
     button.addEventListener('click', evt => { if (shown(source) && !source.disabled) { source.click(); buzz(evt); } });
-    el('vr-panel').append(button);
+    hoverControl(button, () => shown(source) && !source.disabled);
+    el('vr-navigation').append(button);
     return { source, button, label };
   });
 }
@@ -486,16 +511,40 @@ function buzz(evt) {
 }
 function pressDoor(exit, evt) {
   const x = exit.toLowerCase();
-  const button = el(state.hazard === exit ? `clear-hazard-${x}` : state.open[exit] ? `redirect-${x}` : `open-exit-${x}`);
-  if (shown(button) && !button.disabled) { button.click(); buzz(evt); }
+  const action = state.hazard === exit ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
+  const button = el(`${action}-${x}`);
+  if (!shown(button) || button.disabled) return;
+  if (laptopPose && action === 'clear-hazard') {
+    const now = evt?.timeStamp ?? Date.now();
+    if (!lastDoorSelection || lastDoorSelection.exit !== exit || now - lastDoorSelection.time > 450 || now < lastDoorSelection.time) {
+      lastDoorSelection = { exit, time: now };
+      el('feedback').textContent = `Select Exit ${exit} again quickly to clear the hazard.`;
+      syncHeadset();
+      return;
+    }
+  }
+  lastDoorSelection = null;
+  button.click();
+  buzz(evt);
 }
 for (const exit of EXITS) {
   const door = el(`exit-${exit.toLowerCase()}`);
   const target = el(`door-target-${exit.toLowerCase()}`);
   target.addEventListener('click', evt => pressDoor(exit, evt));
-  target.addEventListener('mouseenter', () => door.setAttribute('material', 'emissive', '#555555'));
+  target.addEventListener('mouseenter', () => {
+    const action = state.hazard === exit ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
+    const button = el(`${action}-${exit.toLowerCase()}`);
+    if (shown(button) && !button.disabled) door.setAttribute('material', 'emissive', '#555555');
+  });
   target.addEventListener('mouseleave', () => door.setAttribute('material', 'emissive', '#000000'));
 }
+el('vr-score-toggle').addEventListener('click', evt => {
+  if (!laptopPose || el('results').hidden) return;
+  scoreExpanded = !scoreExpanded;
+  syncHeadset();
+  buzz(evt);
+});
+hoverControl(el('vr-score-toggle'), () => !!laptopPose && !el('results').hidden);
 scene.setAttribute('raycaster', 'objects: .vr-control');
 scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
 // A-Frame and this script both ask for VR support at page load, but an emulator such as the Immersive Web
