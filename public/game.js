@@ -333,6 +333,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   practiceStep = 0;
   if (mode === 'drill') startMic();
   el('results').hidden = true;
+  el('vitals-card').hidden = true;
   el('intro').hidden = true;
   el('game').style.display = 'block';
   syncSceneLifecycle();
@@ -415,18 +416,29 @@ async function pollBreathing() {
     : `Breathing: ${breathing.hint || 'measuring (about 30 s)'}`;
   syncHeadset();
 }
-const average = list => list.reduce((a, b) => a + b, 0) / list.length;
 function breathingSummary() {
-  const { practice, drill } = breathingLog;
-  if (!drill.length) return 'Breathing (laptop camera): not enough steady readings during the drill.';
-  const during = `${Math.round(average(drill))} /min during the drill`;
-  return `Breathing (laptop camera): ${practice.length ? `${Math.round(average(practice))} /min in practice, ` : ''}${during}.`;
+  return review.vitals(breathingLog);
+}
+function analyticsFor(s, commands = s.commands) {
+  const stats = sim.stats(s);
+  const score = review.score(stats, s.open);
+  const summary = review.result(s);
+  const vitalsText = breathingSeen ? breathingSummary() : '';
+  return review.report({
+    result: summary,
+    score,
+    total: s.people.length,
+    commands,
+    vitalsText
+  });
 }
 function finish() {
   ambience(false);
   stopMic();
+  const vitalsText = breathingSeen ? breathingSummary() : '';
   el('breathing-review').hidden = !breathingSeen;
-  el('breathing-review').textContent = breathingSeen ? breathingSummary() : '';
+  el('breathing-review').textContent = vitalsText;
+  el('vitals-card').hidden = !breathingSeen;
   // Headset has no page chrome — open the score panel once when the drill ends.
   if (laptopPose) scoreExpanded = true;
   showResults(state);
@@ -445,6 +457,11 @@ function showResults(s) {
   el('result-score').textContent = `${score.score}`;
   el('result-message').textContent = score.message;
   el('result-tip').textContent = score.tip;
+  el('result-outcome').textContent = review.outcome(summary);
+  const peak = summary.peakExit
+    ? `Longest line: ${summary.peakQueue} people at Exit ${summary.peakExit}` : '';
+  el('result-peak').textContent = peak;
+  el('result-peak').hidden = !peak;
   el('results').hidden = false;
   // The results card replaces the scene on a laptop; in a headset the scene is the only view.
   syncSceneLifecycle();
@@ -557,9 +574,20 @@ function showReview(run) {
   lastRun = run;
   instructions('DRILL DONE', 'Your drill', review.outcome(lastRun.result));
   el('feedback').textContent = 'Try again, or change when you took one action. These results are for this game only.';
-  el('review-timeline').replaceChildren(...review.timeline(lastRun.commands).map(text => {
+  el('review-outcome').textContent = review.outcome(lastRun.result);
+  el('review-timeline').replaceChildren(...review.timelineEntries(lastRun.commands).map(entry => {
     const item = document.createElement('li');
-    item.textContent = text;
+    if (entry.time) {
+      const time = document.createElement('span');
+      time.className = 'log-time';
+      time.textContent = entry.time;
+      const label = document.createElement('span');
+      label.className = 'log-label';
+      label.textContent = entry.label;
+      item.append(time, label);
+    } else {
+      item.textContent = entry.label;
+    }
     return item;
   }));
   el('compare-action').replaceChildren(...lastRun.commands.map((c, i) => {
@@ -640,38 +668,47 @@ function syncHeadset() {
   const breathingText = el('breathing').hidden ? '' : el('breathing').textContent;
   let instructions;
   if (hasResults) {
-    instructions = ['Drill complete', el('result-message').textContent,
+    const report = lastRun
+      ? analyticsFor(state, lastRun.commands)
+      : null;
+    instructions = report?.briefLines || ['Drill complete', el('result-message').textContent,
       `People out: ${el('result-evacuated').textContent}`,
       `Calmed: ${el('result-calmed').textContent}`,
       `Still panicking: ${el('result-panicking').textContent}`,
       'Score panel is on your right.', breathingText];
+    el('vr-score-text').setAttribute('value', (report?.scoreLines || [
+      el('result-message').textContent,
+      `Score: ${el('result-score').textContent}`,
+      `People out: ${el('result-evacuated').textContent}`,
+      `Time left: ${el('result-time').textContent}`,
+      `Open exits: ${el('result-exits').textContent}`,
+      `Calmed: ${el('result-calmed').textContent}`,
+      `Still panicking: ${el('result-panicking').textContent}`,
+      el('result-tip').textContent, breathingText
+    ]).filter(Boolean).join('\n\n').replace(/·/g, '-'));
   } else if (mode === 'practice') {
+    // Mirror laptop step labels: STEP 1/2 → open B, STEP 2/2 → send to B, then start drill.
     instructions = [
       ...(practiceStep === 0
-        ? ['Practice step 1 of 2', 'Point at Exit B and select to open it.']
+        ? ['STEP 1 OF 2', 'Open Exit B', 'Point at Exit B and select to open it.']
         : practiceStep === 1
-          ? ['Practice step 2 of 2', 'Point at Exit B and select to send people there.']
-          : ['Practice done', 'Start the timed drill when ready.']),
+          ? ['STEP 2 OF 2', 'Send people to B', 'Point at Exit B and select to send people there.']
+          : ['PRACTICE DONE', 'Ready for the drill', 'Start the timed drill when ready.']),
       caption, breathingText];
+    el('vr-score-text').setAttribute('value', ' ');
   } else {
     instructions = [
+      el('step-label').textContent || `${sim.DURATION}-SECOND DRILL`,
+      el('task-title').textContent,
       'Point at doors to clear (select twice), open, or send people.',
       'Orange rings are panicking. Select one, then speak or Hold Reassure.',
-      el('task-title').textContent, el('feedback').textContent, caption, breathingText];
+      el('feedback').textContent, caption, breathingText];
+    el('vr-score-text').setAttribute('value', ' ');
   }
   el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   el('vr-score-toggle').setAttribute('visible', hasResults);
   el('vr-score-toggle').setAttribute('text', 'value', scoreExpanded ? 'Hide score [-]' : 'View score [+]');
   el('vr-score-details').setAttribute('visible', hasResults && scoreExpanded);
-  const peak = lastRun?.result?.peakExit
-    ? `Longest line: ${lastRun.result.peakQueue} at Exit ${lastRun.result.peakExit}` : '';
-  el('vr-score-text').setAttribute('value', [el('result-message').textContent,
-    `Score: ${el('result-score').textContent}`, el('evacuated').textContent,
-    `Time left: ${el('result-time').textContent}`,
-    `Open exits: ${el('result-exits').textContent}`,
-    `Calmed: ${el('result-calmed').textContent}`,
-    `Still panicking: ${el('result-panicking').textContent}`,
-    peak, el('result-tip').textContent, breathingText].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : button.hovered ? '#e6da78' : '#2f7de1');

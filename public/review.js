@@ -2,12 +2,15 @@
 (function (root) {
   const sim = typeof module !== 'undefined' && module.exports ? require('./simulation') : root.CrowdSimulation;
   const LABELS = {
-    'clear-hazard': 'Started clearing Exit',
-    'open-exit': 'Opened Exit',
-    redirect: 'Sent people to Exit',
-    calm: 'Reassured person'
+    'clear-hazard': 'Clear hazard · Exit',
+    'open-exit': 'Open door · Exit',
+    redirect: 'Redirect crowd · Exit',
+    calm: 'Reassure guest'
   };
   const secs = ticks => `${(ticks * sim.DT).toFixed(1)} s`;
+  function targetLabel(action, target) {
+    return action === 'calm' ? `#${target}` : String(target);
+  }
   function result(state) {
     const { evacuated, remaining, panicking } = sim.stats(state);
     // Successful calms: person was targeted and is no longer panicking at end.
@@ -32,8 +35,16 @@
       ? `Time is up. ${r.evacuated} people got out. ${r.remaining} are still inside.`
       : `All ${r.evacuated} people got out in ${secs(r.ticks)}.`) + queue + panic;
   }
+  function timelineEntries(commands) {
+    if (!commands.length) return [{ time: '', label: 'No actions taken.', line: 'No actions taken.' }];
+    return commands.map(c => {
+      const time = secs(c.tick);
+      const label = `${LABELS[c.action] || c.action} ${targetLabel(c.action, c.target)}`;
+      return { time, label, line: `${time}  ${label}` };
+    });
+  }
   function timeline(commands) {
-    return commands.length ? commands.map(c => `${secs(c.tick)} · ${LABELS[c.action] || c.action} ${c.target}`) : ['No actions taken.'];
+    return timelineEntries(commands).map(entry => entry.line);
   }
   function alternative(commands, index, tick) {
     return commands.map((c, i) => (i === index ? { ...c, tick } : c));
@@ -68,7 +79,61 @@
         : 'Next time, clear the blocked door early. Open it, then send people to open exits.');
     return { seconds, exits, score: stats.evacuated + (stats.remaining === 0 ? seconds : 0), message, tip };
   }
-  const api = { result, outcome, timeline, alternative, comparison, score };
+  const average = list => list.reduce((a, b) => a + b, 0) / list.length;
+  // Presage readings are session-only; empty drill log means the sensor never produced a steady sample.
+  function vitals(log = {}) {
+    const practice = log.practice || [];
+    const drill = log.drill || [];
+    if (!drill.length) return 'Breathing (Presage): not enough steady readings during the drill.';
+    const during = `${Math.round(average(drill))} /min during the drill`;
+    return `Breathing (Presage): ${practice.length ? `${Math.round(average(practice))} /min in practice, ` : ''}${during}.`;
+  }
+  // One report for laptop results/review and the headset score panel.
+  function report({ result: r, score: s, total, commands = [], vitalsText = '' }) {
+    const peak = r.peakExit ? `Longest line: ${r.peakQueue} at Exit ${r.peakExit}` : '';
+    const entries = timelineEntries(commands);
+    const metrics = [
+      `People out: ${r.evacuated} / ${total}`,
+      `Time left: ${s.seconds} seconds`,
+      `Open exits: ${s.exits}`,
+      `Calmed: ${r.calmed}`,
+      `Still panicking: ${r.panicking}`,
+      `Score: ${s.score}`
+    ];
+    const actionLines = entries[0]?.line === 'No actions taken.'
+      ? ['Actions: none']
+      : ['Actions:', ...entries.map(entry => entry.line)];
+    return {
+      headline: s.message,
+      tip: s.tip,
+      outcome: outcome(r),
+      peak,
+      metrics,
+      timeline: entries,
+      vitals: vitalsText,
+      // Compact brief for the left VR instruction panel after the drill.
+      briefLines: [
+        'Drill complete',
+        s.message,
+        `People out: ${r.evacuated} / ${total}`,
+        `Calmed: ${r.calmed}`,
+        `Still panicking: ${r.panicking}`,
+        'Score panel is on your right.',
+        vitalsText
+      ].filter(Boolean),
+      // Full analytics for the expandable VR score panel (mirrors laptop).
+      scoreLines: [
+        s.message,
+        ...metrics,
+        peak,
+        s.tip,
+        outcome(r),
+        ...actionLines,
+        vitalsText
+      ].filter(Boolean)
+    };
+  }
+  const api = { result, outcome, timeline, timelineEntries, alternative, comparison, score, vitals, report };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdReview = api;
 })(typeof window === 'undefined' ? globalThis : window);

@@ -12,7 +12,7 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
     if (!elements.has(id)) elements.set(id, {
       style: {},
       // Match index.html hidden defaults so failed loads do not look like an open results card.
-      hidden: typeof id === 'string' && /^(drill-btn|reassure-btn|results|review|vr-btn|breathing|breathing-review|clear-hazard-|check-)/.test(id),
+      hidden: typeof id === 'string' && /^(drill-btn|reassure-btn|results|review|vr-btn|breathing|breathing-review|vitals-card|result-peak|clear-hazard-|check-)/.test(id),
       disabled: false, _textContent: '', value: '',
       get textContent() { return this.children.length ? this.children.map(child => child.textContent).join('') : this._textContent; },
       set textContent(value) { this._textContent = value; this.children = []; },
@@ -387,7 +387,8 @@ test('breathing from the local sensor shows during play and the review compares 
   await poll(); await poll();
   ui.play('drill');
   assert.equal(ui.element('breathing-review').hidden, false);
-  assert.equal(ui.element('breathing-review').textContent, 'Breathing (laptop camera): 14 /min in practice, 20 /min during the drill.');
+  assert.equal(ui.element('breathing-review').textContent, 'Breathing (Presage): 14 /min in practice, 20 /min during the drill.');
+  assert.equal(ui.element('vitals-card').hidden, false);
 });
 test('without a breathing sensor nothing about breathing is shown', async () => {
   const ui = setup({ fetch: async url => ({ ok: true, json: async () => (url === '/api/breathing' ? { available: false } : {}) }) });
@@ -396,6 +397,7 @@ test('without a breathing sensor nothing about breathing is shown', async () => 
   assert.equal(ui.element('breathing').hidden, true);
   practice(ui); ui.click('drill-btn'); ui.play('drill');
   assert.equal(ui.element('breathing-review').hidden, true);
+  assert.equal(ui.element('vitals-card').hidden, true);
 });
 
 
@@ -649,12 +651,17 @@ test('headset practice copy points at Exit B and reassure calms a panicker', () 
   const ui = setup();
   ui.click('start-btn');
   ui.scene.xrSession = { visibilityState: 'visible' }; ui.scene.listeners['enter-vr']();
+  assert.match(ui.element('vr-text').getAttribute('value'), /STEP 1 OF 2/);
   assert.match(ui.element('vr-text').getAttribute('value'), /Point at Exit B/);
   ui.click('open-exit-b');
+  assert.match(ui.element('vr-text').getAttribute('value'), /STEP 2 OF 2/);
   assert.match(ui.element('vr-text').getAttribute('value'), /send people/);
-  ui.click('redirect-b'); ui.click('drill-btn');
+  ui.click('redirect-b');
+  assert.match(ui.element('vr-text').getAttribute('value'), /PRACTICE DONE/);
+  ui.click('drill-btn');
   ui.playTicks(ui.value('state.hazardTick') + 1);
   assert.match(ui.element('vr-text').getAttribute('value'), /Orange rings|panicking/i);
+  assert.match(ui.element('vr-text').getAttribute('value'), /SECOND DRILL|Help people|BLOCKED/i);
   const id = ui.value('state.people.find(p => p.panic).id');
   ui.value(`selectPerson(${id})`);
   assert.match(ui.element('feedback').textContent, new RegExp(`Reassure ${id}`));
@@ -677,5 +684,26 @@ test('headset results text includes score fields after the drill', () => {
   assert.match(panel, /Score:/);
   assert.match(panel, /Calmed:/);
   assert.match(panel, /Still panicking:/);
+  assert.match(panel, /Actions:/);
+  assert.match(panel, /Clear hazard|Open door|Redirect crowd|Reassure guest/);
   assert.match(ui.element('vr-text').getAttribute('value'), /Drill complete|People out/);
+  assert.equal(ui.element('result-outcome').textContent, ui.value('review.outcome(lastRun.result)'));
+});
+
+test('headset score panel mirrors Presage vitals from the laptop review', async () => {
+  let reading = { available: true, rate: 16, confidence: 90, stable: true, hint: '' };
+  const ui = setup({ fetch: async url => ({ ok: true, json: async () => (url === '/api/breathing' ? reading : {}) }) });
+  ui.click('start-btn');
+  await ui.value('pollBreathing()');
+  ui.click('open-exit-b'); ui.click('redirect-b'); ui.click('drill-btn');
+  reading = { available: true, rate: 18, confidence: 80, stable: true, hint: '' };
+  await ui.value('pollBreathing()');
+  ui.play('drill');
+  ui.value('laptopPose = {}');
+  ui.value('scoreExpanded = true');
+  ui.value('syncHeadset()');
+  const vitals = 'Breathing (Presage): 16 /min in practice, 18 /min during the drill.';
+  assert.equal(ui.element('breathing-review').textContent, vitals);
+  assert.match(ui.element('vr-score-text').getAttribute('value'), /Breathing \(Presage\): 16 \/min in practice, 18 \/min during the drill/);
+  assert.match(ui.element('vr-text').getAttribute('value'), /Breathing \(Presage\)/);
 });
