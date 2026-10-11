@@ -13,7 +13,7 @@ if (process.platform === 'win32' && !process.env.SMARTSPECTRA_CAPI_PATH) {
 }
 
 const {
-  SmartSpectraSDK, CameraSelection, ValidationCode, breathingMetrics, cardioMetrics, decodeMetrics
+  SmartSpectraSDK, CameraSelection, ValidationCode, SmartSpectraErrorCode, breathingMetrics, cardioMetrics, decodeMetrics
 } = await import('@smartspectra/node-sdk');
 
 const apiKey = process.env.PRESAGE_API_KEY || process.env.SMARTSPECTRA_API_KEY;
@@ -42,9 +42,13 @@ let lastPost = 0;
 async function post() {
   lastPost = Date.now();
   try {
-    await fetch(endpoint, { method: 'POST', headers: postHeaders, body: JSON.stringify(reading) });
-  } catch {
-    console.error(`Could not reach ${endpoint}; is the CrowdClear server up?`);
+    const body = JSON.stringify(reading);
+    // Fetch must start after returning from the native SDK callback.
+    await new Promise(resolve => setImmediate(resolve));
+    const response = await fetch(endpoint, { method: 'POST', headers: postHeaders, body });
+    if (!response.ok) console.error(`Breathing upload rejected: HTTP ${response.status}. Check server access and BREATHING_TOKEN.`);
+  } catch (error) {
+    console.error(`Breathing upload failed: ${error.cause?.code || error.code || 'network error'}. Check the CrowdClear server connection.`);
   }
 }
 
@@ -84,18 +88,23 @@ sdk.on('validationStatus', (code, ts, hint) => {
   }
   post();
 });
-sdk.on('error', (code, message) => {
-  console.error(`SmartSpectra error ${code}: ${message}`);
+sdk.on('error', (code, message, retryable) => {
+  console.error(`SmartSpectra error ${code} (retryable=${retryable}): ${message}`);
+  let hint = `SmartSpectra error ${code}: `;
+  if (code === SmartSpectraErrorCode.kNetworkError) hint += 'Presage network verification failed. ';
+  if (code === SmartSpectraErrorCode.kProcessingFailed && process.platform === 'win32') {
+    hint += 'Processing failed. Use a supported USB camera on Windows. ';
+  }
   reading = {
     rate: null, pulse: null, amplitude: null, stress: null,
-    confidence: 0, stable: false, hint: String(message || '').slice(0, 200)
+    confidence: 0, stable: false, hint: (hint + String(message || 'Sensor unavailable.')).slice(0, 200)
   };
   post();
 });
 
 sdk.useCamera(CameraSelection.default);
 sdk.start();
-console.log(`Measuring vitals from the default camera (${process.arch}); posting to ${endpoint}. Ctrl+C to stop.`);
+console.log(`Measuring vitals from the default camera (${process.arch}); uploading to CrowdClear. Ctrl+C to stop.`);
 process.on('SIGINT', async () => {
   reading = {
     rate: null, pulse: null, amplitude: null, stress: null,

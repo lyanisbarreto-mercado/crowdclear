@@ -80,6 +80,8 @@ Best-run comparison is stored in that browser. Shared run links require the data
 
 SmartSpectra's Windows native runtime needs **x64 Node**, including on Snapdragon computers. The game server can still use the normal ARM Node installation.
 
+The native Windows SDK does not support integrated laptop cameras. Use a supported external USB webcam; Presage has tested the Logitech C920. See [Presage's Windows camera limitations](https://smartspectra.presagetech.com/docs/cpp/windows/issues-and-limitations). Installing x64 Node does not remove this camera limitation.
+
 Download a Windows x64 Node.js 24 ZIP from [Node.js downloads](https://nodejs.org/en/download). Extract its contents so this file exists:
 
 ```text
@@ -138,6 +140,9 @@ For a **shared deployed sensor demo**, set `ALLOW_REMOTE_BREATHING=1` on the ser
 
 - **Presage skipped.** Add a valid key, install the sensor SDK, and check the x64 Node setup on Windows ARM. The game remains playable.
 - **No webcam readings.** Read the helper's terminal messages, check camera access and lighting, and wait for a confident sample. A configured remote upload URL will send readings to that server instead of the local HUD.
+- **SmartSpectra error 5.** Presage's network verification failed. Check internet access and the SDK's accompanying message. This is separate from uploading readings to CrowdClear.
+- **SmartSpectra error 8 on Windows.** The SDK could not process camera frames. Use a supported external USB webcam if you are using an integrated laptop camera. Code 8 alone does not identify the cause.
+- **Breathing upload rejected or failed.** HTTP rejection reports the server's status; check server access and matching `BREATHING_TOKEN` values. A connection error such as `ECONNRESET` concerns the helper's connection to CrowdClear. Successful uploads do not establish that the camera produced usable metrics.
 - **Not saved.** Configure a reachable `DATABASE_URL`. Database setup errors appear in the server terminal; the drill itself still runs.
 - **Port already in use.** Stop the existing server or set a different `PORT` in `.env.local`.
 - **No Enter VR button or microphone response.** Use a compatible browser with the required permissions and HTTPS for a deployed headset session. Laptop controls remain available.
