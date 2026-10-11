@@ -262,4 +262,30 @@ test('generated alarm and crowd ambience clips replace the synth beeps and run o
   ui.play('drill');
   assert.equal(ui.played.at(-1), 'paused /audio/ambience.mp3', 'crowd noise stops when the drill ends');
 });
+test('breathing from the local sensor shows during play and the review compares practice with the drill', async () => {
+  let reading = { available: true, rate: 14, confidence: 90, stable: true, hint: '' };
+  const ui = setup({ fetch: async url => ({ ok: true, json: async () => (url === '/api/breathing' ? reading : {}) }) });
+  const poll = () => ui.value('pollBreathing()');
+  ui.click('start-btn');
+  await poll();
+  assert.equal(ui.element('breathing').hidden, false);
+  assert.equal(ui.element('breathing').textContent, 'Breathing: 14 /min');
+  reading = { available: true, rate: 30, confidence: 20, stable: false, hint: '' };
+  await poll();
+  assert.equal(ui.element('breathing').textContent, 'Breathing: measuring (about 30 s)', 'low confidence only shows progress');
+  ui.click('open-exit-b'); ui.click('redirect-b'); ui.click('drill-btn');
+  reading = { available: true, rate: 20, confidence: 75, stable: true, hint: '' };
+  await poll(); await poll();
+  ui.play('drill');
+  assert.equal(ui.element('breathing-review').hidden, false);
+  assert.equal(ui.element('breathing-review').textContent, 'Breathing (laptop camera): 14 /min in practice, 20 /min during the drill.');
+});
+test('without a breathing sensor nothing about breathing is shown', async () => {
+  const ui = setup({ fetch: async url => ({ ok: true, json: async () => (url === '/api/breathing' ? { available: false } : {}) }) });
+  ui.click('start-btn');
+  await ui.value('pollBreathing()');
+  assert.equal(ui.element('breathing').hidden, true);
+  practice(ui); ui.click('drill-btn'); ui.play('drill');
+  assert.equal(ui.element('breathing-review').hidden, true);
+});
 

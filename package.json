@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test test/*.test.js tests/*.test.js",
     "start": "node server.js",
-    "audio": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/generate-audio.js"
+    "audio": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/generate-audio.js",
+    "sensor": "npm --prefix sensor start"
   },
   "repository": {
     "type": "git",

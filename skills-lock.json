@@ -12,6 +12,12 @@
       "sourceType": "github",
       "skillPath": "skills/neon-postgres/SKILL.md",
       "computedHash": "2e367b4b436500b7d28aba2b4318b1a2a4f7bacd94f1c045ba62751b95b578fe"
+    },
+    "using-smartspectra": {
+      "source": "Presage-Security/SmartSpectra",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/using-smartspectra/SKILL.md",
+      "computedHash": "0d3c0a022c9e3c30ba153f17abf21f9fbf95636cedf8ec5bfc62c70d733183ab"
     }
   }
 }

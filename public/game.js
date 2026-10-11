@@ -173,6 +173,8 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   audio?.resume();
   mode = nextMode;
   ambience(mode === 'drill');
+  if (mode === 'practice') breathingLog.practice = [];
+  breathingLog.drill = [];
   el('pa-caption').textContent = '';
   state = sim.createState({ blockedExit, hazardTick });
   initial = clone(state);
@@ -230,8 +232,36 @@ function perform(action, target = 'B') {
   }
   refresh();
 }
+// Presage breathing from the local sensor helper. Readings below 50% confidence only show progress, and only
+// confident ones count toward the practice/drill comparison. Nothing here is saved.
+let breathing = { available: false };
+let breathingSeen = false;
+const breathingLog = { practice: [], drill: [] };
+async function pollBreathing() {
+  try {
+    breathing = await (await fetch('/api/breathing')).json();
+  } catch {
+    breathing = { available: false };
+  }
+  breathingSeen ||= breathing.available;
+  if (breathing.available && breathing.rate !== null && breathing.confidence >= 50 && breathingLog[mode]) breathingLog[mode].push(breathing.rate);
+  el('breathing').hidden = !breathingSeen;
+  el('breathing').textContent = !breathing.available ? 'Breathing: sensor off'
+    : breathing.rate !== null && breathing.confidence >= 50 ? `Breathing: ${Math.round(breathing.rate)} /min`
+    : `Breathing: ${breathing.hint || 'measuring (about 30 s)'}`;
+  syncHeadset();
+}
+const average = list => list.reduce((a, b) => a + b, 0) / list.length;
+function breathingSummary() {
+  const { practice, drill } = breathingLog;
+  if (!drill.length) return 'Breathing (laptop camera): not enough steady readings during the drill.';
+  const during = `${Math.round(average(drill))} /min during the drill`;
+  return `Breathing (laptop camera): ${practice.length ? `${Math.round(average(practice))} /min in practice, ` : ''}${during}.`;
+}
 function finish() {
   ambience(false);
+  el('breathing-review').hidden = !breathingSeen;
+  el('breathing-review').textContent = breathingSeen ? breathingSummary() : '';
   showResults(state);
   showReview({ version: sim.VERSION, initial, commands: clone(state.commands), result: review.result(state) });
   save(lastRun);
@@ -357,7 +387,7 @@ function syncHeadset() {
   const timeline = el('review').hidden ? [] : [...el('review-timeline').children].map(item => item.textContent);
   const results = el('results').hidden ? [] : [`${el('result-message').textContent} Score: ${el('result-score').textContent}`];
   el('vr-text').setAttribute('value', ['Point at a door and pull the trigger to act on it.', ...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
-    el('pa-caption').textContent, ...results, ...timeline, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
+    el('pa-caption').textContent, ...results, ...timeline, el('evacuated').textContent, el('timer').textContent, el('breathing').hidden ? '' : el('breathing').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : '#2f7de1');
@@ -467,6 +497,7 @@ function frame(now) {
   }
   requestAnimationFrame(frame);
 }
+window.setInterval?.(pollBreathing, 2000);
 const savedRun = new URLSearchParams(location.search).get('run');
 if (savedRun) reopen(savedRun);
 if (scene.hasLoaded) createAllFigures();

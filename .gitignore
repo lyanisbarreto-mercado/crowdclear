@@ -8,3 +8,6 @@ task_plan.md
 .neon
 # `neon skills` links these to .agents/skills with absolute paths, which break on other machines.
 .claude/skills/
+# Skills whose licenses do not allow redistribution in this public repo (reinstall from skills-lock.json or the README).
+.agents/skills/using-smartspectra/
+.agents/skills/aframe-webxr/

@@ -64,6 +64,23 @@ app.get("/api/runs/:id", async (req, res) => {
     res.json(rows[0]);
 });
 
+// Latest breathing reading from the local Presage helper (sensor/presage.mjs). Biometric, so it stays in memory
+// on this machine and is never saved. Only the helper on the same machine may post; behind Render's proxy this is never true.
+const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+let breathing = null;
+app.post("/api/breathing", (req, res) => {
+    if (!LOOPBACK.has(req.socket.remoteAddress)) return res.status(403).json({ error: "Readings are only accepted from this machine." });
+    const { rate = null, confidence = 0, stable = false, hint = "" } = req.body ?? {};
+    const valid = (rate === null || (typeof rate === "number" && rate >= 0 && rate <= 80))
+        && typeof confidence === "number" && confidence >= 0 && confidence <= 100 && typeof hint === "string" && hint.length <= 200;
+    if (!valid) return res.status(400).json({ error: "This is not a breathing reading." });
+    breathing = { rate, confidence, stable: !!stable, hint, at: Date.now() };
+    res.status(204).end();
+});
+app.get("/api/breathing", (req, res) => {
+    res.json(breathing && Date.now() - breathing.at < 5000 ? { available: true, ...breathing } : { available: false });
+});
+
 // Express's default handler sends stack traces outside production; keep database errors server-side.
 app.use((err, req, res, next) => {
     console.error(err);
