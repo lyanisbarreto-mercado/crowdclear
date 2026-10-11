@@ -166,27 +166,29 @@
 								<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 40"></a-entity>
 								<a-entity id="vr-post" visible="false">
 									<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" material="src: #floor-material; repeat: 0.6 0.5; roughness: 0.95"></a-box>
-									<!-- Waist-high railing on the open sides of the raised post, for comfort at height. -->
-									<a-box position="0 1 -1" width="2.4" height="0.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="-1.2 1 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="1.2 1 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="-1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-entity id="vr-panel" position="-1.5 1.85 -1.15" rotation="-10 45 0">
+									<!-- Side rails only (no front bar) so instruction panels stay readable at eye height. -->
+									<a-box id="vr-rail-left" position="-1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box id="vr-rail-right" position="1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="-1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="-1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<!-- Panels sit above rail height (~1.05) and toward the player so they are not clipped by posts. -->
+									<a-entity id="vr-panel" position="-1.55 2.55 -0.55" rotation="-8 35 0">
 										<a-plane width="1.2" height="1.1" color="#182230"></a-plane>
 										<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.55 0.47 0.02" width="0.35" wrap-count="12"></a-text>
 										<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.15 0.47 0.02" width="0.35" wrap-count="12"></a-text>
 										<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.25 0.47 0.02" width="0.35" wrap-count="12"></a-text>
 										<a-text id="vr-text" position="-0.55 0.36 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
 									</a-entity>
-<a-entity id="vr-navigation" position="-1.5 1.05 -1.15" rotation="-10 45 0"></a-entity>
-<a-entity position="1.5 1.85 -1.15" rotation="-10 -45 0">
-  <a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0.52 0.02" geometry="primitive: plane; width: 1.2; height: 0.18" material="color: #2f7de1" text="value: View score [+]; align: center; width: 1.1"></a-entity>
-  <a-entity id="vr-score-details" visible="false" position="0 -0.45 0">
-    <a-plane width="1.2" height="1.7" color="#182230"></a-plane>
-    <a-text id="vr-score-text" position="-0.55 0.78 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
-  </a-entity>
-</a-entity>
+									<a-entity id="vr-navigation" position="-1.55 1.75 -0.55" rotation="-8 35 0"></a-entity>
+									<a-entity id="vr-score" position="1.55 2.2 -0.55" rotation="-8 -35 0">
+										<a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0 0.02" geometry="primitive: plane; width: 1.2; height: 0.18" material="color: #2f7de1" text="value: View score [+]; align: center; width: 1.1"></a-entity>
+										<a-entity id="vr-score-details" visible="false" position="0 1.05 0">
+											<a-plane width="1.2" height="1.7" color="#182230"></a-plane>
+											<a-text id="vr-score-text" position="-0.55 0.78 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
+										</a-entity>
+									</a-entity>
 								</a-entity>
 							</a-entity>
 							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage></a-entity>
