@@ -15,6 +15,16 @@ npm start
 
 Open http://localhost:3000. Set `PORT` to change the port. Set `DATABASE_URL` to a Postgres connection string to save drills; without it the game still runs and each finished drill says it was not saved. The server creates its table from `schema.sql` at startup. VR needs HTTPS, so test headsets against the deployed Render URL.
 
+## Simulation scene assets
+
+The lobby uses local Higgsfield-generated floor, wall, and exterior textures with lightweight A-Frame doors, EXIT signs, equipment cases, a trolley, and peripheral fixtures. Doors swing open when their route opens. A blocked route shows striped equipment and smoke; clearing removes both, and opening the door remains a separate action. Mouse and headset controls share the existing handlers.
+
+Asset provenance and runtime limits are documented in [public/textures/concourse/README.md](public/textures/concourse/README.md). These visual changes preserve the simulation rules and saved-run format. The bench, bin, and concession shutter sit outside the walking routes and are decorative.
+
+The crowd now has 60 people, scattered starting positions, varied walking speeds, and brief hesitation from some people when the incident occurs. Three queue columns keep the crowd inside the lobby. Clearing takes four seconds with a visible countdown; the route stays blocked until work finishes, and reopening remains separate. These game cues are simplified, not a validated model of panic.
+
+These behavior changes use simulation version 6. Older saved drills remain in the database, but the current player reports that it cannot replay their older rules.
+
 ## Audio (ElevenLabs)
 
 The spoken lines (drill start, each hazard, each redirect) live in `public/announcements.js`. `public/audio/` holds ElevenLabs clips for every line, plus a recorded alarm and a looping crowd ambience from the sound-effects API, all listed in `public/audio/clips.js`. The game plays them and falls back to the browser's speech and synth for anything missing.

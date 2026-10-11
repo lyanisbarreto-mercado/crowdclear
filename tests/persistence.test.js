@@ -8,7 +8,7 @@ const app = require('../server');
 
 let server;
 let base;
-const commands = [{ tick: 0, action: 'clear-hazard', target: 'B' }, { tick: 0, action: 'open-exit', target: 'B' }, { tick: 45, action: 'redirect', target: 'B' }];
+const commands = [{ tick: 0, action: 'clear-hazard', target: 'B' }, { tick: sim.CLEAR_DURATION, action: 'open-exit', target: 'B' }, { tick: 45, action: 'redirect', target: 'B' }];
 function played(schedule, blockedExit = 'B') {
   const state = sim.createState({ blockedExit });
   while (!sim.isDone(state)) sim.step(state, schedule);
@@ -48,10 +48,17 @@ test('the server refuses records its own replay cannot reproduce', async () => {
   assert.equal((await post({ ...run, id, blockedExit: 'D' })).status, 400, 'unknown scenario');
   assert.equal((await post({ ...run, id, result: { ...run.result, ticks: 1 } })).status, 422, 'tampered result');
   assert.equal((await post({ ...run, id, version: sim.VERSION + 1 })).status, 400, 'other simulation version');
+  assert.equal((await post({ ...run, id, version: sim.VERSION - 1 })).status, 400, 'older crowd rules');
   assert.equal((await post({ ...run, id: 'not-a-uuid' })).status, 400);
   assert.equal((await post({ ...run, id, commands: [null] })).status, 400);
   assert.equal((await fetch(`${base}/api/runs/${id}`)).status, 404);
   assert.equal((await fetch(`${base}/api/runs/not-a-uuid`)).status, 404);
+});
+test('saved commands cannot reopen a door before its clearing work has finished', async () => {
+  const id = '3c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
+  const early = [{ tick: 0, action: 'clear-hazard', target: 'B' }, { tick: sim.CLEAR_DURATION - 1, action: 'open-exit', target: 'B' }];
+  assert.equal((await post({ ...run, id, commands: early, result: played(early) })).status, 400);
+  assert.equal((await fetch(`${base}/api/runs/${id}`)).status, 404);
 });
 
 test('without a database, saving reports that it is not set up instead of pretending', async () => {
@@ -70,7 +77,7 @@ test('timed incident saves and reopens with its fixed exit and onset', async () 
   const state = sim.createState({ hazardTick: 150 });
   const schedule = [
     { tick: 151, action: 'clear-hazard', target: 'A' },
-    { tick: 151, action: 'open-exit', target: 'A' },
+    { tick: 151 + sim.CLEAR_DURATION, action: 'open-exit', target: 'A' },
     { tick: 160, action: 'redirect', target: 'B' }
   ];
   while (!sim.isDone(state)) sim.step(state, schedule);

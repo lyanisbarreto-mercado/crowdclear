@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="320" viewBox="0 0 512 320">
+  <rect width="512" height="320" fill="#18273a"/>
+  <text x="32" y="42" fill="#eef3f8" font-family="sans-serif" font-size="22" font-weight="bold">CONCOURSE</text>
+  <path d="M64 92h384v190H64z" fill="#293f54" stroke="#a3b5ca" stroke-width="4"/>
+  <g fill="#2fbf71"><rect x="100" y="84" width="44" height="16"/><rect x="234" y="84" width="44" height="16"/><rect x="368" y="84" width="44" height="16"/></g>
+  <g fill="#eef3f8" font-family="sans-serif" font-size="18" text-anchor="middle"><text x="122" y="76">A</text><text x="256" y="76">B</text><text x="390" y="76">C</text></g>
+  <g stroke="#2fbf71" stroke-width="7" fill="none"><path d="M122 254V116m134 138V116m134 138V116"/></g>
+  <g fill="#2fbf71"><path d="m122 102-10 20h20zm134 0-10 20h20zm134 0-10 20h20z"/></g>
+</svg>

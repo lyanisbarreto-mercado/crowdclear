@@ -1,7 +1,7 @@
 /* Decision review, comparison text, and score, derived only from run records and final stats. No DOM access. */
 (function (root) {
   const sim = typeof module !== 'undefined' && module.exports ? require('./simulation') : root.CrowdSimulation;
-  const LABELS = { 'clear-hazard': 'Cleared the hazard at Exit', 'open-exit': 'Opened Exit', redirect: 'Redirected crowd to Exit' };
+  const LABELS = { 'clear-hazard': 'Started clearing the hazard at Exit', 'open-exit': 'Opened Exit', redirect: 'Redirected crowd to Exit' };
   const secs = ticks => `${(ticks * sim.DT).toFixed(1)} s`;
   function result(state) {
     const { evacuated, remaining } = sim.stats(state);

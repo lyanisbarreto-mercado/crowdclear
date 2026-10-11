@@ -9,7 +9,7 @@ test('outcome distinguishes early completion from time expiry', () => {
 });
 test('timeline lists actions in seconds and handles a run with none', () => {
   assert.deepEqual(review.timeline([{ tick: 0, action: 'clear-hazard', target: 'A' }, { tick: 0, action: 'open-exit', target: 'A' }, { tick: 52, action: 'redirect', target: 'C' }]),
-    ['0.0 s · Cleared the hazard at Exit A', '0.0 s · Opened Exit A', '5.2 s · Redirected crowd to Exit C']);
+    ['0.0 s · Started clearing the hazard at Exit A', '0.0 s · Opened Exit A', '5.2 s · Redirected crowd to Exit C']);
   assert.deepEqual(review.timeline([]), ['No actions taken during the drill.']);
 });
 test('alternative re-times one action and keeps every other input', () => {

@@ -9,7 +9,14 @@ test('each exit can be selected as the fixed hazard scenario', () => {
     assert.equal(sim.act(state, 'open-exit', exit), false);
     assert.equal(sim.act(state, 'redirect', exit), false);
     assert.equal(sim.act(state, 'clear-hazard', exit), true);
-    assert.equal(state.tick, 0, 'clearing has no delay');
+    assert.equal(state.hazard, exit, 'equipment remains while clearing');
+    assert.equal(sim.act(state, 'clear-hazard', exit), false, 'repeated clicks cannot restart clearing');
+    assert.equal(sim.act(state, 'open-exit', exit), false);
+    for (let i = 0; i < sim.CLEAR_DURATION - 1; i++) sim.step(state);
+    assert.equal(state.hazard, exit, 'still blocked just before completion');
+    assert.equal(sim.act(state, 'open-exit', exit), false);
+    sim.step(state);
+    assert.equal(state.hazard, null, 'clears after four seconds of simulation time');
     assert.equal(state.open[exit], false, 'clearing does not open the door');
     assert.equal(sim.act(state, 'open-exit', exit), true);
     assert.equal(sim.act(state, 'clear-hazard', exit), false);
@@ -19,16 +26,30 @@ test('blocked routes never evacuate people until cleared and opened', () => {
   const state = sim.createState({ blockedExit: 'A' });
   for (let i = 0; i < 300; i++) sim.step(state);
   assert.equal(state.people.filter(p => p.exit === 'A' && p.evacuated).length, 0);
-  sim.act(state, 'clear-hazard', 'A'); sim.act(state, 'open-exit', 'A');
+  sim.act(state, 'clear-hazard', 'A');
+  for (let i = 0; i < sim.CLEAR_DURATION; i++) sim.step(state);
+  sim.act(state, 'open-exit', 'A');
   for (let i = 0; i < 300; i++) sim.step(state);
   assert.ok(state.people.some(p => p.exit === 'A' && p.evacuated));
 });
+test('a drill ending during clearing retains its obstruction and closed door', () => {
+  const state = sim.createState({ blockedExit: 'A' });
+  state.tick = 590;
+  sim.act(state, 'clear-hazard', 'A');
+  while (!sim.isDone(state)) sim.step(state);
+  assert.equal(state.hazard, 'A');
+  assert.equal(state.open.A, false);
+  assert.equal(state.clearingUntil, 630);
+});
 test('targeted commands reproduce a hazard run without rerolling the scenario', () => {
   const state = sim.createState({ blockedExit: 'C' });
-  sim.act(state, 'clear-hazard', 'C'); sim.act(state, 'open-exit', 'C');
+  sim.act(state, 'clear-hazard', 'C');
+  for (let i = 0; i < sim.CLEAR_DURATION; i++) sim.step(state);
+  sim.act(state, 'open-exit', 'C');
   sim.act(state, 'redirect', 'C');
   const replay = sim.createState({ blockedExit: state.blockedExit });
-  for (const c of state.commands) sim.act(replay, c.action, c.target);
+  while (replay.tick < state.tick) sim.step(replay, state.commands);
+  for (const c of state.commands.filter(c => c.tick === state.tick)) sim.act(replay, c.action, c.target);
   assert.deepEqual(replay, state);
 });
 
@@ -63,10 +84,10 @@ test('the hazard tick picks which exit most people start toward, so drills hit d
   const majority = hazardTick => {
     const counts = {};
     for (const p of sim.createState({ hazardTick }).people) counts[p.exit] = (counts[p.exit] || 0) + 1;
-    return Object.keys(counts).find(e => counts[e] === 24);
+    return Object.keys(counts).find(e => counts[e] === 48);
   };
   assert.deepEqual([100, 101, 102].map(majority), ['B', 'C', 'A']);
-  assert.equal(sim.createState().people.filter(p => p.exit === 'A').length, 24, 'practice keeps its Exit A crowd');
+  assert.equal(sim.createState().people.filter(p => p.exit === 'A').length, 48, 'practice keeps its Exit A crowd');
 });
 test('after a redirect, staff need the cooldown before the next one', () => {
   const state = sim.createState({ hazardTick: 200 });
@@ -79,7 +100,7 @@ test('after a redirect, staff need the cooldown before the next one', () => {
 test('spreading the crowd early shortens the longest line and clears the venue sooner', () => {
   const play = schedule => {
     const state = sim.createState({ hazardTick: 150 });
-    const fix = exit => [{ tick: 151, action: 'clear-hazard', target: exit }, { tick: 151, action: 'open-exit', target: exit }];
+    const fix = exit => [{ tick: 151, action: 'clear-hazard', target: exit }, { tick: 151 + sim.CLEAR_DURATION, action: 'open-exit', target: exit }];
     const probe = sim.createState({ hazardTick: 150 });
     while (probe.tick <= 150) sim.step(probe, schedule);
     while (!sim.isDone(state)) sim.step(state, [...schedule, ...fix(probe.blockedExit)]);
@@ -87,7 +108,7 @@ test('spreading the crowd early shortens the longest line and clears the venue s
   };
   const waited = play([]);
   const spread = play([{ tick: 10, action: 'redirect', target: 'B' }]);
-  assert.equal(waited.remaining, 0);
+  assert.ok(waited.remaining > 0, 'fixing the single busy route is insufficient for 60 people');
   assert.equal(spread.remaining, 0);
   assert.ok(spread.peak < waited.peak, `longest line ${spread.peak} vs ${waited.peak}`);
   assert.ok(spread.ticks < waited.ticks, `cleared at ${spread.ticks} vs ${waited.ticks}`);
@@ -97,7 +118,7 @@ test('people keep a body width apart instead of walking through each other', () 
   const schedule = [{ tick: 10, action: 'redirect', target: 'B' }];
   let closest = Infinity;
   while (!sim.isDone(state)) {
-    if (state.tick === 151) schedule.push({ tick: 151, action: 'clear-hazard', target: state.blockedExit }, { tick: 151, action: 'open-exit', target: state.blockedExit });
+    if (state.tick === 151) schedule.push({ tick: 151, action: 'clear-hazard', target: state.blockedExit }, { tick: 151 + sim.CLEAR_DURATION, action: 'open-exit', target: state.blockedExit });
     sim.step(state, schedule);
     const present = state.people.filter(p => !p.evacuated);
     for (let i = 0; i < present.length; i++) for (let j = i + 1; j < present.length; j++) {

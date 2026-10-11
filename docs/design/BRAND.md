@@ -83,3 +83,15 @@ Accepted end-screen hierarchy: lead with the score and encouraging outcome, then
 The independent drill starts with every exit open. Select the incident time between 10 and 20 seconds once per run. At that time, block the exit with the largest number of non-evacuated people heading toward it; ties use A/B/C order. Show the yellow obstruction, red inaccessible door, and a clear reaction instruction. Clearing remains immediate and reopening remains separate. Practice retains its predictable untimed Exit B tasks.
 
 Record incident time and the actual chosen exit. Original and alternative replay face that same fixed event even when a changed decision shifts the alternative crowd distribution. Saved-run validation re-simulates the original to verify the target was its busiest route. Simulation version is now 3; older versioned runs stay stored but are not replayed against new rules.
+
+## Approved concourse assets
+
+The user approved the Higgsfield lobby and blockage references and requested their integration. The playable scene now follows their concrete walls, navy protective panels and doors, restrained terrazzo floor, green EXIT housings, striped equipment cases and trolley, and separate drifting smoke. The concession shutter, venue map, bench, bin, and exterior beyond the doors give the lobby context while preserving the crowd's routes.
+
+Door leaves animate with live simulation state. Labels explicitly say OPEN, CLOSED, or BLOCKED, and clearing equipment does not open a door. The existing floor guidance, overhead laptop camera, raised headset post, controller targets, and ghost comparison remain in place. Architectural props use lightweight geometry; texture artwork is served locally. Physical headset comfort and performance still need checking.
+
+## Timed clearing and larger crowd
+
+The user requested a clearing delay and selected 60 people with restrained panic cues. Clearing now takes four simulated seconds. Keep the equipment and smoke visible and the door inaccessible during work; show the countdown on the gate controls and above the blocked exit. Ignore repeated clearing presses, then explicitly invite the player to reopen the door when work finishes. Other open routes remain available while clearing proceeds.
+
+Scatter starting positions and vary individual speeds; one quarter of the crowd hesitates briefly at the incident. Staff directions remain reliable. Stable three-column queues fit the crowd inside the lobby, and flow is balanced so prompt clearing plus redirection can evacuate everyone within the existing 60-second drill. All variation is seeded and repeatable for comparison; these are game cues, not validated crowd-psychology rules. Simulation version 6 prevents inaccurate replay of older drills.

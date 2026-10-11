@@ -19,7 +19,7 @@ const scene = document.querySelector('a-scene');
 // Live crowd: CC0 characters from Kenney's Mini Characters (public/models/kenney/License.txt), each with walk
 // and idle animations. The comparison's ghost crowd keeps simple wireframe shapes so the two crowds stay distinct.
 const CHARACTERS = ['female-a', 'male-a', 'female-b', 'male-b', 'female-c', 'male-c', 'female-d', 'male-d', 'female-e', 'male-e', 'female-f', 'male-f'];
-// All characters share one colour-map texture. Loaded once here: when 30 models decoded it in parallel, only one got
+// All characters share one colour-map texture. Loaded once here: when models decoded it in parallel, only one got
 // image data and three.js warned every frame about the rest.
 let characterTexture = null;
 function shareCharacterTexture(model) {
@@ -56,7 +56,7 @@ window.AFRAME?.registerComponent('walker', {
       off.fadeOut(0.2);
       this.wasMoving = moving;
     }
-    this.mixer.update(delta / 1000);
+    this.mixer.update(delta / 1000 * (this.el.pace ?? 1));
   },
 });
 function createFigures(list, container, faded) {
@@ -114,6 +114,7 @@ function place(list, s) {
     const dx = person.x - (item.x ?? person.x);
     const dz = person.z - (item.z ?? person.z);
     model.moving = Math.hypot(dx, dz) > 0.001;
+    model.pace = person.speed / 2.4;
     if (model.moving) figure.setAttribute('rotation', `0 ${Math.atan2(dx, dz) * 180 / Math.PI} 0`);
     item.x = person.x;
     item.z = person.z;
@@ -139,14 +140,17 @@ function refresh() {
     const suffix = exit.toLowerCase();
     el(`exit-controls-${suffix}`).hidden = mode === 'practice' && exit !== 'B';
     const hazard = state.hazard === exit;
+    const clearing = hazard && state.clearingUntil !== null;
+    const seconds = clearing ? ((state.clearingUntil - state.tick) * sim.DT).toFixed(1) : null;
     el(`status-${suffix}`).setAttribute('data-state', hazard ? 'hazard' : state.open[exit] ? 'open' : 'closed');
-    el(`state-${suffix}`).textContent = hazard ? 'Hazard: clear first' : state.open[exit] ? 'Open' : 'Closed';
+    el(`state-${suffix}`).textContent = clearing ? `Clearing: ${seconds} s` : hazard ? 'Hazard: clear first' : state.open[exit] ? 'Open' : 'Closed';
     el(`count-${suffix}`).textContent = `${stats.queues[exit]} heading here`;
-    el(`exit-${suffix}`).setAttribute('color', state.open[exit] && !hazard ? '#2ecc71' : '#e74c3c');
+    el(`exit-${suffix}`).setAttribute('stadium-door', 'state', hazard ? 'blocked' : state.open[exit] ? 'open' : 'closed');
     const available = active && (mode !== 'practice' || exit === 'B');
     const clear = el(`clear-hazard-${suffix}`);
     clear.hidden = mode === 'practice';
-    clear.disabled = !available || !hazard;
+    clear.disabled = !available || !hazard || clearing;
+    clear.textContent = clearing ? `Clearing ${exit}: ${seconds} s` : `Clear hazard at ${exit}`;
     const open = el(`open-exit-${suffix}`);
     const redirect = el(`redirect-${suffix}`);
     open.hidden = mode === 'practice' && exit !== 'B';
@@ -165,10 +169,12 @@ function refresh() {
   el('hazard-label').setAttribute('visible', !!state.hazard);
   el('hazard-smoke').setAttribute('visible', !!state.hazard);
   if (state.hazard) {
+    el('hazard-label').setAttribute('value', state.clearingUntil === null ? 'BLOCKED - CLEAR EQUIPMENT'
+      : `CLEARING - ${((state.clearingUntil - state.tick) * sim.DT).toFixed(1)} s`);
     const x = { A: -8, B: 0, C: 8 }[state.hazard];
-    el('hazard-marker').setAttribute('position', `${x} 0.6 -10.5`);
-    el('hazard-label').setAttribute('position', `${x} 4.5 -11`);
-    el('hazard-smoke').setAttribute('position', `${x} 0 -10.5`);
+    el('hazard-marker').setAttribute('position', `${x} 0 -11`);
+    el('hazard-label').setAttribute('position', `${x} 3.8 -10.8`);
+    el('hazard-smoke').setAttribute('position', `${x} 0 -11`);
   }
   el('actions').hidden = !active;
   el('review').hidden = !lastRun || active;
@@ -277,7 +283,7 @@ function perform(action, target = 'B') {
     return;
   }
   if (action === 'clear-hazard') {
-    el('feedback').textContent = `Nice work! The hazard at Exit ${target} is cleared. You can open that exit now.`;
+    el('feedback').textContent = `Clearing equipment at Exit ${target} takes ${sim.CLEAR_DURATION * sim.DT} seconds. Keep people moving through another open route while staff work.`;
   } else if (action === 'open-exit') {
     el('feedback').textContent = `Good work! Exit ${target} is open. Direct people toward the new route.`;
     if (mode === 'practice' && practiceStep === 0 && state.open.B) {
@@ -493,8 +499,8 @@ for (const exit of EXITS) {
   const door = el(`exit-${exit.toLowerCase()}`);
   const target = el(`door-target-${exit.toLowerCase()}`);
   target.addEventListener('click', evt => pressDoor(exit, evt));
-  target.addEventListener('mouseenter', () => door.setAttribute('material', 'emissive', '#555555'));
-  target.addEventListener('mouseleave', () => door.setAttribute('material', 'emissive', '#000000'));
+  target.addEventListener('mouseenter', () => door.setAttribute('stadium-door', 'hovered', true));
+  target.addEventListener('mouseleave', () => door.setAttribute('stadium-door', 'hovered', false));
 }
 scene.setAttribute('raycaster', 'objects: .vr-control');
 scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
@@ -541,11 +547,16 @@ function tick() {
     return;
   }
   const incidentNow = mode === 'drill' && state.hazardTick !== null && state.tick === state.hazardTick;
+  const clearingExit = state.clearingUntil !== null ? state.hazard : null;
   sim.step(state);
+  if (clearingExit && !state.hazard) {
+    instructions('HAZARD CLEARED', `Exit ${clearingExit} is ready to reopen`, 'The equipment is clear. Open the door to make this route usable again.');
+    el('feedback').textContent = `The hazard at Exit ${clearingExit} is cleared. You can open that exit now.`;
+  }
   if (incidentNow) {
     // Fix the original incident in the initial snapshot; alternatives face the same event.
     initial.blockedExit = state.blockedExit;
-    instructions('HAZARD DETECTED', `Exit ${state.hazard} is blocked`, 'Clear the yellow obstruction, then reopen the red door. You can also direct people to another open exit.');
+    instructions('HAZARD DETECTED', `Exit ${state.hazard} is blocked`, 'Clear the striped equipment, then reopen the closed door. You can also direct people to another open exit.');
     el('feedback').textContent = `Stay focused: Exit ${state.hazard} needs your attention. Choose a route to keep the crowd moving.`;
     alarm();
     announce(`hazard-${state.hazard}`);

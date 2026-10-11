@@ -5,6 +5,8 @@
   const EXIT_X = { A: -8, B: 0, C: 8 };
   const EXITS = Object.keys(EXIT_X);
   const REDIRECT_COOLDOWN = 50; // ticks: staff need 5 s to move one group before taking the next order
+  const CLEAR_DURATION = 40; // ticks: equipment clearing takes four seconds, then the door must be opened
+  const POPULATION = 60;
   const SPACING = 0.65; // metres between people standing in an exit's line
   const PERSONAL_SPACE = 0.55; // metres; closer pairs step apart instead of walking through each other
   const CALM_QUEUE = 10; // beyond this many waiting, each extra person slows the exit
@@ -16,20 +18,24 @@
     // hazard (which hits the busiest exit) lands on different exits across drills while replays stay exact.
     const familiar = hazardTick === null ? 'A' : EXITS[hazardTick % EXITS.length];
     const other = EXITS[(EXITS.indexOf(familiar) + 2) % EXITS.length];
+    let seed = (hazardTick ?? 0) + 1;
+    const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
     return {
       tick: 0, blockedExit, hazardTick, hazard: hazardTick === null ? blockedExit : null,
       open: hazardTick !== null ? { A: true, B: true, C: true } : blockedExit ? Object.fromEntries(Object.keys(EXIT_X).map(e => [e, e !== blockedExit])) : { A: true, B: false, C: true }, redirected: false, lastRedirect: null,
-      cooldown: { A: 0, B: 0, C: 0 }, commands: [], redirectReady: 0, peak: { size: 0, exit: null },
-      people: Array.from({ length: 30 }, (_, id) => ({
-        id, x: -7 + (id % 6) * 2.5, z: 1 + Math.floor(id / 6) * 1.3,
-        exit: id < 24 ? familiar : other, evacuated: false
+      cooldown: { A: 0, B: 0, C: 0 }, commands: [], redirectReady: 0, clearingUntil: null, peak: { size: 0, exit: null },
+      people: Array.from({ length: POPULATION }, (_, id) => ({
+        id, x: -8.1 + (id % 10) * 1.8 + (random() - 0.5) * 1.2,
+        z: 1 + Math.floor(id / 10) * 1.45 + (random() - 0.5) * 0.8,
+        speed: 1.8 + random() * 1.2, hesitation: 4 + Math.floor(random() * 10), pauseUntil: 0,
+        exit: id < POPULATION * 0.8 ? familiar : other, evacuated: false
       }))
     };
   }
   function act(state, action, target = 'B') {
     if (!Object.hasOwn(EXIT_X, target)) return false;
-    if (action === 'clear-hazard' && state.hazard === target) {
-      state.hazard = null;
+    if (action === 'clear-hazard' && state.hazard === target && state.clearingUntil === null) {
+      state.clearingUntil = state.tick + CLEAR_DURATION;
     } else if (action === 'open-exit' && !state.open[target] && state.hazard !== target) {
       state.open[target] = true;
     } else if (action === 'redirect' && state.open[target] && state.hazard !== target && state.lastRedirect !== target && state.tick >= state.redirectReady) {
@@ -53,27 +59,37 @@
       state.open[exit] = false;
       state.lastRedirect = null;
       state.redirectReady = state.tick;
+      state.people.forEach(p => { if (!p.evacuated && p.id % 4 === 0) p.pauseUntil = state.tick + p.hesitation; });
     }
     schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action, c.target));
     state.tick++;
+    if (state.clearingUntil !== null && state.tick >= state.clearingUntil) {
+      state.hazard = null;
+      state.clearingUntil = null;
+    }
     for (const exit of EXITS) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
       const queue = state.people.filter(p => !p.evacuated && p.exit === exit);
+      // Stable columns prevent people swapping places sideways every time someone leaves.
+      const ranks = [0, 0, 0];
+      const slots = queue.map(p => ({ p, x: EXIT_X[exit] + [0, -1, 1][p.id % 3] * SPACING,
+        z: -10 + ranks[p.id % 3]++ * SPACING }));
       // People standing at their place in the line, as opposed to still walking toward it.
-      const crowd = queue.filter((p, rank) => Math.hypot(EXIT_X[exit] - p.x, -10 + rank * SPACING - p.z) < 0.5).length;
+      const crowd = slots.filter(({ p, x, z }) => Math.hypot(x - p.x, z - p.z) < 0.5).length;
       if (crowd > state.peak.size) state.peak = { size: crowd, exit };
       if (!state.open[exit] || state.hazard === exit) continue;
-      queue.forEach((p, rank) => {
-        const dx = EXIT_X[exit] - p.x;
-        const dz = -10 + rank * SPACING - p.z;
+      slots.forEach(({ p, x, z }) => {
+        if (state.tick <= p.pauseUntil) return;
+        const dx = x - p.x;
+        const dz = z - p.z;
         const distance = Math.hypot(dx, dz);
-        const movement = Math.min(distance, 2.4 * DT);
+        const movement = Math.min(distance, p.speed * DT);
         if (distance) { p.x += dx / distance * movement; p.z += dz / distance * movement; }
       });
-      const first = queue[0];
-      if (first && Math.hypot(first.x - EXIT_X[exit], first.z + 10) < 0.25 && !state.cooldown[exit]) {
+      const first = slots.find(({ p, x }) => state.tick > p.pauseUntil && Math.hypot(p.x - x, p.z + 10) < 0.25)?.p;
+      if (first && !state.cooldown[exit]) {
         first.evacuated = true;
-        state.cooldown[exit] = 1.8 + CRUSH_DELAY * Math.max(0, crowd - CALM_QUEUE);
+        state.cooldown[exit] = 1.2 + CRUSH_DELAY * Math.max(0, crowd - CALM_QUEUE);
       }
     }
     separate(state);
@@ -83,7 +99,7 @@
   // because fixing one close pair can push another pair together.
   function separate(state) {
     const present = state.people.filter(p => !p.evacuated);
-    for (let pass = 0; pass < 3; pass++) for (let i = 0; i < present.length; i++) {
+    for (let pass = 0; pass < 6; pass++) for (let i = 0; i < present.length; i++) {
       for (let j = i + 1; j < present.length; j++) {
         const a = present[i], b = present[j];
         const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
@@ -105,8 +121,8 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 5;
-  const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, createState, act, step, stats, isDone };
+  const VERSION = 6;
+  const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, CLEAR_DURATION, POPULATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;
 })(typeof window === 'undefined' ? globalThis : window);

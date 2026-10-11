@@ -10,10 +10,14 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
       style: {}, hidden: id === 'drill-btn', disabled: false, textContent: '', value: '',
-      listeners: {}, classList: { toggle() {}, add() {} }, children: [],
+      listeners: {}, attributes: {}, classList: { toggle() {}, add() {} }, children: [],
       closest() { return this.hidden ? this : null; },
       click() { if (!this.disabled) this.listeners.click?.(); },
-      setAttribute() {}, append() {}, replaceChildren(...items) { this.children = items; },
+      setAttribute(name, key, value) {
+        this.attributes[name] = arguments.length === 3 ? { ...this.attributes[name], [key]: value } : key;
+      },
+      getAttribute(name) { return this.attributes[name]; },
+      append() {}, replaceChildren(...items) { this.children = items; },
       addEventListener(event, listener) { this.listeners[event] = listener; }
     });
     return elements.get(id);
@@ -49,13 +53,14 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
 function practice(ui) {
   ui.click('start-btn'); ui.click('open-exit-b'); ui.click('redirect-b');
 }
-// Exit B is blocked (default random): clear and open it at 0 s, redirect to it at 5 s.
+// Default incident hits C; start clearing, wait for completion, reopen, then redirect to B.
 function drillWithActions(ui) {
   practice(ui);
   ui.click('drill-btn');
   ui.playTicks(ui.value('state.hazardTick') + 1);
   const exit = ui.value('state.hazard').toLowerCase();
-  ui.click(`clear-hazard-${exit}`); ui.click(`open-exit-${exit}`);
+  ui.click(`clear-hazard-${exit}`);
+  ui.playTicks(ui.value('state.clearingUntil')); ui.click(`open-exit-${exit}`);
   ui.playTicks(200); ui.click('redirect-b');
   ui.play('drill');
 }
@@ -178,7 +183,7 @@ test('a failed save says so and keeps the review usable', async () => {
   assert.equal(offline.element('save-status').textContent, 'Not saved. The server could not be reached.');
 });
 test('a saved link opens the review in its scenario and its replay reproduces the saved result', async () => {
-  const commands = [{ tick: 0, action: 'clear-hazard', target: 'A' }, { tick: 0, action: 'open-exit', target: 'A' }, { tick: 45, action: 'redirect', target: 'C' }];
+  const commands = [{ tick: 0, action: 'clear-hazard', target: 'A' }, { tick: sim.CLEAR_DURATION, action: 'open-exit', target: 'A' }, { tick: 45, action: 'redirect', target: 'C' }];
   const state = sim.createState({ blockedExit: 'A' });
   while (!sim.isDone(state)) sim.step(state, commands);
   const saved = { id: '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60', version: sim.VERSION, blockedExit: 'A', commands, result: review.result(state) };
@@ -201,24 +206,55 @@ test('a missing saved run is reported on the start screen', async () => {
   assert.equal(ui.element('load-status').textContent, 'Could not open the saved drill. No saved drill matches this link.');
   assert.equal(ui.value('mode'), 'intro');
 });
+test('restarting during clearing removes pending work and resets the visible blockage', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  const hazard = ui.value('state.hazard');
+  ui.click(`clear-hazard-${hazard.toLowerCase()}`);
+  assert.ok(ui.value('state.clearingUntil') > ui.value('state.tick'));
+  ui.click('stop-btn');
+  assert.equal(ui.value('state.clearingUntil'), null);
+  assert.equal(ui.value('state.hazard'), null);
+  assert.equal(ui.element('hazard-marker').getAttribute('visible'), false);
+  assert.equal(ui.value('state.commands.length'), 0);
+});
 test('clicking the doors plays practice and handles a hazard through the same buttons', () => {
   const ui = setup();
   const door = exit => ui.element(`door-target-${exit.toLowerCase()}`).listeners.click();
   ui.click('start-btn');
+  assert.equal(ui.element('exit-b').getAttribute('stadium-door').state, 'closed');
   door('A');
   assert.equal(ui.value('practiceStep'), 0, 'practice only uses Exit B');
   door('B');
   assert.equal(ui.value('state.open.B'), true);
+  assert.equal(ui.element('exit-b').getAttribute('stadium-door').state, 'open');
   door('B');
   assert.equal(ui.value('practiceStep'), 2, 'second click on the open door redirects people there');
   ui.click('drill-btn');
   ui.playTicks(ui.value('state.hazardTick') + 1);
   const hazard = ui.value('state.hazard');
+  const visual = ui.element(`exit-${hazard.toLowerCase()}`);
+  assert.equal(visual.getAttribute('stadium-door').state, 'blocked');
+  assert.equal(ui.element('hazard-marker').getAttribute('visible'), true);
+  assert.equal(ui.element('hazard-smoke').getAttribute('visible'), true);
   door(hazard);
-  assert.equal(ui.value('state.hazard'), null, 'first click clears the hazard');
+  assert.equal(ui.value('state.hazard'), hazard, 'first click starts clearing');
+  assert.equal(ui.element(`clear-hazard-${hazard.toLowerCase()}`).disabled, true);
+  assert.equal(ui.element('hazard-marker').getAttribute('visible'), true);
+  assert.match(ui.element('hazard-label').getAttribute('value'), /^CLEARING/);
+  const deadline = ui.value('state.clearingUntil');
+  door(hazard);
+  assert.equal(ui.value('state.clearingUntil'), deadline, 'another click cannot restart clearing');
+  ui.playTicks(deadline);
+  assert.equal(ui.value('state.hazard'), null, 'equipment clears when the timer finishes');
+  assert.equal(visual.getAttribute('stadium-door').state, 'closed', 'clearing equipment leaves the physical door closed');
+  assert.equal(ui.element('hazard-marker').getAttribute('visible'), false);
+  assert.equal(ui.element('hazard-smoke').getAttribute('visible'), false);
   door(hazard);
   assert.equal(ui.value(`state.open.${hazard}`), true, 'second click reopens the door');
-  door(hazard);
+  assert.equal(visual.getAttribute('stadium-door').state, 'open');
+  door(ui.value(`['A','B','C'].find(e => e !== '${hazard}')`));
   assert.equal(ui.value('state.commands.at(-1).action'), 'redirect');
   const commands = ui.value('state.commands.length');
   door(ui.value(`['A','B','C'].find(e => e !== '${hazard}')`));
@@ -236,10 +272,12 @@ test('the hazard sounds an alarm and both it and redirects are announced, unless
   assert.equal(ui.spoken.at(-1), `Attention. Exit ${hazard} is blocked. Staff, respond now.`);
   ui.click('sound-btn');
   assert.equal(ui.element('sound-btn').textContent, 'Sound: off');
-  ui.click(`clear-hazard-${hazard.toLowerCase()}`); ui.click(`open-exit-${hazard.toLowerCase()}`);
-  ui.click(`redirect-${hazard.toLowerCase()}`);
+  ui.click(`clear-hazard-${hazard.toLowerCase()}`);
+  ui.playTicks(ui.value('state.clearingUntil')); ui.click(`open-exit-${hazard.toLowerCase()}`);
+  const target = ['A','B','C'].find(exit => exit !== hazard);
+  ui.click(`redirect-${target.toLowerCase()}`);
   assert.equal(ui.spoken.length, 3, 'nothing more is spoken with sound off');
-  assert.equal(ui.element('pa-caption').textContent, `PA: Attention please. Proceed to Exit ${hazard}.`, 'captions continue with sound off');
+  assert.equal(ui.element('pa-caption').textContent, `PA: Attention please. Proceed to Exit ${target}.`, 'captions continue with sound off');
 });
 test('generated ElevenLabs clips play instead of the browser voice, with the browser voice for missing ones', () => {
   const ui = setup({ clips: ['redirect-B'] });

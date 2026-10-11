@@ -17,6 +17,7 @@
 		<link rel="stylesheet" href="/styles.css" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<script src="/aframe/aframe-v1.8.0.min.js"></script>
+		<script src="/environment.js"></script>
 	</head>
 
 	<body>
@@ -54,7 +55,7 @@
 				<div id="hud">
 					<span id="evacuated">Evacuated: 0</span>
 					<span id="timer">Practice · no time limit</span>
-					<span id="remaining">Remaining: 30</span>
+					<span id="remaining">Remaining: 60</span>
 					<span id="breathing" hidden>Breathing: measuring…</span>
 				</div>
 
@@ -131,115 +132,49 @@
 							renderer="antialias: true; foveationLevel: 1"
 							background="color: #0f1b2b"
 						>
+							<a-assets timeout="5000">
+								<img id="floor-material" src="/textures/concourse/floor.webp" />
+								<img id="wall-material" src="/textures/concourse/wall.webp" />
+								<img id="exterior-material" src="/textures/concourse/exterior.webp" />
+								<img id="hazard-stripes" src="/textures/concourse/hazard-stripes.svg" />
+								<img id="shutter-material" src="/textures/concourse/shutter.svg" />
+								<img id="venue-map" src="/textures/concourse/venue-map.svg" />
+								<img id="smoke-material" src="/textures/concourse/smoke.svg" />
+							</a-assets>
 							<a-sky color="#0f1b2b"></a-sky>
-							<a-entity light="type: hemisphere; color: #eef3ff; groundColor: #3a4658; intensity: 1.5"></a-entity>
+							<a-entity light="type: hemisphere; color: #eef3ff; groundColor: #596573; intensity: 1.2"></a-entity>
 							<a-entity light="type: directional; color: #fff6e0; intensity: 0.7" position="-6 12 8"></a-entity>
-							<a-plane
-								rotation="-90 0 0"
-								width="24"
-								height="24"
-								material="color: #687284; roughness: 0.95"
-							></a-plane>
-							<!-- Green floor guidance strips toward each exit, as on a concourse evacuation route. -->
-							<a-plane rotation="-90 0 0" position="-8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.35; transparent: true; shader: flat"></a-plane>
-							<a-plane rotation="-90 0 0" position="0 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.35; transparent: true; shader: flat"></a-plane>
-							<a-plane rotation="-90 0 0" position="8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.35; transparent: true; shader: flat"></a-plane>
-
-							<a-box
-								position="0 1.5 -12"
-								width="24"
-								height="3"
-								depth="0.3"
-								color="#6f7a8b"
-							></a-box>
-
-							<a-box
-								position="-12 1.5 0"
-								width="0.3"
-								height="3"
-								depth="24"
-								color="#6f7a8b"
-							></a-box>
-
-							<a-box
-								position="12 1.5 0"
-								width="0.3"
-								height="3"
-								depth="24"
-								color="#6f7a8b"
-							></a-box>
-
-							<a-box
-								id="exit-a"
-								position="-8 1 -11.7"
-								width="3"
-								height="2"
-								depth="0.2"
-								color="#2ecc71"
-							></a-box>
-
-							<a-box
-								id="exit-b"
-								position="0 1 -11.7"
-								width="3"
-								height="2"
-								depth="0.2"
-								color="#e74c3c"
-							></a-box>
-
-							<a-box
-								id="exit-c"
-								position="8 1 -11.7"
-								width="3"
-								height="2"
-								depth="0.2"
-								color="#2ecc71"
-							></a-box>
+							<a-entity concourse></a-entity>
+							<a-entity id="exit-a" position="-8 0 -11.7" stadium-door="state: open"></a-entity>
+							<a-entity id="exit-b" position="0 0 -11.7" stadium-door="state: closed"></a-entity>
+							<a-entity id="exit-c" position="8 0 -11.7" stadium-door="state: open"></a-entity>
+							<!-- Route strips stay above the material and outside the crowd's foot rings. -->
+							<a-plane rotation="-90 0 0" position="-8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.55; transparent: true; shader: flat"></a-plane>
+							<a-plane rotation="-90 0 0" position="0 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.55; transparent: true; shader: flat"></a-plane>
+							<a-plane rotation="-90 0 0" position="8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.55; transparent: true; shader: flat"></a-plane>
 
 							<a-entity id="rig">
 								<a-entity id="camera" camera position="0 16 14" rotation="-52 0 0"></a-entity>
 								<a-entity laser-controls="hand: left" raycaster="objects: .vr-control; far: 40"></a-entity>
 								<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 40"></a-entity>
 								<a-entity id="vr-post" visible="false">
-									<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" color="#3a4250"></a-box>
+									<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" material="src: #floor-material; repeat: 0.6 0.5; roughness: 0.95"></a-box>
 									<!-- Waist-high railing on the open sides of the raised post, for comfort at height. -->
-									<a-box position="0 1 -1" width="2.4" height="0.05" depth="0.05" color="#c5d0df"></a-box>
-									<a-box position="-1.2 1 0" width="0.05" height="0.05" depth="2" color="#c5d0df"></a-box>
-									<a-box position="1.2 1 0" width="0.05" height="0.05" depth="2" color="#c5d0df"></a-box>
-									<a-box position="-1.2 0.5 -1" width="0.05" height="1" depth="0.05" color="#c5d0df"></a-box>
-									<a-box position="1.2 0.5 -1" width="0.05" height="1" depth="0.05" color="#c5d0df"></a-box>
+									<a-box position="0 1 -1" width="2.4" height="0.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="-1.2 1 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="1.2 1 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="-1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+									<a-box position="1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
 									<a-entity id="vr-panel" position="-1.5 1.35 -1.3" rotation="-10 45 0">
 										<a-plane width="1.2" height="1.1" color="#182230"></a-plane>
 										<a-text id="vr-text" position="-0.55 0.52 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
 									</a-entity>
 								</a-entity>
 							</a-entity>
-							<!-- Illuminated exit sign above door A. -->
-							<a-entity position="-8 2.55 -11.8">
-								<a-box width="2.8" height="0.8" depth="0.06" material="color: #1f9d57; emissive: #2fbf71; emissiveIntensity: 0.6"></a-box>
-								<a-text value="EXIT A" align="center" width="7" color="#ffffff" position="0 0 0.04"></a-text>
-							</a-entity>
-							<!-- Illuminated exit sign above door B. -->
-							<a-entity position="0 2.55 -11.8">
-								<a-box width="2.8" height="0.8" depth="0.06" material="color: #1f9d57; emissive: #2fbf71; emissiveIntensity: 0.6"></a-box>
-								<a-text value="EXIT B" align="center" width="7" color="#ffffff" position="0 0 0.04"></a-text>
-							</a-entity>
-							<!-- Illuminated exit sign above door C. -->
-							<a-entity position="8 2.55 -11.8">
-								<a-box width="2.8" height="0.8" depth="0.06" material="color: #1f9d57; emissive: #2fbf71; emissiveIntensity: 0.6"></a-box>
-								<a-text value="EXIT C" align="center" width="7" color="#ffffff" position="0 0 0.04"></a-text>
-							</a-entity>
-							<a-box id="hazard-marker" visible="false" position="0 0.6 -10.5" width="2.8" height="1.2" depth="1" color="#e6da78"></a-box>
-<!-- Smoke rising from the hazard; game.js moves it with the yellow obstruction. -->
-							<a-entity id="hazard-smoke" visible="false" position="0 0 -10.5">
-								<a-sphere radius="1.12" color="#2f343c" material="transparent: true; opacity: 0" animation="property: position; from: -0.6 0.8 0; to: -0.96 5 0.4; dur: 3200; delay: 0; loop: true; easing: linear" animation__fade="property: material.opacity; from: 0.75; to: 0; dur: 3200; delay: 0; loop: true; easing: easeInQuad"></a-sphere>
-								<a-sphere radius="1.44" color="#2f343c" material="transparent: true; opacity: 0" animation="property: position; from: 0.3 0.8 0; to: 0.48 5 0.4; dur: 3200; delay: 650; loop: true; easing: linear" animation__fade="property: material.opacity; from: 0.75; to: 0; dur: 3200; delay: 650; loop: true; easing: easeInQuad"></a-sphere>
-								<a-sphere radius="0.96" color="#2f343c" material="transparent: true; opacity: 0" animation="property: position; from: 0.8 0.8 0; to: 1.2800000000000002 5 0.4; dur: 3200; delay: 1300; loop: true; easing: linear" animation__fade="property: material.opacity; from: 0.75; to: 0; dur: 3200; delay: 1300; loop: true; easing: easeInQuad"></a-sphere>
-								<a-sphere radius="1.28" color="#2f343c" material="transparent: true; opacity: 0" animation="property: position; from: -0.2 0.8 0; to: -0.32000000000000006 5 0.4; dur: 3200; delay: 1950; loop: true; easing: linear" animation__fade="property: material.opacity; from: 0.75; to: 0; dur: 3200; delay: 1950; loop: true; easing: easeInQuad"></a-sphere>
-								<a-sphere radius="1.12" color="#2f343c" material="transparent: true; opacity: 0" animation="property: position; from: 0.5 0.8 0; to: 0.8 5 0.4; dur: 3200; delay: 2600; loop: true; easing: linear" animation__fade="property: material.opacity; from: 0.75; to: 0; dur: 3200; delay: 2600; loop: true; easing: easeInQuad"></a-sphere>
-							</a-entity>
-							<a-text id="hazard-label" visible="false" value="HAZARD" position="0 4.5 -11" align="center" width="10" color="#e6da78"></a-text>
-<!-- Invisible click targets around each door and its letter: the doors are small from the overhead view. -->
+							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage></a-entity>
+							<a-entity id="hazard-smoke" visible="false" position="0 0 -11" hazard-puffs></a-entity>
+							<a-text id="hazard-label" font="aileronsemibold" visible="false" value="BLOCKED - CLEAR EQUIPMENT" position="0 3.8 -10.8" align="center" width="5" wrap-count="28" color="#e4dc7b"></a-text>
+							<!-- Invisible click targets around each door and its letter: the doors are small from the overhead view. -->
 							<a-box id="door-target-a" class="vr-control" position="-8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
 							<a-box id="door-target-b" class="vr-control" position="0 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
 							<a-box id="door-target-c" class="vr-control" position="8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
@@ -247,7 +182,7 @@
 							<a-entity id="ghost-crowd" visible="false"></a-entity>
 						</a-scene>
 						<p class="scene-caption">
-							Click a door to act on it: it clears a hazard, opens the door, or sends people there. Crowd figures are simplified. Exit labels show each route; the yellow obstruction marks the hazard. In a comparison, faded wireframe figures replay your original run and solid figures show the alternative.
+							Click a door to act on it: it starts clearing a hazard, opens the door, or sends people there. Clearing takes four seconds; reopen the door afterward. Crowd figures are simplified. Exit labels and door status show each route; striped equipment and smoke mark the blocked exit. In a comparison, faded wireframe figures replay your original run and solid figures show the alternative.
 						</p>
 					</div>
 				</div>
