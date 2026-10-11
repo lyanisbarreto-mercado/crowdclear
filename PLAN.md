@@ -183,3 +183,11 @@ Verification: `npm test` passed all 32 tests including timed incidents and Postg
 - `ab6ddb9`: doors are controls. A mouse click or controller trigger on a door presses the page button for its next step. Verified in Chromium with real mouse raycasts: hover highlight and pointer cursor, practice completed by two clicks on door B, a hazard cleared and reopened by clicking its door.
 - `5b91a4f`: alarm and spoken announcements (hazard, redirects) with a Sound toggle. In Chromium the audio context was running after the start click and speech was queued; nobody listened to it yet.
 - 38 tests pass. Real headset still untested; the IWER emulator (Meta Quest 3 profile) is paired on Colin's Chrome for the emulated check.
+
+## Fixes after the open-issues pass (Colin, October 10, late night)
+
+- `7f785ed`: each door has an invisible 5 m click target around it and its letter, because the doors are small from the overhead laptop view. A click 2 m beside door B at letter height opened it; a click on the floor did nothing.
+- `7b17f34`: starting practice offers the headset session (Quest Browser can show its own Enter VR prompt). Both the offer and the Enter headset view button now require A-Frame's own headset check. Before this, a browser where A-Frame saw no headset at load (the Immersive Web Emulator installs its runtime after A-Frame loads) went fullscreen in a fake "vr-mode" with no XR session; reproduced in Chromium with the emulator, then verified gone. With a headset reported, practice offers `immersive-vr` exactly once.
+- People keep a body width apart: after each step, pairs closer than 0.55 m step apart in three fixed-order passes (VERSION 5). Over 404 runs the closest pair is 0.505 m; before, 134 sampled moments overlapped. Strategy outcomes moved by at most 0.4 s. A browser drill plus comparison replayed exactly on version 5.
+- Empty favicon declared: the page now loads with no console errors (the emulator extension still logs a duplicate three.js warning).
+- 39 tests pass. Not yet done: the emulated and real headset checks (the IWER bridge needs the extension switched on for the tab).

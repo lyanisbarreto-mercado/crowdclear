@@ -19,7 +19,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 - **VR is not proven.** The live site does not deploy (Render loops on its startup page), so no headset has run it. In VR the player presses flat menu buttons on a panel; nothing in the world is interactive. No audio, primitive shapes.
 - **Decisions now matter (fixed in `6ba692a`).** Measured: no reaction leaves 15 to 20 people inside at 60 s; clearing and reopening at once clears everyone in 45.9 s (score 44); reacting 15 s late costs 14 to 15 points or fails.
 - **Deeper since `0eaf90f`.** The hazard now hits A, B, or C depending on the drill; redirects have a 5 s cooldown; a long line slows its exit, and the review names the longest line. Measured over all 101 hazard times: no reaction never clears; fixing at once clears in 52.8 s; fixing plus one good redirect in 37.5 s; spreading people early, then fixing, in 32.1 s with a 14-person longest line instead of 24.
-- **Still simple.** People walk in straight lines through each other, and the scene is primitive shapes.
+- **Still simple.** People keep a body width apart now, but they walk straight at the doors and the scene is primitive shapes.
 
 ## Tonight, in order
 
