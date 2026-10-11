@@ -27,7 +27,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 
 - [ ] Fix the Render deploy loop. The app starts cleanly from a fresh clone on Render's port, so the cause is a Render setting; read the service's Events and Logs (checks listed in PLAN.md, "Render").
 - [ ] Copy `DATABASE_URL` into Render's Environment; the value is in Colin's local `.env.local` (written by `neon link`). Then finish one drill on the live URL and reload its link. *Neon side done: repo linked to project CrowdClear (`quiet-mouse-43259915`, branch `production`), `runs` table created, and save, retry, reopen, and replay verified against the real database.*
-- [ ] Headset check: on the live HTTPS URL, or locally through `adb reverse tcp:3000 tcp:3000` (Quest) or a `cloudflared` tunnel. Enter headset view, press Clear/Open/Redirect with a controller, note where the platform and panel should move. Without a headset, the IWER emulator (Immersive Web Emulator extension plus the `iwer` MCP server on Colin's machine) can drive the page.
+- [ ] Headset check (emulated Quest 3 passed: entry, panel, trigger on a door, exit; see PLAN.md): on the live HTTPS URL, or locally through `adb reverse tcp:3000 tcp:3000` (Quest) or a `cloudflared` tunnel. Enter headset view, press Clear/Open/Redirect with a controller, note where the platform and panel should move. Without a headset, the IWER emulator (Immersive Web Emulator extension plus the `iwer` MCP server on Colin's machine) can drive the page.
 
 **P1. Make it feel like VR (Colin, about 3 h)**
 

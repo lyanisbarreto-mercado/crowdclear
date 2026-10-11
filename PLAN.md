@@ -191,3 +191,10 @@ Verification: `npm test` passed all 32 tests including timed incidents and Postg
 - People keep a body width apart: after each step, pairs closer than 0.55 m step apart in three fixed-order passes (VERSION 5). Over 404 runs the closest pair is 0.505 m; before, 134 sampled moments overlapped. Strategy outcomes moved by at most 0.4 s. A browser drill plus comparison replayed exactly on version 5.
 - Empty favicon declared: the page now loads with no console errors (the emulator extension still logs a duplicate three.js warning).
 - 39 tests pass. Not yet done: the emulated and real headset checks (the IWER bridge needs the extension switched on for the tab).
+
+## Emulated headset check (Colin, October 10, late night)
+
+- How to run it: Chrome with the Immersive Web Emulator extension switched on for the tab, open the game, click Begin guided practice, then click the emulator's Enter XR button (or Enter headset view).
+- Found and fixed in `6d83c22`: the emulator installs its XR runtime after the page loads, so neither A-Frame nor the page saw a headset and VR could not start; the page now rechecks when practice starts. The emulated session then exposed two real bugs: controller lasers reached only 4 m (doors are about 25 m away) and the panel sat 0.9 m from the face; lasers now reach 40 m and the panel sits about 2 m out to the left.
+- Verified in an emulated Meta Quest 3 session: player at 7.6 m on the command post; panel legible beside the lobby; a ray on door B plus a trigger press redirected the crowd to B; ending the session restored the laptop camera.
+- Caveat: the emulator's aiming does not line up with A-Frame's Quest Touch ray calibration, so pointing accuracy is unverified; the trigger test set the ray direction directly. A real Quest is still the final check.
