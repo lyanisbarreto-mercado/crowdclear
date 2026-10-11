@@ -350,16 +350,15 @@ function pressDoor(exit) {
 }
 for (const exit of EXITS) {
   const door = el(`exit-${exit.toLowerCase()}`);
-  door.classList.add('vr-control');
-  door.addEventListener('click', () => pressDoor(exit));
-  door.addEventListener('mouseenter', () => door.setAttribute('material', 'emissive', '#555555'));
-  door.addEventListener('mouseleave', () => door.setAttribute('material', 'emissive', '#000000'));
+  const target = el(`door-target-${exit.toLowerCase()}`);
+  target.addEventListener('click', () => pressDoor(exit));
+  target.addEventListener('mouseenter', () => door.setAttribute('material', 'emissive', '#555555'));
+  target.addEventListener('mouseleave', () => door.setAttribute('material', 'emissive', '#000000'));
 }
-el('hazard-marker').classList.add('vr-control');
-el('hazard-marker').addEventListener('click', () => { if (state.hazard) pressDoor(state.hazard); });
 scene.setAttribute('raycaster', 'objects: .vr-control');
 scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
-window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { el('vr-btn').hidden = !ok; }, () => {});
+let vrSupported = false;
+window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { vrSupported = ok; el('vr-btn').hidden = !ok; }, () => {});
 el('vr-btn').addEventListener('click', () => scene.enterVR());
 scene.addEventListener('enter-vr', () => {
   // Laptop fullscreen (A-Frame's "f" key) also emits enter-vr; only a real XR session moves the player.

@@ -208,7 +208,11 @@
 							></a-text>
 							<a-box id="hazard-marker" visible="false" position="0 0.6 -10.5" width="2.8" height="1.2" depth="1" color="#e6da78"></a-box>
 <a-text id="hazard-label" visible="false" value="HAZARD" position="0 4.5 -11" align="center" width="10" color="#e6da78"></a-text>
-<a-entity id="crowd"></a-entity>
+<!-- Invisible click targets around each door and its letter: the doors are small from the overhead view. -->
+							<a-box id="door-target-a" class="vr-control" position="-8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
+							<a-box id="door-target-b" class="vr-control" position="0 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
+							<a-box id="door-target-c" class="vr-control" position="8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
+							<a-entity id="crowd"></a-entity>
 							<a-entity id="ghost-crowd" visible="false"></a-entity>
 						</a-scene>
 						<p class="scene-caption">

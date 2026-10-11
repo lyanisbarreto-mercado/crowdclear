@@ -201,7 +201,7 @@ test('a missing saved run is reported on the start screen', async () => {
 });
 test('clicking the doors plays practice and handles a hazard through the same buttons', () => {
   const ui = setup();
-  const door = exit => ui.element(`exit-${exit.toLowerCase()}`).listeners.click();
+  const door = exit => ui.element(`door-target-${exit.toLowerCase()}`).listeners.click();
   ui.click('start-btn');
   door('A');
   assert.equal(ui.value('practiceStep'), 0, 'practice only uses Exit B');
