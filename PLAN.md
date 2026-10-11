@@ -230,3 +230,9 @@ The refreshed temporary preview remains at http://127.0.0.1:3107. New screenshot
 ## Immersive overlap fix
 
 Implemented direct door selection (single to open/redirect, double to clear hazard), hover affordances, separate immersive navigation, and expandable score details. Desktop controls retained; `.env` untouched. `npm test`: all 48 tests passed, including new immersive selection and score-toggle/reset checks. Visual emulator/headset validation remains for Carol at this checkpoint; no deployment performed.
+
+## Merge and description handoff
+
+Preserved the teammate's separated immersive instruction, navigation, and expandable score panels. Blocked-door double selection now starts the four-second timer instead of removing the blockage immediately; reopening stays separate. Available-door hover uses the stadium-door component, preserving animation and status lights. All 55 tests pass after the merge, including immersive selection during clearing and score reset.
+
+Refreshed docs/devpost-about.md and docs/submission-draft.md for the current 60-person build, local concourse assets, timed clearing, and actual technology roles. TEAMMATE_TASKS.md now identifies the latest integration checkpoint and supersedes immediate clearing. The user selected microphone conversations with distressed people as a future feature. It is documented as planned, not as an implemented capability.

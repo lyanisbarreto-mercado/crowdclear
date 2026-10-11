@@ -4,6 +4,12 @@ Working deadline: **October 11, 10 a.m. Eastern local time**. Feature freeze 8:3
 
 Lyanis owns UX/UI (called Carol in older notes). Colin owns feature integration. Either can help the other, but name one owner for each task before starting. This file assigns work; [PLAN.md](PLAN.md) tracks decisions and evidence; [CHECKLIST.md](CHECKLIST.md) keeps the original technical target.
 
+## Latest integration checkpoint
+
+The current build has 60 people with scattered starts, varied speeds, and brief hesitation, plus four seconds of hazard clearing and a separate reopening action. Approved concourse textures, animated push-bar doors, EXIT signs, striped equipment, and smoke are integrated. Teammate updates for separate VR instruction and expandable score panels are preserved. All 55 automated tests pass locally.
+
+The current [Devpost description](docs/devpost-about.md) replaces the older 30-person figures below. The user chose microphone conversations for a future person-level reassurance interaction. This is planned, with no microphone input or refusal behavior implemented. Physical-headset performance and the latest immersive panel layout still need checking. Older checkpoints below are historical evidence.
+
 ## Where we are (October 10, 9 p.m., `main` after Lyanis's `6ba692a`)
 
 Works on a laptop, verified by 32 automated tests (CI green on Node 24):
@@ -32,7 +38,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 **P1. Make it feel like VR (Colin, about 3 h)**
 
 - [x] Point at the exit doors themselves: a click or trigger on a door clears its hazard, opens it, or sends people there, through the page buttons (`ab6ddb9`). Laptop verified with real mouse raycasts.
-- [ ] Give the post presence: a balcony with a railing at the lobby edge, doors that visibly slide open, the hazard as smoke or flicker instead of a yellow box.
+- [x] Give the post presence: raised post with a railing, animated double doors, striped equipment blockage, and drifting smoke. Physical-headset tuning remains open.
 - [x] Audio: two-tone alarm when the hazard hits, spoken announcements for the hazard and each redirect, Sound on/off button; the feedback line and headset panel carry the same words (`5b91a4f`). Not positional. Lyanis can rewrite the lines in `game.js` (`announce(...)`).
 
 **P1. Make decisions matter (Colin builds; Lyanis decides the tuning, about 3 h)**
@@ -51,7 +57,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 
 ## Decisions only the team can make
 
-- [x] Hazard clearing stays immediate; reopening stays a separate action (Lyanis, BRAND.md).
+- [x] The user updated clearing to four simulated seconds; reopening remains a separate action. The earlier immediate-clearing decision is superseded.
 - [x] Score is people evacuated plus whole seconds left when everyone is out; open doors no longer multiply it (Lyanis, `6ba692a`).
 - [ ] Which judging tracks? Neon needs P0 saving on the live URL; a VR or game track needs the headset check and the P1 VR pass.
 - [x] Presage breathing sensing: built for the laptop (`bb45350`); see README "Breathing". Was: build it or cut it? It is possible on the laptop only (Node SDK `@smartspectra/node-sdk`, Windows x64 supported, needs a Presage API key from physiology.presagetech.com, a few hundred MB of native packages, 30 s before the first reading, cannot see a face inside a headset). Worth about 2 to 3 hours only if the event has a Presage or Encompass prize and a key arrives soon. Recommendation: cut unless both are true.

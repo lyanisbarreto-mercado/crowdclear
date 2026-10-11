@@ -2,26 +2,34 @@
 
 Status: planning draft. Working deadline: October 11, 2026 at 10 a.m. Eastern local time. Likely event is Knight Hacks IX, pending team confirmation; supplied VIII link is for 2025. No submission has been made.
 
-## Intended story
+## Current build and description
 
-CrowdClear explores how a hands-on stadium evacuation simulation could help venue staff understand congestion and the consequences of their decisions.
+[Devpost About the project](devpost-about.md) is the current submission copy, with the implemented technologies in bold and their roles explained. It covers A-Frame and WebXR, ElevenLabs, Presage SmartSpectra, Neon Postgres, Higgsfield artwork, and the Immersive Web Emulator for desktop VR testing.
 
-The intended demo shows a crowded exit, an intervention, a review, and a comparison with another decision. Crowd behavior is simulated and has not been validated as a real-world evacuation model.
+CrowdClear has guided practice, a 60-second drill with 60 people, a mid-drill blockage, four seconds of clearing, separate reopening, and crowd redirects. The review shows measured outcomes and actions. Comparison re-times one action and verifies that the original run replays exactly.
 
-## Evidence needed before final copy
+Laptop browser checks cover practice, clearing, local saving and reopening, and comparison. Earlier builds saved to real Neon and ran in the Quest 3 emulator profile. The latest crowd and separate VR panels still need emulator and physical-headset visual checks. These are simulation outputs, not validated real-world evacuation predictions.
 
-- A working drill demonstrating congestion and rerouting.
-- Results derived from an actual run.
-- A reproducible original/alternative replay.
-- A real saved/reopened run before claiming a database integration.
-- Actual laptop/headset checks before claiming device support.
-- Event-required screenshots, recording, team details, disclosures, and URLs.
+## Demo sequence
 
-## Demo sequence to record after implementation
+1. Introduce the venue staff role and complete guided practice.
+2. Start the drill and show the scattered 60-person crowd.
+3. React to the blocked exit, start clearing, and show the four-second countdown with equipment and smoke still visible.
+4. Reopen the door and redirect people toward another available exit.
+5. Review the outcome and timestamped decisions.
+6. Change one action's time and show the original wireframe crowd beside the alternative, with an exact replay confirmation.
+7. Reopen the saved run link on a configured server.
 
-Explain the staff role → show the congested exit → open the alternative exit → show changed routing → review the action → compare another timing choice.
+## Planned microphone interaction
 
-Fill “what we built,” challenges, accomplishments, and next steps from verified implementation at checkpoint 6. Carol and teammates supply their own inspiration and learning details.
+The user prefers speaking through the microphone to selected distressed people. The proposed interaction is to select a person, hold a talk control, and speak reassurance or directions. Future people could hesitate or resist and respond visibly. No microphone input, speech recognition, or person-level conversation is implemented. Current staff redirects remain reliable.
+
+## Remaining submission evidence
+
+- Check the deployed URL, database saving, and reopening on the demo device.
+- Check the latest immersive panel layout and physical-headset comfort and performance.
+- Capture screenshots and a recording from the working build.
+- Confirm team details, event requirements, disclosures, and eligible prize categories.
 
 ## Likely event checklist
 
