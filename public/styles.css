@@ -135,3 +135,5 @@ a-scene { margin-inline: auto; border-radius: 12px; overflow: hidden; }
 .play-layout:has(#results:not([hidden])) #instruction { text-align: center; }
 @media (max-width: 600px) { #review { width: 100%; padding: 16px; } }
 .heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pa-caption { margin: 8px 0 0; font-style: italic; color: #f4f7fb; }
+.pa-caption:empty { display: none; }

@@ -239,6 +239,7 @@ test('the hazard sounds an alarm and both it and redirects are announced, unless
   ui.click(`clear-hazard-${hazard.toLowerCase()}`); ui.click(`open-exit-${hazard.toLowerCase()}`);
   ui.click(`redirect-${hazard.toLowerCase()}`);
   assert.equal(ui.spoken.length, 3, 'nothing more is spoken with sound off');
+  assert.equal(ui.element('pa-caption').textContent, `PA: Attention please. Proceed to Exit ${hazard}.`, 'captions continue with sound off');
 });
 test('generated ElevenLabs clips play instead of the browser voice, with the browser voice for missing ones', () => {
   const ui = setup({ clips: ['redirect-B'] });

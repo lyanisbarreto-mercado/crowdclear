@@ -112,7 +112,7 @@ function refresh() {
   syncHeadset();
 }
 // Audio plays the ElevenLabs clips from scripts/generate-audio.js when present, else the browser's own synth
-// and speech. Every spoken line also appears in the feedback text and headset panel, which double as captions.
+// and speech. Every announcement is also captioned in #pa-caption and the headset panel, even with sound off.
 let soundOn = true;
 let audio = null;
 let playingClip = null;
@@ -157,8 +157,9 @@ function speak(text) {
   window.speechSynthesis.speak(new window.SpeechSynthesisUtterance(text));
 }
 function announce(id) {
-  if (!soundOn) return;
   const text = window.CrowdAnnouncements[id];
+  el('pa-caption').textContent = `PA: ${text}`;
+  if (!soundOn) return;
   const voice = clip(id);
   if (!voice) return speak(text);
   playingClip?.pause();
@@ -172,6 +173,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   audio?.resume();
   mode = nextMode;
   ambience(mode === 'drill');
+  el('pa-caption').textContent = '';
   state = sim.createState({ blockedExit, hazardTick });
   initial = clone(state);
   ghost = null;
@@ -355,7 +357,7 @@ function syncHeadset() {
   const timeline = el('review').hidden ? [] : [...el('review-timeline').children].map(item => item.textContent);
   const results = el('results').hidden ? [] : [`${el('result-message').textContent} Score: ${el('result-score').textContent}`];
   el('vr-text').setAttribute('value', ['Point at a door and pull the trigger to act on it.', ...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
-    ...results, ...timeline, el('evacuated').textContent, el('timer').textContent].join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
+    el('pa-caption').textContent, ...results, ...timeline, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
     button.setAttribute('material', 'color', source.disabled ? '#4a5260' : '#2f7de1');
