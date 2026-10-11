@@ -155,6 +155,55 @@ test('after a redirect, staff need the cooldown before the next one', () => {
   sim.step(state);
   assert.equal(sim.act(state, 'redirect', 'C'), true);
 });
+test('the same open exit can receive another send after the cooldown', () => {
+  const state = sim.createState({ hazardTick: 200 });
+  assert.equal(sim.act(state, 'redirect', 'B'), true);
+  for (let i = 0; i < sim.REDIRECT_COOLDOWN; i++) sim.step(state);
+  assert.equal(sim.act(state, 'redirect', 'B'), true, 'same-exit send works again after cooldown');
+});
+test('staff can send people to an empty open exit', () => {
+  const state = sim.createState({ hazardTick: 200 });
+  state.people.forEach(p => { if (!p.evacuated && !p.panic) p.exit = 'C'; });
+  assert.equal(sim.stats(state).queues.A, 0);
+  assert.equal(sim.act(state, 'redirect', 'A'), true);
+  assert.ok(sim.stats(state).queues.A > 0, 'empty Exit A receives a share of the crowd');
+});
+test('redirected people join behind the existing exit line', () => {
+  const state = sim.createState({ hazardTick: 200 });
+  // Park early joiners at Exit B's front ranks.
+  const early = state.people.filter(p => p.exit === 'B' && !p.evacuated).slice(0, 3);
+  early.forEach((p, i) => { p.x = 0; p.z = -10 + i * 0.65; p.lineJoin = i; });
+  const late = state.people.find(p => p.exit !== 'B' && !p.evacuated && !p.panic);
+  const lateId = late.id;
+  late.exit = 'B';
+  late.lineJoin = 10_000;
+  late.x = 4; late.z = 4;
+  for (let i = 0; i < 40; i++) sim.step(state);
+  const atB = state.people.filter(p => !p.evacuated && !p.panic && p.exit === 'B')
+    .sort((a, b) => a.lineJoin - b.lineJoin || a.id - b.id);
+  assert.ok(atB.findIndex(p => p.id === lateId) >= early.length, 'newcomer is behind the early joiners');
+  const newcomer = state.people.find(p => p.id === lateId);
+  assert.ok(newcomer.z > early[0].z - 0.1, 'newcomer stands further from the door than the front of the line');
+});
+test('send keeps the front of an open door and empties a blocked door', () => {
+  // hazardTick 102 → familiar A (majority) and other C.
+  const state = sim.createState({ hazardTick: 102 });
+  state.hazards = ['C'];
+  state.hazard = 'C';
+  const doorDist = (p, exit) => Math.hypot(p.x - { A: -8, B: 0, C: 8 }[exit], p.z + 10);
+  const atA = state.people.filter(p => p.exit === 'A' && !p.evacuated && !p.panic);
+  assert.ok(atA.length > 6, 'fixture needs an Exit A crowd');
+  atA.forEach((p, i) => { p.x = -8; p.z = -10 + i * 0.65; });
+  const frontIds = new Set([...atA].sort((a, b) => doorDist(a, 'A') - doorDist(b, 'A') || a.id - b.id).slice(0, 2).map(p => p.id));
+  const blocked = state.people.filter(p => p.exit === 'C' && !p.evacuated && !p.panic);
+  blocked.forEach((p, i) => { p.x = 8; p.z = -10 + i * 0.65; });
+  assert.equal(sim.act(state, 'redirect', 'B'), true);
+  for (const id of frontIds) {
+    assert.equal(state.people.find(p => p.id === id).exit, 'A', `front of open Exit A stays put (${id})`);
+  }
+  assert.ok(blocked.every(p => p.exit === 'B'), 'everyone leaves the blocked door');
+  assert.ok(atA.some(p => !frontIds.has(p.id) && p.exit === 'B'), 'back of open Exit A can be sent');
+});
 function calmSchedule(fromTick, people) {
   // Retry each panicker across ticks until calmSucceeds (~45%); keeps strategy tests about routing.
   const cmds = [];

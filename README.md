@@ -31,13 +31,17 @@ The spoken lines (drill start, each hazard, each redirect) live in `public/annou
 
 To regenerate, put `ELEVENLABS_API_KEY` (or `ELEVEN_API_KEY`) in `.env` or `.env.local` (both gitignored) and run `npm run audio`. Existing files are kept to save credits; add `-- --force` to regenerate them. The key is only used by the script, never by the browser. `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` override the voice and speech model.
 
-## Breathing (Presage SmartSpectra, laptop only)
+## Breathing (Presage SmartSpectra)
 
-A local helper in `sensor/` reads breathing rate from the laptop webcam with Presage's SmartSpectra SDK and posts it to the game server on the same machine. The page then shows a Breathing reading in the HUD and the headset panel, and the review compares practice with the drill. Readings below 50% confidence only show progress. Breathing data stays in memory on that machine and is never saved. Both reading and posting require localhost, so the sensor is unavailable on Render. A headset hides the face, so the camera cannot measure the person wearing it.
+A helper in `sensor/` reads calmness from the **laptop webcam** (native SDK — not in the browser, not on the Render box). It posts to `/api/breathing`; the page only shows Presage UI when a fresh reading is present. Data stays in memory and is never saved. A headset hides the face, so measure on the laptop before/during a laptop drill.
 
-1. Put `PRESAGE_API_KEY` in `.env.local` (from physiology.presagetech.com).
-2. `cd sensor && npm install` once (about 400 MB; Presage ships native builds for macOS Apple Silicon, Linux x64/arm64, and Windows x64).
-3. With `npm start` running, run `npm run sensor` in a second terminal, sit facing the camera with your chest in view, and allow about 30 seconds for the first reading.
+**Local:** `PRESAGE_API_KEY` in `.env.local`, `cd sensor && npm install` once, then with the game server up run `npm run sensor`.
+
+**Deployed (Render):** the game on HTTPS cannot see your webcam by itself. Keep the helper on the demo laptop and point it at the live API:
+
+1. On Render, set `ALLOW_REMOTE_BREATHING=1` (optional `BREATHING_TOKEN=…` so only your helper can POST).
+2. On the laptop: `BREATHING_URL=https://YOUR-APP.onrender.com/api/breathing` and the same `BREATHING_TOKEN` if you set one, plus `PRESAGE_API_KEY`, then `npm run sensor`.
+3. Open the deployed site on that laptop — the HUD reads the shared in-memory sample (one demo trainee at a time).
 
 On Windows on ARM (Snapdragon), Presage has no native build. Install an x64 Node from nodejs.org, which Windows runs under emulation. If you extract Node to `C:\node-x64`, run these commands in PowerShell from the project root:
 

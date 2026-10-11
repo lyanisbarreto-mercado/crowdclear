@@ -11,6 +11,34 @@
   const PERSONAL_SPACE = 0.55; // metres; closer pairs step apart instead of walking through each other
   const CALM_QUEUE = 10; // beyond this many waiting, each extra person slows the exit
   const CRUSH_DELAY = 0.05; // seconds added to the release interval per extra waiting person
+  const REDIRECT_FRONT_KEEP = 2; // leave the nearest couple at an open door; blocked doors release everyone
+  function doorDist(p, exit) {
+    return Math.hypot(p.x - EXIT_X[exit], p.z + 10);
+  }
+  function redirectMovers(state, target) {
+    // Keep the front of each open (non-target) line; blocked exits may empty completely.
+    const keep = new Set();
+    for (const exit of EXITS) {
+      if (exit === target || state.hazards.includes(exit)) continue;
+      const line = state.people
+        .filter(p => !p.evacuated && !p.panic && p.exit === exit)
+        .sort((a, b) => doorDist(a, exit) - doorDist(b, exit) || a.id - b.id);
+      line.slice(0, REDIRECT_FRONT_KEEP).forEach(p => keep.add(p.id));
+    }
+    let movers = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target && !keep.has(p.id));
+    if (!movers.length) {
+      movers = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target);
+    }
+    // Nearest to the target door first; among ties, prefer people already further back in their line.
+    return movers.sort((a, b) => {
+      const aBlocked = state.hazards.includes(a.exit) ? 0 : 1;
+      const bBlocked = state.hazards.includes(b.exit) ? 0 : 1;
+      if (aBlocked !== bBlocked) return aBlocked - bBlocked;
+      const near = doorDist(a, target) - doorDist(b, target);
+      if (Math.abs(near) > 0.05) return near;
+      return doorDist(b, b.exit) - doorDist(a, a.exit) || a.id - b.id;
+    });
+  }
   function createState({ blockedExit = null, hazardTick = null, incidentCount = 1, fixedIncidents = [] } = {}) {
     if (hazardTick !== null && (!Number.isInteger(hazardTick) || hazardTick < 100 || hazardTick > 200)) throw new Error("Hazard must occur between 10 and 20 seconds");
     if (blockedExit !== null && !Object.hasOwn(EXIT_X, blockedExit)) throw new Error("Unknown exit");
@@ -32,13 +60,10 @@
         z: 1 + Math.floor(id / 10) * 1.45 + (random() - 0.5) * 0.8,
         speed: 1.8 + random() * 1.2, hesitation: 4 + Math.floor(random() * 10), pauseUntil: 0,
         exit: id < POPULATION * 0.8 ? familiar : other, evacuated: false,
-        panic: false, heading: random() * Math.PI * 2
+        // lineJoin keeps arrival order so redirects join the back of an exit line.
+        lineJoin: id, panic: false, heading: random() * Math.PI * 2
       }))
     };
-  }
-  // Deterministic ~45% calm chance from tick + person id (replay-stable).
-  function calmSucceeds(tick, id) {
-    return ((Math.imul(tick + 1, 1664525) + Math.imul(id + 1, 1013904223)) >>> 0) % 100 < 45;
   }
   function act(state, action, target = 'B') {
     if (action === 'calm') {
@@ -46,10 +71,8 @@
       const person = state.people.find(p => p.id === id);
       if (!person || person.evacuated || !person.panic) return false;
       state.commands.push({ tick: state.tick, action, target: id });
-      if (calmSucceeds(state.tick, id)) {
-        person.panic = false;
-        person.pauseUntil = state.tick + 5;
-      }
+      person.panic = false;
+      person.pauseUntil = state.tick + 5;
       return true;
     }
     if (!Object.hasOwn(EXIT_X, target)) return false;
@@ -58,10 +81,14 @@
       state.clearingExit = target;
     } else if (action === 'open-exit' && !state.open[target] && !state.hazards.includes(target)) {
       state.open[target] = true;
-    } else if (action === 'redirect' && state.open[target] && !state.hazards.includes(target) && state.lastRedirect !== target && state.tick >= state.redirectReady) {
-      const candidates = state.people.filter(p => !p.evacuated && !p.panic && p.exit !== target && (state.hazardTick !== null || state.blockedExit !== null || p.exit === 'A'));
+    } else if (action === 'redirect' && state.open[target] && !state.hazards.includes(target) && state.tick >= state.redirectReady) {
+      const candidates = redirectMovers(state, target);
       if (!candidates.length) return false;
-      candidates.filter((_, i) => i % 2 === 0).forEach(p => { p.exit = target; });
+      const join = (state.tick + 1) * POPULATION;
+      // All from blocked doors; half the open-door backlog (front already kept), nearest to target first.
+      const leavingBlock = candidates.filter(p => state.hazards.includes(p.exit));
+      const fromOpen = candidates.filter(p => !state.hazards.includes(p.exit)).filter((_, i) => i % 2 === 0);
+      [...leavingBlock, ...fromOpen].forEach(p => { p.exit = target; p.lineJoin = join + p.id; });
       state.redirected = true;
       state.lastRedirect = target;
       state.redirectReady = state.tick + REDIRECT_COOLDOWN;
@@ -111,7 +138,9 @@
     }
     for (const exit of EXITS) {
       state.cooldown[exit] = Math.max(0, state.cooldown[exit] - DT);
-      const queue = state.people.filter(p => !p.evacuated && !p.panic && p.exit === exit);
+      // Arrival order (lineJoin): newcomers go behind people already queued for this door.
+      const queue = state.people.filter(p => !p.evacuated && !p.panic && p.exit === exit)
+        .sort((a, b) => a.lineJoin - b.lineJoin || a.id - b.id);
       // Stable columns prevent people swapping places sideways every time someone leaves.
       const ranks = [0, 0, 0];
       const slots = queue.map(p => ({ p, x: EXIT_X[exit] + [0, -1, 1][p.id % 3] * SPACING,

@@ -40,12 +40,13 @@
   });
 
   AFRAME.registerComponent('stadium-door', {
-    schema: { state: { default: 'closed' }, hovered: { default: false } },
+    schema: { state: { default: 'closed' }, hovered: { default: false }, guided: { default: false } },
     init() {
       const letter = this.el.id.slice(-1).toUpperCase();
       let html = box('-1.57 1.1 0', [0.14, 2.2, 0.24], metal)
         + box('1.57 1.1 0', [0.14, 2.2, 0.24], metal)
-        + box('0 2.23 0', [3.28, 0.16, 0.24], metal);
+        + box('0 2.23 0', [3.28, 0.16, 0.24], metal)
+        + `<a-box class="guide-ring" visible="false" position="0 1.2 0.4" width="3.6" height="2.8" depth="0.08" material="shader: flat; color: #2fbf71; opacity: 0.35; transparent: true"></a-box>`;
       for (const [side, sign] of [['left', 1], ['right', -1]]) {
         html += `<a-entity class="${side}-hinge" position="${-sign * 1.5} 0 0"
           animation__open="property: rotation; to: 0 ${sign * 85} 0; dur: 350; startEvents: door-open; pauseEvents: door-close; easing: easeOutQuad"
@@ -68,6 +69,7 @@
       this.hinges = [...this.el.querySelectorAll('.left-hinge, .right-hinge')];
       this.status = this.el.querySelector('.door-status');
       this.light = this.el.querySelector('.status-light');
+      this.guide = this.el.querySelector('.guide-ring');
     },
     update(oldData) {
       const open = this.data.state === 'open';
@@ -75,7 +77,8 @@
       const color = blocked ? '#ffd27d' : open ? '#2fbf71' : '#e5484d';
       this.status.setAttribute('value', blocked ? 'BLOCKED' : open ? 'OPEN' : 'CLOSED');
       this.status.setAttribute('color', color);
-      this.light.setAttribute('material', 'color', this.data.hovered ? '#eef3f8' : color);
+      this.light.setAttribute('material', 'color', this.data.hovered || this.data.guided ? '#eef3f8' : color);
+      this.guide?.setAttribute('visible', this.data.guided);
       if (oldData.state !== this.data.state) {
         this.hinges.forEach((hinge, i) => {
           if (oldData.state === undefined) hinge.setAttribute('rotation', `0 ${open ? (i ? -85 : 85) : 0} 0`);

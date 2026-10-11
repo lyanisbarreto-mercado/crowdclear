@@ -6,6 +6,8 @@ AGENTS.md
 task_plan.md
 .playwright-mcp/
 .neon
+# Portable x64 Node for Presage on Windows ARM (see scripts/run-sensor.js).
+tools/node-win-x64/
 # `neon skills` links these to .agents/skills with absolute paths, which break on other machines.
 .claude/skills/
 # Skills whose licenses do not allow redistribution in this public repo (reinstall from skills-lock.json or the README).

@@ -61,13 +61,14 @@
 					<span id="evacuated">People out: 0</span>
 					<span id="timer">Practice · no timer</span>
 					<span id="remaining">Still inside: 60</span>
-					<span id="breathing" hidden>Breathing: measuring…</span>
+					<span id="breathing" hidden>Presage: measuring…</span>
 				</div>
 
-				<div class="exit-status" aria-label="Exit status">
-					<div class="gate" id="status-a" data-state="open"><span class="gate-letter" aria-hidden="true">A</span><span class="gate-text"><span class="visually-hidden">Exit A: </span><strong id="state-a">Open</strong><span id="count-a"></span></span></div>
-					<div class="gate" id="status-b" data-state="open"><span class="gate-letter" aria-hidden="true">B</span><span class="gate-text"><span class="visually-hidden">Exit B: </span><strong id="state-b">Open</strong><span id="count-b"></span></span></div>
-					<div class="gate" id="status-c" data-state="open"><span class="gate-letter" aria-hidden="true">C</span><span class="gate-text"><span class="visually-hidden">Exit C: </span><strong id="state-c">Open</strong><span id="count-c"></span></span></div>
+				<!-- Hidden exit sync targets for tests/handlers; not shown in the UI. -->
+				<div class="exit-status" hidden aria-hidden="true">
+					<div class="gate" id="status-a" data-state="open"><strong id="state-a">Open</strong><span id="count-a"></span></div>
+					<div class="gate" id="status-b" data-state="open"><strong id="state-b">Open</strong><span id="count-b"></span></div>
+					<div class="gate" id="status-c" data-state="open"><strong id="state-c">Open</strong><span id="count-c"></span></div>
 				</div>
 				<div class="play-layout">
 					<aside id="instruction" aria-label="Current task">
@@ -97,7 +98,7 @@
 						<p id="feedback" role="status" aria-live="polite">
 							Take your time. There is no timer.
 						</p>
-						<p id="pa-caption" class="pa-caption" aria-live="polite"></p>
+						<p id="pa-caption" class="pa-caption" hidden aria-hidden="true"></p>
 						<button id="reassure-btn" class="action-send" type="button" hidden>Reassure</button>
 
 						<button id="drill-btn" hidden>Start timed drill</button>
@@ -106,6 +107,11 @@
 						</p>
 					</aside>
 					<div class="scene-wrap">
+						<div id="cooldown-toast" class="cooldown-toast" hidden role="status" aria-live="polite">
+							<strong id="cooldown-toast-label">Wait</strong>
+							<span id="cooldown-toast-time"></span>
+							<div class="cooldown-toast-track"><div id="cooldown-toast-fill"></div></div>
+						</div>
 <section id="results" hidden aria-labelledby="results-title">
   <div class="result-card">
     <p class="result-kicker" id="results-title">Drill results</p>
@@ -115,35 +121,35 @@
     <dl class="result-metrics">
       <div><dt>People out</dt><dd id="result-evacuated"></dd></div>
       <div><dt>Time left</dt><dd id="result-time"></dd></div>
-      <div><dt class="word-open">Open exits</dt><dd id="result-exits"></dd></div>
       <div><dt>Calmed</dt><dd id="result-calmed"></dd></div>
       <div><dt>Still panicking</dt><dd id="result-panicking"></dd></div>
       <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div>
     </dl>
     <div id="result-vitals" class="vitals-card" hidden>
-      <h4>Breathing vitals</h4>
+      <h4>Presage calmness</h4>
+      <div class="calm-scale" aria-hidden="true">
+        <div class="calm-scale-track"><div id="calm-scale-fill"></div></div>
+        <div class="calm-scale-ends"><span class="num-stop">Panicky</span><span class="num-exit">Calm</span></div>
+      </div>
       <p id="result-breathing"></p>
     </div>
   </div>
 </section>
 <section id="review" hidden aria-labelledby="review-heading">
 							<h3 id="review-heading">After-action review</h3>
+							<p id="run-analysis" class="run-analysis"></p>
+							<div id="compare-result" class="compare-result" role="status" aria-live="polite"></div>
 							<h4>Action log</h4>
 							<ol id="review-timeline" class="action-log"></ol>
-							<div id="vitals-card" class="vitals-card" hidden>
-								<h4>Breathing vitals</h4>
-								<p id="breathing-review"></p>
-							</div>
 							<p id="save-status" role="status" aria-live="polite"></p>
-							<form id="compare-form">
-								<h4>Try a different time</h4>
-								<label for="compare-action">Choose an action</label>
-								<select id="compare-action"></select>
-								<label for="compare-time">Do it at (seconds)</label>
-								<input id="compare-time" type="number" min="0" max="60" step="0.1" required />
-								<button type="submit">Compare runs</button>
+							<form id="compare-form" hidden>
+								<h4>Side-by-side replay</h4>
+								<p id="compare-legend" class="compare-legend">Wireframe = best run. Solid = this run.</p>
+								<label for="compare-when">Jump to time (0–60 s)</label>
+								<input id="compare-when" type="range" min="0" max="60" step="1" value="0" />
+								<output id="compare-when-readout" for="compare-when">0 s</output>
+								<button type="submit" id="compare-btn">Play side by side</button>
 							</form>
-							<p id="compare-result" role="status" aria-live="polite"></p>
 						</section>
 						<a-scene
 							embedded
@@ -172,39 +178,57 @@
 							<a-plane rotation="-90 0 0" position="0 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.55; transparent: true; shader: flat"></a-plane>
 							<a-plane rotation="-90 0 0" position="8 0.015 -3" width="0.35" height="14" material="color: #2fbf71; opacity: 0.55; transparent: true; shader: flat"></a-plane>
 
+							<!-- World-fixed staff post + HUD (not parented to camera/hands/rig). -->
+							<a-entity id="vr-post" position="0 6 13" visible="false">
+								<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" material="src: #floor-material; repeat: 0.6 0.5; roughness: 0.95"></a-box>
+								<a-box id="vr-rail-left" position="-1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+								<a-box id="vr-rail-right" position="1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+								<a-box position="-1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+								<a-box position="1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+								<a-box position="-1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+								<a-box position="1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
+								<a-entity id="vr-ui" visible="false" position="-0.95 1.35 -0.55" rotation="-8 42 0">
+									<a-entity id="vr-panel" position="0 0 0">
+										<a-plane class="vr-control" width="1.15" height="0.68" position="0 0.12 0" material="shader: flat; color: #182230"></a-plane>
+										<a-plane width="1.15" height="0.26" position="0 -0.36 0" material="shader: flat; color: #182230"></a-plane>
+										<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.5 0.38 0.02" width="0.32" wrap-count="12"></a-text>
+										<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.14 0.38 0.02" width="0.32" wrap-count="12"></a-text>
+										<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.22 0.38 0.02" width="0.32" wrap-count="12"></a-text>
+										<a-text id="vr-text" position="-0.5 0.28 0.02" width="1.05" wrap-count="42" anchor="left" baseline="top" value=" "></a-text>
+										<a-entity id="vr-cooldown" visible="false" position="0 0.55 0.04">
+											<a-plane width="1.1" height="0.14" material="shader: flat; color: #3a3420; opacity: 0.92; transparent: true"></a-plane>
+											<a-text id="vr-cooldown-text" value=" " align="center" width="1.05" wrap-count="28" color="#e4dc7b" position="0 0 0.01"></a-text>
+										</a-entity>
+										<a-entity id="vr-navigation" position="0 -0.36 0.03"></a-entity>
+									</a-entity>
+									<a-entity id="vr-score" position="0 -0.62 0" visible="false">
+										<a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0 0.03" geometry="primitive: plane; width: 1.15; height: 0.16" material="shader: flat; color: #2f7de1" text="value: View score [+]; align: center; width: 1.05; zOffset: 0.01"></a-entity>
+										<a-entity id="vr-score-details" visible="false" position="0 1.05 0">
+											<a-plane width="1.15" height="1.85" color="#182230" material="shader: flat; color: #182230"></a-plane>
+											<a-text id="vr-score-text" position="-0.52 0.82 0.02" width="1.05" wrap-count="42" anchor="left" baseline="top" value=" "></a-text>
+										</a-entity>
+									</a-entity>
+								</a-entity>
+								<!-- Post-drill analysis (center) and side-by-side compare (right). -->
+								<a-entity id="vr-analysis" visible="false" position="0 1.55 -1.15" rotation="-6 0 0">
+									<a-plane width="1.35" height="1.05" material="shader: flat; color: #182230; opacity: 0.94; transparent: true"></a-plane>
+									<a-text value="YOUR DRILL" color="#e4dc7b" position="-0.58 0.42 0.02" width="1.2" wrap-count="22"></a-text>
+									<a-text id="vr-analysis-text" position="-0.58 0.28 0.02" width="1.2" wrap-count="36" anchor="left" baseline="top" value=" "></a-text>
+								</a-entity>
+								<a-entity id="vr-compare" visible="false" position="1.25 1.5 -0.85" rotation="-6 -28 0">
+									<a-plane width="1.25" height="1.35" material="shader: flat; color: #182230; opacity: 0.94; transparent: true"></a-plane>
+									<a-text value="SIDE BY SIDE" color="#8dc8ff" position="-0.52 0.58 0.02" width="1.1" wrap-count="20"></a-text>
+									<a-text id="vr-compare-text" position="-0.52 0.42 0.02" width="1.1" wrap-count="34" anchor="left" baseline="top" value=" "></a-text>
+									<a-entity id="vr-compare-minus" class="vr-control" position="-0.35 -0.22 0.03" geometry="primitive: plane; width: 0.4; height: 0.16" material="shader: flat; color: #3a4658" text="value: -5 s; align: center; width: 0.38; zOffset: 0.01"></a-entity>
+									<a-text id="vr-compare-when" value="At 0 s" align="center" width="0.5" wrap-count="12" position="0 -0.22 0.03"></a-text>
+									<a-entity id="vr-compare-plus" class="vr-control" position="0.35 -0.22 0.03" geometry="primitive: plane; width: 0.4; height: 0.16" material="shader: flat; color: #3a4658" text="value: +5 s; align: center; width: 0.38; zOffset: 0.01"></a-entity>
+									<a-entity id="vr-compare-btn" class="vr-control" position="0 -0.48 0.03" geometry="primitive: plane; width: 1.1; height: 0.18" material="shader: flat; color: #2f7de1" text="value: Play side by side; align: center; width: 1.05; zOffset: 0.01"></a-entity>
+								</a-entity>
+							</a-entity>
 							<a-entity id="rig">
 								<a-entity id="camera" camera position="0 16 14" rotation="-52 0 0"></a-entity>
 								<a-entity laser-controls="hand: left" raycaster="objects: .vr-control; far: 40; lineColor: #8dc8ff; lineOpacity: 0.65"></a-entity>
 								<a-entity laser-controls="hand: right" raycaster="objects: .vr-control; far: 40; lineColor: #8dc8ff; lineOpacity: 0.65"></a-entity>
-								<a-entity id="vr-post" visible="false">
-									<a-box position="0 -0.05 0" width="2.4" height="0.1" depth="2" material="src: #floor-material; repeat: 0.6 0.5; roughness: 0.95"></a-box>
-									<!-- Side rails only (no front bar) so instruction panels stay readable at eye height. -->
-									<a-box id="vr-rail-left" position="-1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box id="vr-rail-right" position="1.2 1.05 0" width="0.05" height="0.05" depth="2" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="-1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="1.2 0.52 -0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="-1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<a-box position="1.2 0.52 0.95" width="0.05" height="1.05" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
-									<!-- Chest/rail-height UI: overlook gaze looks slightly down, so panels sit on the rail line, not above the head. Nav meshes share the panel plane for ray hits. -->
-									<a-entity id="vr-ui" position="0 1.05 -1.05" rotation="-12 0 0">
-										<a-entity id="vr-panel" position="-0.68 0 0">
-											<!-- vr-control blocks rays through the card so misses don't fall through to distant doors. -->
-											<a-plane class="vr-control" width="1.25" height="0.95" material="shader: flat; color: #182230"></a-plane>
-											<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.55 0.38 0.02" width="0.35" wrap-count="12"></a-text>
-											<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.15 0.38 0.02" width="0.35" wrap-count="12"></a-text>
-											<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.25 0.38 0.02" width="0.35" wrap-count="12"></a-text>
-											<a-text id="vr-text" position="-0.55 0.28 0.02" width="1.15" wrap-count="46" anchor="left" baseline="top" value=" "></a-text>
-											<a-entity id="vr-navigation" position="0 -0.55 0.03"></a-entity>
-										</a-entity>
-										<a-entity id="vr-score" position="0.68 -0.35 0">
-											<a-entity id="vr-score-toggle" class="vr-control" visible="false" position="0 0 0.03" geometry="primitive: plane; width: 1.2; height: 0.18" material="shader: flat; color: #2f7de1" text="value: View score [+]; align: center; width: 1.1; zOffset: 0.01"></a-entity>
-											<a-entity id="vr-score-details" visible="false" position="0 1.15 0">
-												<a-plane width="1.25" height="2.0" color="#182230" material="shader: flat; color: #182230"></a-plane>
-												<a-text id="vr-score-text" position="-0.58 0.9 0.02" width="1.15" wrap-count="46" anchor="left" baseline="top" value=" "></a-text>
-											</a-entity>
-										</a-entity>
-									</a-entity>
-								</a-entity>
 							</a-entity>
 							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage="outlined: false"></a-entity>
 							<a-entity id="hazard-smoke" visible="false" position="0 0 -11" hazard-puffs></a-entity>
@@ -214,10 +238,10 @@
 								<a-entity position="-10.5 0 9.5" hazard-puffs="ground: true"></a-entity>
 								<a-entity position="10.5 0 9.5" hazard-puffs="ground: true"></a-entity>
 							</a-entity>
-							<!-- Invisible click targets around each door and its letter: the doors are small from the overhead view. -->
-							<a-box id="door-target-a" class="vr-control" position="-8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
-							<a-box id="door-target-b" class="vr-control" position="0 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
-							<a-box id="door-target-c" class="vr-control" position="8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
+							<!-- Tall, deep hit volumes from door into the lobby so overhead clicks reach Send/Open past the crowd. -->
+							<a-box id="door-target-a" class="vr-control" position="-8 2.2 -6" width="5.4" height="6" depth="12" material="visible: false"></a-box>
+							<a-box id="door-target-b" class="vr-control" position="0 2.2 -6" width="5.4" height="6" depth="12" material="visible: false"></a-box>
+							<a-box id="door-target-c" class="vr-control" position="8 2.2 -6" width="5.4" height="6" depth="12" material="visible: false"></a-box>
 							<a-box id="multi-hazard-a" visible="false" position="-8 0.6 -10.8" width="2.8" height="1.2" depth="0.5" color="#e6da78"></a-box>
 <a-box id="multi-hazard-b" visible="false" position="0 0.6 -10.8" width="2.8" height="1.2" depth="0.5" color="#e6da78"></a-box>
 <a-box id="multi-hazard-c" visible="false" position="8 0.6 -10.8" width="2.8" height="1.2" depth="0.5" color="#e6da78"></a-box>

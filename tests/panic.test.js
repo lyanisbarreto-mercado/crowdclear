@@ -45,29 +45,20 @@ test('redirects ignore panickers until they are calmed', () => {
   assert.equal(panicker.exit, exitBefore, 'panic keeps original exit through redirect');
 });
 
-test('calm succeeds and fails deterministically and records every accepted attempt', () => {
+test('calm always succeeds and records every accepted attempt', () => {
   const state = sim.createState({ hazardTick: 100 });
   while (state.tick <= 100) sim.step(state);
   const panickers = state.people.filter(p => p.panic);
   assert.ok(panickers.length);
-  let successes = 0;
-  let failures = 0;
   for (const p of panickers) {
-    const wasPanic = p.panic;
+    assert.equal(p.panic, true);
     assert.equal(sim.act(state, 'calm', p.id), true);
-    if (p.panic) failures++;
-    else {
-      successes++;
-      assert.ok(p.pauseUntil > state.tick, 'calmed people pause briefly');
-    }
-    assert.ok(wasPanic);
+    assert.equal(p.panic, false);
+    assert.ok(p.pauseUntil > state.tick, 'calmed people pause briefly');
   }
-  assert.ok(successes > 0 && failures > 0, `need both outcomes (~45%); got ${successes}/${failures}`);
   assert.equal(state.commands.filter(c => c.action === 'calm').length, panickers.length);
   assert.equal(sim.act(state, 'calm', 999), false);
-  assert.equal(sim.act(state, 'calm', panickers.find(p => !p.panic).id), false);
-  const rate = successes / (successes + failures);
-  assert.ok(rate > 0.25 && rate < 0.7, `calm rate ${rate} should be near 45%`);
+  assert.equal(sim.act(state, 'calm', panickers[0].id), false, 'already calm cannot be calmed again');
 });
 
 test('panic calm schedule replays with identical state and review result', () => {
