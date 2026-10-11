@@ -149,6 +149,8 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   scene.hidden = false;
   el('intro').hidden = true;
   el('game').style.display = 'block';
+  // Lets a headset browser show its own Enter VR prompt; A-Frame offers once and ignores browsers without it.
+  if (canStartHeadset() && !laptopPose) scene.enterVR(false, true);
   el('drill-btn').hidden = true;
   el('mode-title').textContent = mode === 'practice' ? 'Guided practice' : 'Stadium evacuation drill';
   if (mode === 'practice') {
@@ -357,9 +359,13 @@ for (const exit of EXITS) {
 }
 scene.setAttribute('raycaster', 'objects: .vr-control');
 scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
-let vrSupported = false;
-window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { vrSupported = ok; el('vr-btn').hidden = !ok; }, () => {});
-el('vr-btn').addEventListener('click', () => scene.enterVR());
+window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { el('vr-btn').hidden = !ok; }, () => {});
+// A-Frame checks for a headset once at page load; without one, enterVR only goes fullscreen with no XR session.
+const canStartHeadset = () => !!scene.checkHeadsetConnected?.();
+el('vr-btn').addEventListener('click', () => {
+  if (canStartHeadset()) scene.enterVR();
+  else el('feedback').textContent = 'Headset view could not start in this browser. Reload the page with the headset connected.';
+});
 scene.addEventListener('enter-vr', () => {
   // Laptop fullscreen (A-Frame's "f" key) also emits enter-vr; only a real XR session moves the player.
   if (!scene.xrSession) return;
