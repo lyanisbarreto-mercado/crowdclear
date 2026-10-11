@@ -57,7 +57,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 ## Lyanis · UX/UI
 
 - [x] Per-exit controls, practice checkmarks, hazard drills, and the results card (merged in `212243f`).
-- [ ] **Try the merged build** (`git pull`, `npm start`): practice, a drill per hazard exit, results, review, and one comparison. Record the three most important fixes.
+- [ ] **Try the merged build.** Run `git checkout main`, `git pull`, `npm install` (new packages; `npm start` fails without them), `npm test` (28 pass), `npm start`. Then play practice, a drill per hazard exit, results, review, and one comparison. Record the three most important fixes. Locally the review says "Not saved"; that is expected without a database. `Lyanis'-tasks` is fully merged, so start new work from `main`.
 - [ ] End-of-drill layout (results card plus decision review) and comparison controls. Distinguish the two crowds without relying on color alone.
 - [ ] Check keyboard focus, readable contrast, small-screen wrapping, instructions, and captions.
 - [ ] Devpost story, thumbnail/screenshots, and demo narration. Use actual results and clearly label the simulation.
