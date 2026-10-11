@@ -6,24 +6,30 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>CrowdClear</title>
+		<meta name="description" content="Practice running a stadium evacuation: clear a blocked exit, redirect the crowd, then replay your decisions against an alternative. On a laptop or in VR." />
+		<meta name="theme-color" content="#0f1b2b" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="CrowdClear: stadium evacuation drill" />
+		<meta property="og:description" content="Practice running a stadium evacuation, then replay your decisions against an alternative. On a laptop or in VR." />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Overpass:wght@600;800;900&display=swap" />
 		<link rel="stylesheet" href="/styles.css" />
-		<link rel="icon" href="data:," />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<script src="/aframe/aframe-v1.8.0.min.js"></script>
 	</head>
 
 	<body>
+		<a class="skip-link" href="#main">Skip to the drill</a>
 		<header>
 			<h1>CrowdClear</h1>
 			<p>Emergency Evacuation Training</p>
 		</header>
 
-		<main>
+		<main id="main">
 			<section id="intro">
 				<div class="intro-gates" aria-hidden="true"><span class="gate-letter">A</span><span class="gate-letter closed">B</span><span class="gate-letter">C</span></div>
-				<h2>Stadium Evacuation Drill</h2>
+				<h2>Stadium evacuation drill</h2>
 				<p>
 					You are coordinating a stadium evacuation. Practice opening an exit
 					and directing people toward it, then try an independent drill.
@@ -95,7 +101,7 @@
 					<div class="scene-wrap">
 <section id="results" hidden aria-labelledby="results-title">
   <div class="result-card">
-    <h2 id="results-title">Drill Results</h2>
+    <h2 id="results-title">Drill results</h2>
     <dl><div><dt>Evacuated</dt><dd id="result-evacuated"></dd></div>
     <div><dt>Time remaining</dt><dd id="result-time"></dd></div>
     <div><dt>Open exits</dt><dd id="result-exits"></dd></div>

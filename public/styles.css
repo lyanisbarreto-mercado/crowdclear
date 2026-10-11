@@ -20,7 +20,8 @@
 
 body {
   margin: 0;
-  background: var(--navy);
+  /* A faint overhead glow, like concourse lighting, so the console is not a flat slab. */
+  background: radial-gradient(120% 55% at 50% -12%, #1a2d44 0%, var(--navy) 62%) fixed var(--navy);
   color: var(--ink);
   font: 1rem/1.55 var(--text);
 }
@@ -45,7 +46,9 @@ header h1 {
 }
 header p { margin: 0; color: var(--muted); }
 
-h2, h3, h4 { font-family: var(--display); margin-top: 0; }
+h2, h3, h4 { font-family: var(--display); margin-top: 0; text-wrap: balance; }
+p, li { text-wrap: pretty; }
+h2 { letter-spacing: -0.01em; }
 h2 { font-weight: 800; font-size: 1.9rem; line-height: 1.15; }
 h3 { font-weight: 800; font-size: 1.35rem; line-height: 1.25; }
 h4 { font-weight: 700; font-size: 1.05rem; }
@@ -66,7 +69,7 @@ button {
   background: var(--signal);
   color: var(--navy);
   cursor: pointer;
-  transition: filter 120ms ease, transform 120ms ease;
+  transition: filter 180ms ease, transform 180ms ease;
 }
 button:hover:not(:disabled) { filter: brightness(1.08); }
 button:active:not(:disabled) { transform: translateY(1px); }
@@ -176,7 +179,7 @@ button.task-target { box-shadow: 0 0 0 3px var(--navy), 0 0 0 5px var(--signal);
   display: inline-block;
   margin: 0 0 10px;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--slate-2);
   color: var(--signal);
   font: 700 0.85rem/1.4 var(--display);
@@ -287,6 +290,30 @@ button.task-target { box-shadow: 0 0 0 3px var(--navy), 0 0 0 5px var(--signal);
   .scene-wrap { order: -1; }
   #game a-scene { height: 52vh; min-height: 300px; }
 }
+@media (max-width: 560px) {
+  /* Three compact plates side by side, so the scene starts higher on a phone. */
+  .exit-status { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .gate { flex-direction: column; gap: 6px; padding: 8px 4px 10px; text-align: center; }
+  .gate-letter { width: 44px; height: 44px; font-size: 1.7rem; }
+  .gate-text span:last-child { font-size: 0.8rem; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--signal);
+  color: var(--navy);
+  font: 700 0.95rem var(--display);
+  text-decoration: none;
+  z-index: 10;
+}
+.skip-link:focus { top: 12px; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
 }
