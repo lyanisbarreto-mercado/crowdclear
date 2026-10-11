@@ -72,7 +72,7 @@
     update(oldData) {
       const open = this.data.state === 'open';
       const blocked = this.data.state === 'blocked';
-      const color = blocked ? '#e4dc7b' : open ? '#2fbf71' : '#e5484d';
+      const color = blocked ? '#ffd27d' : open ? '#2fbf71' : '#e5484d';
       this.status.setAttribute('value', blocked ? 'BLOCKED' : open ? 'OPEN' : 'CLOSED');
       this.status.setAttribute('color', color);
       this.light.setAttribute('material', 'color', this.data.hovered ? '#eef3f8' : color);
@@ -110,29 +110,52 @@
   });
 
   AFRAME.registerComponent('hazard-puffs', {
+    schema: { ground: { default: false } },
     init() {
       const THREE = AFRAME.THREE;
+      this.motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
       this.texture = new THREE.TextureLoader().load('/textures/concourse/smoke.svg');
       const group = new THREE.Group();
-      this.puffs = Array.from({ length: 5 }, () => {
+      this.puffs = Array.from({ length: this.data.ground ? 3 : 5 }, () => {
         const puff = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.texture, color: '#424b55', transparent: true, depthWrite: false, opacity: 0 }));
         group.add(puff);
         return puff;
       });
+      this.flames = [];
+      if (this.data.ground) {
+        this.flameTexture = new THREE.TextureLoader().load('/textures/concourse/flame.svg');
+        this.flames = [-0.22, 0.22].map(x => {
+          const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.flameTexture, transparent: true, depthWrite: false, opacity: 0.8 }));
+          flame.position.set(x, 0.34, 0);
+          flame.scale.set(0.36, 0.5, 1);
+          group.add(flame);
+          return flame;
+        });
+      }
       this.el.setObject3D('mesh', group);
     },
     tick(time) {
-      if (!this.el.object3D.visible) return;
+      if (!this.el.object3D.visible || this.el.object3D.parent?.visible === false) return;
       this.puffs.forEach((puff, i) => {
-        const phase = ((time + i * 700) % 3800) / 3800;
-        puff.position.set(Math.sin(i * 2.3) * 0.38 + phase * 0.12, 0.7 + phase * 3, 0.1);
-        puff.scale.setScalar(1.1 + phase * 1.3);
-        puff.material.opacity = Math.sin(phase * Math.PI) * 0.45;
+        const phase = this.motion?.matches ? 0.3 + i * 0.1 : ((time + i * 700) % 3800) / 3800;
+        if (this.data.ground) {
+          puff.position.set(Math.sin(i * 2.3) * 0.3 + phase * 0.08, 0.3 + phase * 0.2, 0.1);
+          puff.scale.setScalar(0.35 + phase * 0.25);
+        } else {
+          puff.position.set(Math.sin(i * 2.3) * 0.38 + phase * 0.12, 0.7 + phase * 3, 0.1);
+          puff.scale.setScalar(1.1 + phase * 1.3);
+        }
+        puff.material.opacity = Math.sin(phase * Math.PI) * (this.data.ground ? 0.3 : 0.45);
+      });
+      this.flames.forEach((flame, i) => {
+        const sway = this.motion?.matches ? 0 : Math.sin(time / 1100 + i) * 0.03;
+        flame.scale.set(0.36 + sway, 0.5 + sway, 1);
       });
     },
     remove() {
-      this.puffs.forEach(puff => puff.material.dispose());
+      [...this.puffs, ...this.flames].forEach(sprite => sprite.material.dispose());
       this.texture.dispose();
+      this.flameTexture?.dispose();
       this.el.removeObject3D('mesh');
     }
   });

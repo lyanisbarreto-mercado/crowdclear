@@ -236,3 +236,9 @@ Implemented direct door selection (single to open/redirect, double to clear haza
 Preserved the teammate's separated immersive instruction, navigation, and expandable score panels. Blocked-door double selection now starts the four-second timer instead of removing the blockage immediately; reopening stays separate. Available-door hover uses the stadium-door component, preserving animation and status lights. All 55 tests pass after the merge, including immersive selection during clearing and score reset.
 
 Refreshed docs/devpost-about.md and docs/submission-draft.md for the current 60-person build, local concourse assets, timed clearing, and actual technology roles. TEAMMATE_TASKS.md now identifies the latest integration checkpoint and supersedes immediate clearing. The user selected microphone conversations with distressed people as a future feature. It is documented as planned, not as an implemented capability.
+
+## Plain instructions and small floor effects (October 10)
+
+Shortened practice, drill, feedback, button, and review text. Open uses green, Send people uses blue, and Clear or Blocked uses amber, always with written labels. Safe DOM spans highlight task words; the separated VR instruction panel has a matching short color legend. The existing grid, type hierarchy, captions, completion checks, controls, simulation rules, and saved-run version remain unchanged.
+
+Two front-corner effects reuse the smoke component with three low puffs and two authored flame sprites each. They stay under one metre, appear only while an exit is blocked, remain through the four-second clearing, and disappear on completion or restart. Reduced-motion preferences keep smoke and flames still; there are no new lights or obstacles. All 57 tests pass, including effect bounds, reduced motion, cleanup, visibility lifecycle, keyword colors, and exact original replay. Browser and physical-headset review are still pending for this checkpoint.

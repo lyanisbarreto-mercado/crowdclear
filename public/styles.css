@@ -10,6 +10,9 @@
   --signal: #e4dc7b;
   --exit: #2fbf71;
   --stop: #e5484d;
+  --word-open: #6bdea0;
+  --word-send: #8dc8ff;
+  --word-clear: #ffd27d;
   --display: "Overpass", "Arial Narrow", system-ui, sans-serif;
   --text: "Atkinson Hyperlegible", system-ui, sans-serif;
   --radius: 10px;
@@ -79,6 +82,12 @@ button.secondary { background: transparent; color: var(--ink); border-color: var
 button.secondary:hover:not(:disabled) { border-color: var(--muted); filter: none; }
 button.task-target { box-shadow: 0 0 0 3px var(--navy), 0 0 0 5px var(--signal); }
 .completion-check { color: var(--navy); margin-left: 6px; font-weight: 900; }
+.word-open { color: var(--word-open); font-weight: 700; }
+.word-send { color: var(--word-send); font-weight: 700; }
+.word-clear { color: var(--word-clear); font-weight: 700; }
+button.action-open:not(:disabled) { background: var(--word-open); }
+button.action-send:not(:disabled) { background: var(--word-send); }
+button.action-clear:not(:disabled) { background: var(--word-clear); }
 
 /* Briefing */
 #intro {
@@ -157,7 +166,8 @@ button.task-target { box-shadow: 0 0 0 3px var(--navy), 0 0 0 5px var(--signal);
   color: #fff;
   text-shadow: 0 0 4px #000, 0 0 2px #000;
 }
-.gate[data-state="hazard"] strong { color: var(--signal); }
+.gate[data-state="hazard"] strong { color: var(--word-clear); }
+.gate[data-state="open"] strong { color: var(--word-open); }
 
 .play-layout {
   display: grid;

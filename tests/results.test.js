@@ -9,5 +9,5 @@ test('score rewards completed evacuation timing independently of open-door count
   assert.equal(review.score({ evacuated: 20, remaining: 10, seconds: 45 }, {}).score, 20);
   assert.equal(result.message, 'Outstanding!');
   const unfinished = review.score({ evacuated: 0, remaining: 30, seconds: 0 }, { A: true, B: false, C: true });
-  assert.match(unfinished.tip, /try/i);
+  assert.match(unfinished.tip, /clear the blocked door early/i);
 });

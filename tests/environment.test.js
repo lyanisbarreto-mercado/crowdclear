@@ -51,3 +51,46 @@ test('hover feedback preserves door motion and restores its current status', () 
   assert.equal(visual.attributes.light, '#2fbf71');
   assert.deepEqual(visual.events, [], 'hover must not restart the opening animation');
 });
+
+test('floor smoke and flames stay low, become still with reduced motion, and release resources', () => {
+  const definitions = new Map();
+  const vector = () => ({ set(x, y, z) { Object.assign(this, { x, y, z }); }, setScalar(size) { this.set(size, size, size); } });
+  const textures = [];
+  const motion = { matches: false };
+  const THREE = {
+    TextureLoader: class { load() { const texture = { dispose() { this.disposed = true; } }; textures.push(texture); return texture; } },
+    Group: class { children = []; add(sprite) { this.children.push(sprite); } },
+    SpriteMaterial: class { constructor(data) { Object.assign(this, data); } dispose() { this.disposed = true; } },
+    Sprite: class { constructor(material) { this.material = material; this.position = vector(); this.scale = vector(); } }
+  };
+  vm.runInNewContext(fs.readFileSync('public/environment.js', 'utf8'), {
+    window: { matchMedia: () => motion, AFRAME: { THREE, registerComponent: (name, definition) => definitions.set(name, definition) } }
+  });
+  const effect = Object.assign({ data: { ground: true }, el: {
+    object3D: { visible: true, parent: { visible: true } }, setObject3D(name, mesh) { this.mesh = mesh; },
+    removeObject3D() { this.mesh = null; }
+  } }, definitions.get('hazard-puffs'));
+  effect.init();
+  assert.equal(effect.el.mesh.children.length, 5);
+  for (let time = 0; time < 4000; time += 100) {
+    effect.tick(time);
+    for (const sprite of effect.el.mesh.children) {
+      assert.ok(sprite.position.y - Math.hypot(sprite.scale.x, sprite.scale.y) / 2 >= 0, 'sprites stay above the floor');
+      assert.ok(sprite.position.y + Math.hypot(sprite.scale.x, sprite.scale.y) / 2 < 1, 'sprites cannot hide people or doors');
+    }
+  }
+  motion.matches = true;
+  effect.tick(0);
+  const still = JSON.stringify(effect.el.mesh.children);
+  effect.tick(2500);
+  assert.equal(JSON.stringify(effect.el.mesh.children), still, 'reduced motion keeps all sprites still');
+  motion.matches = false;
+  effect.el.object3D.parent.visible = false;
+  effect.tick(3100);
+  assert.equal(JSON.stringify(effect.el.mesh.children), still, 'hidden incident effects stop updating');
+  const sprites = effect.el.mesh.children;
+  effect.remove();
+  assert.ok(sprites.every(sprite => sprite.material.disposed));
+  assert.ok(textures.every(texture => texture.disposed));
+  assert.equal(effect.el.mesh, null);
+});

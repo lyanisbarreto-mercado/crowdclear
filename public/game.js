@@ -123,18 +123,24 @@ function place(list, s) {
 function instructions(label, title, copy) {
   el('step-label').textContent = label;
   el('task-title').textContent = title;
-  el('task-copy').textContent = copy;
+  el('task-copy').replaceChildren(...(Array.isArray(copy) ? copy : [copy]).map(part => {
+    if (typeof part === 'string') return document.createTextNode(part);
+    const word = document.createElement('strong');
+    word.classList.add(`word-${part.tone}`);
+    word.textContent = part.word;
+    return word;
+  }));
 }
 function refresh() {
   const stats = sim.stats(state);
   const total = state.people.length;
   el('evacuated').textContent = ghost
-    ? `Alternative: ${stats.evacuated} / ${total} · Original: ${sim.stats(ghost).evacuated} / ${total}`
-    : `Evacuated: ${stats.evacuated} / ${total}`;
-  el('remaining').textContent = `Remaining: ${stats.remaining}`;
+    ? `New run: ${stats.evacuated} / ${total} · Original: ${sim.stats(ghost).evacuated} / ${total}`
+    : `People out: ${stats.evacuated} / ${total}`;
+  el('remaining').textContent = `Still inside: ${stats.remaining}`;
   const clock = ghost ? Math.max(state.tick, ghost.tick) : state.tick;
   el('timer').textContent = mode === 'practice' || mode === 'intro'
-    ? 'Practice · no time limit' : `Time remaining: ${Math.ceil(Math.max(0, sim.DURATION - clock * sim.DT))} seconds`;
+    ? 'Practice · no timer' : `Time left: ${Math.ceil(Math.max(0, sim.DURATION - clock * sim.DT))} s`;
   const active = mode === 'practice' || mode === 'drill';
   for (const exit of EXITS) {
     const suffix = exit.toLowerCase();
@@ -143,14 +149,14 @@ function refresh() {
     const clearing = hazard && state.clearingUntil !== null;
     const seconds = clearing ? ((state.clearingUntil - state.tick) * sim.DT).toFixed(1) : null;
     el(`status-${suffix}`).setAttribute('data-state', hazard ? 'hazard' : state.open[exit] ? 'open' : 'closed');
-    el(`state-${suffix}`).textContent = clearing ? `Clearing: ${seconds} s` : hazard ? 'Hazard: clear first' : state.open[exit] ? 'Open' : 'Closed';
+    el(`state-${suffix}`).textContent = clearing ? `Clearing: ${seconds} s` : hazard ? 'Blocked' : state.open[exit] ? 'Open' : 'Closed';
     el(`count-${suffix}`).textContent = `${stats.queues[exit]} heading here`;
     el(`exit-${suffix}`).setAttribute('stadium-door', 'state', hazard ? 'blocked' : state.open[exit] ? 'open' : 'closed');
     const available = active && (mode !== 'practice' || exit === 'B');
     const clear = el(`clear-hazard-${suffix}`);
     clear.hidden = mode === 'practice';
     clear.disabled = !available || !hazard || clearing;
-    clear.textContent = clearing ? `Clearing ${exit}: ${seconds} s` : `Clear hazard at ${exit}`;
+    clear.textContent = clearing ? `Clearing: ${seconds} s` : `Clear ${exit} · 4 s`;
     const open = el(`open-exit-${suffix}`);
     const redirect = el(`redirect-${suffix}`);
     open.hidden = mode === 'practice' && exit !== 'B';
@@ -162,14 +168,15 @@ function refresh() {
     for (const kind of ['open-exit', 'redirect']) {
       const complete = mode === 'practice' && exit === 'B' && practiceStep >= (kind === 'open-exit' ? 1 : 2);
       el(`check-${kind}-${suffix}`).hidden = !complete;
-      el(`${kind}-${suffix}`).setAttribute('aria-label', `${kind === 'open-exit' ? 'Open Exit' : 'Redirect crowd to'} ${exit}${complete ? ', completed' : ''}`);
+      el(`${kind}-${suffix}`).setAttribute('aria-label', `${kind === 'open-exit' ? 'Open Exit' : 'Send people to Exit'} ${exit}${complete ? ', completed' : ''}`);
     }
   }
   el('hazard-marker').setAttribute('visible', !!state.hazard);
   el('hazard-label').setAttribute('visible', !!state.hazard);
   el('hazard-smoke').setAttribute('visible', !!state.hazard);
+  el('floor-effects').setAttribute('visible', !!state.hazard);
   if (state.hazard) {
-    el('hazard-label').setAttribute('value', state.clearingUntil === null ? 'BLOCKED - CLEAR EQUIPMENT'
+    el('hazard-label').setAttribute('value', state.clearingUntil === null ? 'BLOCKED - CLEAR FIRST'
       : `CLEARING - ${((state.clearingUntil - state.tick) * sim.DT).toFixed(1)} s`);
     const x = { A: -8, B: 0, C: 8 }[state.hazard];
     el('hazard-marker').setAttribute('position', `${x} 0 -11`);
@@ -264,13 +271,13 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   // Lets a headset browser show its own Enter VR prompt; A-Frame offers once and ignores browsers without it.
   checkHeadset().then(ok => { if (ok && !laptopPose) scene.enterVR(false, true); });
   el('drill-btn').hidden = true;
-  el('mode-title').textContent = mode === 'practice' ? 'Guided practice' : 'Stadium evacuation drill';
+  el('mode-title').textContent = mode === 'practice' ? 'Practice' : 'Timed drill';
   if (mode === 'practice') {
-    instructions('TASK 1 OF 2', 'Open an alternative route', 'Open Exit B to give the crowd another route. Use the highlighted control for the closed exit in the middle.');
-    el('feedback').textContent = 'No timer is running. Complete the task when you are ready.';
+    instructions('STEP 1 OF 2', 'Open Exit B', [{ word: 'Open', tone: 'open' }, ' the middle door, Exit B.']);
+    el('feedback').textContent = 'Take your time. There is no timer.';
   } else {
-    instructions('INDEPENDENT DRILL', 'Watch the crowd and stay ready', 'All exits start open. Between 10 and 20 seconds, a hazard will block the route most people are heading toward. Clear it, reopen the door, or redirect people to another route.');
-    el('feedback').textContent = 'A fresh drill has started. Your practice actions have been cleared.';
+    instructions(`${sim.DURATION}-SECOND DRILL`, 'Help people get out', ['An exit will become ', { word: 'blocked', tone: 'clear' }, ' after 10 to 20 seconds. ', { word: 'Clear', tone: 'clear' }, ' it, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
+    el('feedback').textContent = 'All exits are open. Watch for a blocked door.';
     if (mode === 'drill') announce('drill-start');
   }
   createAllFigures();
@@ -281,25 +288,25 @@ function perform(action, target = 'B') {
   if (mode !== 'practice' && mode !== 'drill') return;
   if (mode === 'practice' && (target !== 'B' || (action !== 'open-exit' && action !== 'redirect'))) return;
   if (!sim.act(state, action, target)) {
-    el('feedback').textContent = `You can try another route. Clear any hazard and open Exit ${target} before directing people there.`;
+    el('feedback').textContent = `Not ready yet. Use another open exit, or wait for the current action to finish.`;
     return;
   }
   if (action === 'clear-hazard') {
-    el('feedback').textContent = `Clearing equipment at Exit ${target} takes ${sim.CLEAR_DURATION * sim.DT} seconds. Keep people moving through another open route while staff work.`;
+    el('feedback').textContent = `Clearing Exit ${target} takes ${sim.CLEAR_DURATION * sim.DT} seconds. Use another open exit while you wait.`;
   } else if (action === 'open-exit') {
-    el('feedback').textContent = `Good work! Exit ${target} is open. Direct people toward the new route.`;
+    el('feedback').textContent = `Exit ${target} is open. Send people there.`;
     if (mode === 'practice' && practiceStep === 0 && state.open.B) {
       practiceStep = 1;
-      instructions('TASK 2 OF 2', 'Direct people to the new route', 'Redirect the crowd to Exit B. Watch the blue figures move toward the middle exit.');
+      instructions('STEP 2 OF 2', 'Send people to B', [{ word: 'Send people', tone: 'send' }, ' to Exit B. Watch them head to the middle door.']);
     }
   } else {
     el('feedback').textContent = mode === 'drill'
-      ? `Well done! Part of the crowd is now heading to Exit ${target}. Staff can give the next direction in ${sim.REDIRECT_COOLDOWN * sim.DT} seconds.`
-      : `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
+      ? `Some people are heading to Exit ${target}. Wait ${sim.REDIRECT_COOLDOWN * sim.DT} seconds before sending more.`
+      : `Some people are heading to Exit ${target}. Watch them move.`;
     announce(`redirect-${target}`);
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
-      instructions('PRACTICE COMPLETE', 'You have tried both actions', 'Opening an exit makes a route available; redirecting sends people toward it. Watch the response, then start a fresh timed drill when ready.');
+      instructions('PRACTICE DONE', 'Ready for the drill', [{ word: 'Open', tone: 'open' }, ' a door, then ', { word: 'send people', tone: 'send' }, ' there. Start the timed drill when ready.']);
       el('drill-btn').textContent = 'Start timed drill';
       el('drill-btn').hidden = false;
     }
@@ -386,8 +393,8 @@ async function reopen(id) {
 function showReview(run) {
   mode = 'review';
   lastRun = run;
-  instructions('DRILL COMPLETE', 'Decision review', review.outcome(lastRun.result));
-  el('feedback').textContent = 'Every drill is a chance to improve. Try another hazard scenario when you are ready. Results describe this simplified simulation only.';
+  instructions('DRILL DONE', 'Your drill', review.outcome(lastRun.result));
+  el('feedback').textContent = 'Try again, or change when you took one action. These results are for this game only.';
   el('review-timeline').replaceChildren(...review.timeline(lastRun.commands).map(text => {
     const item = document.createElement('li');
     item.textContent = text;
@@ -404,7 +411,7 @@ function showReview(run) {
   el('compare-time').value = lastRun.commands.length ? (lastRun.commands[0].tick * sim.DT).toFixed(1) : '';
   el('compare-result').textContent = lastRun.commands.length
     ? 'Pick one action and a new time. Every other action stays the same.'
-    : 'With no actions there is nothing to re-time. Start another drill and try clearing the blocked exit.';
+    : 'No actions to compare. Try another drill.';
   el('drill-btn').textContent = 'Try another drill';
   el('drill-btn').hidden = false;
   refresh();
@@ -461,8 +468,8 @@ function syncHeadset() {
   if (!laptopPose) return;
   const hasResults = !el('results').hidden;
   const instructions = hasResults
-    ? ['Drill complete', 'Point at View score to see your result. Select Try another drill to keep practicing.']
-    : ['Click a closed door to open it. Click an open door to redirect. Select a blocked door twice to start four seconds of clearing.',
+    ? ['Drill done', 'Select View score, or try another drill.']
+    : ['Select a door to open it or send people. For blocked doors, select twice. Wait 4 seconds, then open.',
       ...['task-title', 'feedback'].map(id => el(id).textContent)];
   el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   el('vr-score-toggle').setAttribute('visible', hasResults);
@@ -470,7 +477,7 @@ function syncHeadset() {
   el('vr-score-details').setAttribute('visible', hasResults && scoreExpanded);
   el('vr-score-text').setAttribute('value', [el('result-message').textContent,
     `Score: ${el('result-score').textContent}`, el('evacuated').textContent,
-    `Time remaining: ${el('result-time').textContent}`, el('result-tip').textContent,
+    `Time left: ${el('result-time').textContent}`, el('result-tip').textContent,
     `Open exits: ${el('result-exits').textContent}`].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
@@ -524,7 +531,7 @@ function pressDoor(exit, evt) {
     const now = evt?.timeStamp ?? Date.now();
     if (!lastDoorSelection || lastDoorSelection.exit !== exit || now - lastDoorSelection.time > 450 || now < lastDoorSelection.time) {
       lastDoorSelection = { exit, time: now };
-      el('feedback').textContent = `Select Exit ${exit} again quickly to start clearing the hazard.`;
+      el('feedback').textContent = `Select Exit ${exit} again now to start clearing.`;
       syncHeadset();
       return;
     }
@@ -566,7 +573,7 @@ const aframeHeadset = scene.checkHeadsetConnected?.bind(scene);
 scene.checkHeadsetConnected = () => headsetReady || !!aframeHeadset?.();
 el('vr-btn').addEventListener('click', () => {
   if (scene.checkHeadsetConnected()) scene.enterVR();
-  else el('feedback').textContent = 'Headset view could not start in this browser. Reload the page with the headset connected.';
+  else el('feedback').textContent = 'VR could not start. Connect your headset and reload.';
 });
 scene.addEventListener('enter-vr', () => {
   // Laptop fullscreen (A-Frame's "f" key) also emits enter-vr; only a real XR session moves the player.
@@ -599,14 +606,14 @@ function tick() {
   const clearingExit = state.clearingUntil !== null ? state.hazard : null;
   sim.step(state);
   if (clearingExit && !state.hazard) {
-    instructions('HAZARD CLEARED', `Exit ${clearingExit} is ready to reopen`, 'The equipment is clear. Open the door to make this route usable again.');
-    el('feedback').textContent = `The hazard at Exit ${clearingExit} is cleared. You can open that exit now.`;
+    instructions('CLEARED', `Open Exit ${clearingExit}`, [{ word: 'Open', tone: 'open' }, ` Exit ${clearingExit}, then `, { word: 'send people', tone: 'send' }, ' there.']);
+    el('feedback').textContent = `Exit ${clearingExit} is clear. Open it now.`;
   }
   if (incidentNow) {
     // Fix the original incident in the initial snapshot; alternatives face the same event.
     initial.blockedExit = state.blockedExit;
-    instructions('HAZARD DETECTED', `Exit ${state.hazard} is blocked`, 'Clear the striped equipment, then reopen the closed door. You can also direct people to another open exit.');
-    el('feedback').textContent = `Stay focused: Exit ${state.hazard} needs your attention. Choose a route to keep the crowd moving.`;
+    instructions('BLOCKED EXIT', `Exit ${state.hazard} is blocked`, [{ word: 'Clear', tone: 'clear' }, ' it. Wait 4 seconds, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
+    el('feedback').textContent = `Exit ${state.hazard} is blocked. Other open exits still work.`;
     alarm();
     announce(`hazard-${state.hazard}`);
   }

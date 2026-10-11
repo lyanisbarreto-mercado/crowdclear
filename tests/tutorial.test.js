@@ -9,8 +9,10 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   const elements = new Map();
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
-      style: {}, hidden: id === 'drill-btn', disabled: false, textContent: '', value: '',
-      listeners: {}, attributes: {}, classList: { toggle() {}, add() {} }, children: [],
+      style: {}, hidden: id === 'drill-btn', disabled: false, _textContent: '', value: '',
+      get textContent() { return this.children.length ? this.children.map(child => child.textContent).join('') : this._textContent; },
+      set textContent(value) { this._textContent = value; this.children = []; },
+      listeners: {}, attributes: {}, classList: { values: new Set(), toggle() {}, add(...names) { names.forEach(name => this.values.add(name)); }, contains(name) { return this.values.has(name); } }, children: [],
       closest() { return this.hidden ? this : null; },
       click() { if (!this.disabled) this.listeners.click?.(); },
       setAttribute(name, key, value) {
@@ -35,7 +37,7 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
       speechSynthesis: { cancel() {}, speak: u => spoken.push(u.text) }, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
       AudioContext: class { currentTime = 0; destination = {}; resume() {} createOscillator() { return { ...node }; } createGain() { return node; } } },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
-      createElement: () => element(Symbol()) },
+      createElement: () => element(Symbol()), createTextNode: text => ({ textContent: text }) },
     requestAnimationFrame() {}, Event: class {},
     fetch: (...args) => { requests.push(args); return fetch(...args); },
     crypto: { randomUUID: () => '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60' },
@@ -72,6 +74,31 @@ test('practice waits indefinitely for its task and rejected redirect cannot adva
   ui.click('redirect-b');
   assert.equal(ui.value('practiceStep'), 0);
   assert.equal(ui.element('drill-btn').hidden, true);
+});
+
+test('plain action words keep their colors and floor effects follow the blocked exit', () => {
+  const ui = setup();
+  ui.click('start-btn');
+  assert.equal(ui.element('task-copy').textContent, 'Open the middle door, Exit B.');
+  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Open').classList.contains('word-open'));
+  assert.equal(ui.element('floor-effects').getAttribute('visible'), false);
+  ui.click('open-exit-b');
+  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Send people').classList.contains('word-send'));
+  ui.click('redirect-b');
+  ui.click('drill-btn');
+  assert.equal(ui.element('step-label').textContent, `${sim.DURATION}-SECOND DRILL`);
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  const exit = ui.value('state.hazard').toLowerCase();
+  assert.ok(ui.element('task-copy').children.find(child => child.textContent === 'Clear').classList.contains('word-clear'));
+  assert.equal(ui.element('floor-effects').getAttribute('visible'), true);
+  ui.click(`clear-hazard-${exit}`);
+  assert.equal(ui.element('floor-effects').getAttribute('visible'), true, 'fire and smoke stay during clearing');
+  ui.playTicks(ui.value('state.clearingUntil'));
+  assert.equal(ui.element('floor-effects').getAttribute('visible'), false, 'clear completion removes incident effects');
+  ui.value('fresh("drill", "B", null)');
+  assert.equal(ui.element('floor-effects').getAttribute('visible'), true);
+  ui.click('stop-btn');
+  assert.equal(ui.element('floor-effects').getAttribute('visible'), false, 'restart removes incident effects');
 });
 test('both successful tasks unlock the drill and starting clears practice state', () => {
   const ui = setup(); ui.click('start-btn'); ui.click('open-exit-b');
@@ -132,10 +159,10 @@ test('a blocked main exit left alone runs out of time and the review says so', (
   ui.play('drill');
   assert.equal(ui.value('lastRun.commands.length'), 0);
   assert.equal(ui.element('compare-form').hidden, true);
-  assert.equal(ui.element('review-timeline').children[0].textContent, 'No actions taken during the drill.');
+  assert.equal(ui.element('review-timeline').children[0].textContent, 'No actions taken.');
   assert.ok(ui.value('lastRun.result.remaining') > 0);
   assert.equal(ui.value('state.hazard'), 'B', 'random 0 gives hazard tick 100, whose crowd heads for Exit B');
-  assert.equal(ui.element('result-message').textContent, 'Keep building your skills!');
+  assert.equal(ui.element('result-message').textContent, 'Try again');
   assert.match(ui.element('task-copy').textContent, /Longest line: \d+ people at Exit B\./);
 });
 test('comparison replays the original exactly and changes only the chosen action', () => {
@@ -154,7 +181,7 @@ test('comparison replays the original exactly and changes only the chosen action
   assert.equal(ui.value('state.commands.find(c => c.action === "open-exit").tick'), 300);
   const text = ui.element('compare-result').textContent;
   assert.match(text, /replayed exactly/);
-  assert.match(text, /cleared the venue [\d.]+ s later/);
+  assert.match(text, /Everyone got out [\d.]+ s later/);
   assert.equal(ui.value('state.commands.length'), 3);
 });
 test('a finished drill is saved once with its scenario and the page address then reopens it', async () => {

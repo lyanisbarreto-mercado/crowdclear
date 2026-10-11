@@ -24,7 +24,7 @@
 		<a class="skip-link" href="#main">Skip to the drill</a>
 		<header>
 			<h1>CrowdClear</h1>
-			<p>Emergency Evacuation Training</p>
+			<p>Practice helping people get out</p>
 		</header>
 
 		<main id="main">
@@ -32,14 +32,13 @@
 				<div class="intro-gates" aria-hidden="true"><span class="gate-letter">A</span><span class="gate-letter closed">B</span><span class="gate-letter">C</span></div>
 				<h2>Stadium evacuation drill</h2>
 				<p>
-					You are coordinating a stadium evacuation. Practice opening an exit
-					and directing people toward it, then try an independent drill.
+					<span class="word-open">Open</span> an exit. <span class="word-send">Send people</span> there.
+					Then try a timed drill.
 				</p>
 				<p class="muted">
-					A simulated training prototype. Results are not real-world evacuation
-					predictions.
+					This is a training game. It does not predict real emergencies.
 				</p>
-				<button id="start-btn">Begin guided practice</button>
+				<button id="start-btn">Start practice</button>
 				<p id="load-status" role="status" aria-live="polite"></p>
 			</section>
 
@@ -47,15 +46,15 @@
 				<div class="drill-heading">
 					<h2 id="mode-title">Guided practice</h2>
 					<div class="heading-actions">
-						<button id="vr-btn" class="secondary" hidden>Enter headset view</button>
+						<button id="vr-btn" class="secondary" hidden>Enter VR</button>
 						<button id="sound-btn" class="secondary" aria-pressed="true">Sound: on</button>
 						<button id="stop-btn" class="secondary">Restart practice</button>
 					</div>
 				</div>
 				<div id="hud">
-					<span id="evacuated">Evacuated: 0</span>
-					<span id="timer">Practice · no time limit</span>
-					<span id="remaining">Remaining: 60</span>
+					<span id="evacuated">People out: 0</span>
+					<span id="timer">Practice · no timer</span>
+					<span id="remaining">Still inside: 60</span>
 					<span id="breathing" hidden>Breathing: measuring…</span>
 				</div>
 
@@ -66,48 +65,47 @@
 				</div>
 				<div class="play-layout">
 					<aside id="instruction" aria-label="Current task">
-						<p id="step-label" class="eyebrow">TASK 1 OF 2</p>
-						<h3 id="task-title">Open an alternative route</h3>
+						<p id="step-label" class="eyebrow">STEP 1 OF 2</p>
+						<h3 id="task-title">Open Exit B</h3>
 						<p id="task-copy">
-							Open Exit B to give the crowd another route. The highlighted
-							button controls the closed exit in the middle.
+							<strong class="word-open">Open</strong> the middle door, Exit B.
 						</p>
 						<div id="actions">
 <fieldset id="exit-controls-a"><legend>Exit A</legend>
-<button id="clear-hazard-a" hidden>Clear hazard at A</button>
-<button id="open-exit-a">Open Exit A<span class="completion-check" id="check-open-exit-a" aria-hidden="true" hidden> ✓</span></button>
-<button id="redirect-a">Redirect crowd to A<span class="completion-check" id="check-redirect-a" aria-hidden="true" hidden> ✓</span></button>
+<button id="clear-hazard-a" class="action-clear" hidden>Clear A · 4 s</button>
+<button id="open-exit-a" class="action-open">Open A<span class="completion-check" id="check-open-exit-a" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-a" class="action-send">Send people to A<span class="completion-check" id="check-redirect-a" aria-hidden="true" hidden> ✓</span></button>
 </fieldset>
 <fieldset id="exit-controls-b"><legend>Exit B</legend>
-<button id="clear-hazard-b" hidden>Clear hazard at B</button>
-<button id="open-exit-b">Open Exit B<span class="completion-check" id="check-open-exit-b" aria-hidden="true" hidden> ✓</span></button>
-<button id="redirect-b">Redirect crowd to B<span class="completion-check" id="check-redirect-b" aria-hidden="true" hidden> ✓</span></button>
+<button id="clear-hazard-b" class="action-clear" hidden>Clear B · 4 s</button>
+<button id="open-exit-b" class="action-open">Open B<span class="completion-check" id="check-open-exit-b" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-b" class="action-send">Send people to B<span class="completion-check" id="check-redirect-b" aria-hidden="true" hidden> ✓</span></button>
 </fieldset>
 <fieldset id="exit-controls-c"><legend>Exit C</legend>
-<button id="clear-hazard-c" hidden>Clear hazard at C</button>
-<button id="open-exit-c">Open Exit C<span class="completion-check" id="check-open-exit-c" aria-hidden="true" hidden> ✓</span></button>
-<button id="redirect-c">Redirect crowd to C<span class="completion-check" id="check-redirect-c" aria-hidden="true" hidden> ✓</span></button>
+<button id="clear-hazard-c" class="action-clear" hidden>Clear C · 4 s</button>
+<button id="open-exit-c" class="action-open">Open C<span class="completion-check" id="check-open-exit-c" aria-hidden="true" hidden> ✓</span></button>
+<button id="redirect-c" class="action-send">Send people to C<span class="completion-check" id="check-redirect-c" aria-hidden="true" hidden> ✓</span></button>
 </fieldset>
 </div>
 <p id="feedback" role="status" aria-live="polite">
-							Your task stays here until you complete it.
+							Take your time. There is no timer.
 						</p>
 						<p id="pa-caption" class="pa-caption" aria-live="polite"></p>
 
 						<button id="drill-btn" hidden>Start timed drill</button>
 						<p class="muted">
-							The fixed overhead view lets you watch all three routes.
+							Watch all three doors from above.
 						</p>
 					</aside>
 					<div class="scene-wrap">
 <section id="results" hidden aria-labelledby="results-title">
   <div class="result-card">
     <h2 id="results-title">Drill results</h2>
-    <dl><div><dt>Evacuated</dt><dd id="result-evacuated"></dd></div>
-    <div><dt>Time remaining</dt><dd id="result-time"></dd></div>
-    <div><dt>Open exits</dt><dd id="result-exits"></dd></div>
+    <dl><div><dt>People out</dt><dd id="result-evacuated"></dd></div>
+    <div><dt>Time left</dt><dd id="result-time"></dd></div>
+    <div><dt class="word-open">Open exits</dt><dd id="result-exits"></dd></div>
     <div class="score-total"><dt>Total score</dt><dd id="result-score"></dd></div></dl>
-    <p class="muted">Score = people evacuated + timing bonus. Evacuate everyone to earn 1 bonus point per whole second remaining.</p>
+    <p class="muted">1 point per person out. Get everyone out to earn 1 extra point per full second left.</p>
   </div>
   <h3 id="result-message"></h3><p id="result-tip"></p>
 </section>
@@ -117,12 +115,12 @@
 							<p id="save-status" role="status" aria-live="polite"></p>
 							<p id="breathing-review" hidden></p>
 							<form id="compare-form">
-								<h4>Compare another decision</h4>
-								<label for="compare-action">Action to re-time</label>
+								<h4>Try a different time</h4>
+								<label for="compare-action">Choose an action</label>
 								<select id="compare-action"></select>
-								<label for="compare-time">New time (seconds into the drill)</label>
+								<label for="compare-time">Do it at (seconds)</label>
 								<input id="compare-time" type="number" min="0" max="60" step="0.1" required />
-								<button type="submit">Replay original and alternative</button>
+								<button type="submit">Compare runs</button>
 							</form>
 							<p id="compare-result" role="status" aria-live="polite"></p>
 						</section>
@@ -167,7 +165,10 @@
 									<a-box position="1.2 0.5 -1" width="0.05" height="1" depth="0.05" material="color: #9aa8b3; metalness: 0.55; roughness: 0.55"></a-box>
 									<a-entity id="vr-panel" position="-1.5 1.35 -1.3" rotation="-10 45 0">
 										<a-plane width="1.2" height="1.1" color="#182230"></a-plane>
-										<a-text id="vr-text" position="-0.55 0.52 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
+										<a-text font="aileronsemibold" value="OPEN" color="#6bdea0" position="-0.55 0.47 0.02" width="0.35" wrap-count="12"></a-text>
+										<a-text font="aileronsemibold" value="SEND" color="#8dc8ff" position="-0.15 0.47 0.02" width="0.35" wrap-count="12"></a-text>
+										<a-text font="aileronsemibold" value="CLEAR" color="#ffd27d" position="0.25 0.47 0.02" width="0.35" wrap-count="12"></a-text>
+										<a-text id="vr-text" position="-0.55 0.36 0.01" width="1.1" wrap-count="48" anchor="left" baseline="top" value=" "></a-text>
 									</a-entity>
 <a-entity id="vr-navigation" position="-1.5 0.55 -1.3" rotation="-10 45 0"></a-entity>
 <a-entity position="1.5 1.35 -1.3" rotation="-10 -45 0">
@@ -181,7 +182,11 @@
 							</a-entity>
 							<a-entity id="hazard-marker" visible="false" position="0 0 -11" equipment-blockage></a-entity>
 							<a-entity id="hazard-smoke" visible="false" position="0 0 -11" hazard-puffs></a-entity>
-							<a-text id="hazard-label" font="aileronsemibold" visible="false" value="BLOCKED - CLEAR EQUIPMENT" position="0 3.8 -10.8" align="center" width="5" wrap-count="28" color="#e4dc7b"></a-text>
+							<a-text id="hazard-label" font="aileronsemibold" visible="false" value="BLOCKED - CLEAR FIRST" position="0 3.8 -10.8" align="center" width="5" wrap-count="28" color="#ffd27d"></a-text>
+							<a-entity id="floor-effects" visible="false">
+								<a-entity position="-10.5 0 9.5" hazard-puffs="ground: true"></a-entity>
+								<a-entity position="10.5 0 9.5" hazard-puffs="ground: true"></a-entity>
+							</a-entity>
 							<!-- Invisible click targets around each door and its letter: the doors are small from the overhead view. -->
 							<a-box id="door-target-a" class="vr-control" position="-8 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
 							<a-box id="door-target-b" class="vr-control" position="0 2.5 -10.6" width="5" height="5" depth="2" material="visible: false"></a-box>
@@ -190,7 +195,9 @@
 							<a-entity id="ghost-crowd" visible="false"></a-entity>
 						</a-scene>
 						<p class="scene-caption">
-							Click a door to act on it: it starts clearing a hazard, opens the door, or sends people there. Clearing takes four seconds; reopen the door afterward. Crowd figures are simplified. Exit labels and door status show each route; striped equipment and smoke mark the blocked exit. In a comparison, faded wireframe figures replay your original run and solid figures show the alternative.
+							Click a door to <span class="word-open">open</span> it or <span class="word-send">send people</span> there.
+							A <span class="word-clear">blocked</span> door must be cleared first. Wait 4 seconds, then open it.
+							Wireframe people show your first run. Solid people show the new one.
 						</p>
 					</div>
 				</div>
