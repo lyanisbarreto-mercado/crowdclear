@@ -54,6 +54,7 @@ Honest gaps. It plays like a basic simulator, not a VR training game:
 - [x] Hazard clearing stays immediate; reopening stays a separate action (Lyanis, BRAND.md).
 - [x] Score is people evacuated plus whole seconds left when everyone is out; open doors no longer multiply it (Lyanis, `6ba692a`).
 - [ ] Which judging tracks? Neon needs P0 saving on the live URL; a VR or game track needs the headset check and the P1 VR pass.
+- [ ] Presage breathing sensing: build it or cut it? It is possible on the laptop only (Node SDK `@smartspectra/node-sdk`, Windows x64 supported, needs a Presage API key from physiology.presagetech.com, a few hundred MB of native packages, 30 s before the first reading, cannot see a face inside a headset). Worth about 2 to 3 hours only if the event has a Presage or Encompass prize and a key arrives soon. Recommendation: cut unless both are true.
 - [ ] If tonight runs short, cut VR depth or mechanics depth first? (Recommendation: keep the door interaction and the mid-drill hazard; cut balcony art and extra audio.)
 
 ## Lyanis · UX/UI
@@ -75,6 +76,8 @@ Primary files: `public/styles.css`, `docs/design/BRAND.md`, `docs/submission-dra
 - [x] Headset controls that press the page's own buttons (`e3cd908`, per-exit grid in the merge). Headset check is P0.
 - [x] Merge Lyanis's hazard/results branch with review, replay, saving, and headset work (`212243f`).
 - [ ] P0, P1 items above.
+- [ ] ElevenLabs voice: put `ELEVENLABS_API_KEY` in `.env`, run `npm run voice`, listen, commit `public/audio/*.mp3` and `clips.js` (pipeline in `4092db5`; the game falls back to the browser voice until then).
+- [x] Hazard smoke and a railing on the VR post (`e4f64da`).
 - [ ] Keep tests and CI green; check the deployed build after each push.
 
 Primary files: `public/game.js`, `public/simulation.js`, `public/review.js`, `server.js`, `schema.sql`, `test/`, `tests/`. Own wiring changes to `public/index.html` during an agreed editing window.
