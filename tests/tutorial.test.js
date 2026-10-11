@@ -10,7 +10,9 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
       style: {}, hidden: id === 'drill-btn', disabled: false, textContent: '', value: '',
-      listeners: {}, classList: { toggle() {} }, children: [],
+      listeners: {}, classList: { toggle() {}, add() {} }, children: [],
+      closest() { return this.hidden ? this : null; },
+      click() { if (!this.disabled) this.listeners.click?.(); },
       setAttribute() {}, append() {}, replaceChildren(...items) { this.children = items; },
       addEventListener(event, listener) { this.listeners[event] = listener; }
     });
@@ -191,4 +193,27 @@ test('a missing saved run is reported on the start screen', async () => {
   await settle();
   assert.equal(ui.element('load-status').textContent, 'Could not open the saved drill. No saved drill matches this link.');
   assert.equal(ui.value('mode'), 'intro');
+});
+test('clicking the doors plays practice and handles a hazard through the same buttons', () => {
+  const ui = setup();
+  const door = exit => ui.element(`exit-${exit.toLowerCase()}`).listeners.click();
+  ui.click('start-btn');
+  door('A');
+  assert.equal(ui.value('practiceStep'), 0, 'practice only uses Exit B');
+  door('B');
+  assert.equal(ui.value('state.open.B'), true);
+  door('B');
+  assert.equal(ui.value('practiceStep'), 2, 'second click on the open door redirects people there');
+  ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  const hazard = ui.value('state.hazard');
+  door(hazard);
+  assert.equal(ui.value('state.hazard'), null, 'first click clears the hazard');
+  door(hazard);
+  assert.equal(ui.value(`state.open.${hazard}`), true, 'second click reopens the door');
+  door(hazard);
+  assert.equal(ui.value('state.commands.at(-1).action'), 'redirect');
+  const commands = ui.value('state.commands.length');
+  door(ui.value(`['A','B','C'].find(e => e !== '${hazard}')`));
+  assert.equal(ui.value('state.commands.length'), commands, 'redirect cooldown also applies to door clicks');
 });

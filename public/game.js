@@ -281,7 +281,7 @@ function syncHeadset() {
   if (!laptopPose) return;
   const timeline = el('review').hidden ? [] : [...el('review-timeline').children].map(item => item.textContent);
   const results = el('results').hidden ? [] : [`${el('result-message').textContent} Score: ${el('result-score').textContent}`];
-  el('vr-text').setAttribute('value', [...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
+  el('vr-text').setAttribute('value', ['Point at a door and pull the trigger to act on it.', ...['task-title', 'task-copy', 'feedback'].map(id => el(id).textContent),
     ...results, ...timeline, el('evacuated').textContent, el('timer').textContent].join('\n\n').replace(/·/g, '-')); // A-Frame's default font has no middle dot.
   vrButtons.forEach(({ source, button, label }) => {
     button.setAttribute('visible', shown(source));
@@ -307,6 +307,24 @@ function createVrButtons() {
     return { source, button, label };
   });
 }
+// Doors are controls too: clicking one (mouse on a laptop, controller in a headset) presses the page button
+// for that door's next step, so both inputs share the same handlers and availability rules.
+function pressDoor(exit) {
+  const x = exit.toLowerCase();
+  const button = el(state.hazard === exit ? `clear-hazard-${x}` : state.open[exit] ? `redirect-${x}` : `open-exit-${x}`);
+  if (shown(button) && !button.disabled) button.click();
+}
+for (const exit of EXITS) {
+  const door = el(`exit-${exit.toLowerCase()}`);
+  door.classList.add('vr-control');
+  door.addEventListener('click', () => pressDoor(exit));
+  door.addEventListener('mouseenter', () => door.setAttribute('material', 'emissive', '#555555'));
+  door.addEventListener('mouseleave', () => door.setAttribute('material', 'emissive', '#000000'));
+}
+el('hazard-marker').classList.add('vr-control');
+el('hazard-marker').addEventListener('click', () => { if (state.hazard) pressDoor(state.hazard); });
+scene.setAttribute('raycaster', 'objects: .vr-control');
+scene.setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
 window.navigator?.xr?.isSessionSupported('immersive-vr').then(ok => { el('vr-btn').hidden = !ok; }, () => {});
 el('vr-btn').addEventListener('click', () => scene.enterVR());
 scene.addEventListener('enter-vr', () => {
