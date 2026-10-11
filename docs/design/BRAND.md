@@ -4,7 +4,7 @@ Experience direction accepted by Carol. Visual styling remains a draft.
 
 ## What the player should understand
 
-You are the venue staff member coordinating an evacuation drill. People are clustering at an exit. You can open an alternative exit and redirect the crowd. Afterward, you see how your decisions changed the simulated outcome.
+You are the venue staff member coordinating an evacuation drill. People are clustering at an exit. You can open an alternative exit, redirect the crowd, and reassure panicking guests (orange rings; mic volume or Hold Reassure). In VR, point at doors and people; spoken PA is off while captions stay. Afterward, you see how your decisions changed the simulated outcome (including calmed / still panicking). Simulation version 8.
 
 The experience should feel calm and legible even when the scenario is urgent. Keep the existing dark palette as a starting point. Use explicit exit labels and status text alongside color. Decide typography and final colors with Carol before broad styling changes.
 

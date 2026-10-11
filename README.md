@@ -23,11 +23,11 @@ Asset provenance and runtime limits are documented in [public/textures/concourse
 
 The crowd now has 60 people, scattered starting positions, varied walking speeds, and brief hesitation from some people when the incident occurs. Three queue columns keep the crowd inside the lobby. Clearing takes four seconds with a visible countdown; the route stays blocked until work finishes, and reopening remains separate. These game cues are simplified, not a validated model of panic.
 
-These behavior changes use simulation version 7. Older saved drills remain in the database, but the current player reports that it cannot replay their older rules.
+These behavior changes use simulation version 8. At the incident, some guests panic and wander until calmed (mic volume or Hold Reassure). Older saved drills remain in the database, but the current player reports that it cannot replay their older rules.
 
 ## Audio (ElevenLabs)
 
-The spoken lines (drill start, each hazard, each redirect) live in `public/announcements.js`. `public/audio/` holds ElevenLabs clips for every line, plus a recorded alarm and a looping crowd ambience from the sound-effects API, all listed in `public/audio/clips.js`. The game plays them and falls back to the browser's speech and synth for anything missing.
+The spoken lines (drill start, each hazard, each redirect) live in `public/announcements.js`. `public/audio/` holds ElevenLabs clips for every line, plus a recorded alarm and a looping crowd ambience from the sound-effects API, all listed in `public/audio/clips.js`. The game plays them on a laptop and falls back to the browser's speech and synth for anything missing. In a headset, PA voice is silent (captions and the in-scene panel still show the line); point at doors to clear, open, or send people, and select orange-ring panickers to reassure.
 
 To regenerate, put `ELEVENLABS_API_KEY` (or `ELEVEN_API_KEY`) in `.env` or `.env.local` (both gitignored) and run `npm run audio`. Existing files are kept to save credits; add `-- --force` to regenerate them. The key is only used by the script, never by the browser. `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` override the voice and speech model.
 

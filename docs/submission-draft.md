@@ -20,9 +20,9 @@ Laptop browser checks cover practice, clearing, local saving and reopening, and 
 6. Change one action's time and show the original wireframe crowd beside the alternative, with an exact replay confirmation.
 7. Reopen the saved run link on a configured server.
 
-## Planned microphone interaction
+## Microphone calm (implemented)
 
-The user prefers speaking through the microphone to selected distressed people. The proposed interaction is to select a person, hold a talk control, and speak reassurance or directions. Future people could hesitate or resist and respond visibly. No microphone input, speech recognition, or person-level conversation is implemented. Current staff redirects remain reliable.
+Select a panicking guest (orange ring), then speak into the mic (volume / RMS) or use Hold Reassure. Calm chance is deterministic (~45%); no speech-to-text. Failed attempts can be retried. Redirects ignore panickers until calmed. In VR, PA voice is silent; captions and door/person pointing remain.
 
 ## Remaining submission evidence
 

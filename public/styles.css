@@ -37,17 +37,31 @@ header, main {
 
 header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 16px;
   flex-wrap: wrap;
   border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+}
+header .brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+header .brand img {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: #d8dde3;
 }
 header h1 {
   margin: 0;
   font: 900 1.9rem/1 var(--display);
   letter-spacing: -0.01em;
 }
-header p { margin: 0; color: var(--muted); }
+header p { margin: 4px 0 0; color: var(--muted); }
 
 h2, h3, h4 { font-family: var(--display); margin-top: 0; text-wrap: balance; }
 p, li { text-wrap: pretty; }
@@ -93,6 +107,16 @@ button.action-clear:not(:disabled) { background: var(--word-clear); }
 #intro {
   max-width: 680px;
   margin: 56px 0;
+}
+.intro-logo {
+  display: block;
+  width: 120px;
+  height: 120px;
+  margin: 0 0 24px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: #d8dde3;
 }
 .intro-gates { display: flex; gap: 12px; margin-bottom: 28px; }
 .intro-gates .gate-letter { width: 96px; height: 96px; font-size: 3.8rem; border-radius: 8px; }

@@ -33,3 +33,20 @@ test('outcome names the longest line when the run recorded one', () => {
   assert.equal(review.outcome({ evacuated: 30, remaining: 0, ticks: 321, peakQueue: 14, peakExit: 'B' }),
     'All 30 people got out in 32.1 s. Longest line: 14 people at Exit B.');
 });
+test('timeline labels calm and result tracks calmed and panicking', () => {
+  assert.deepEqual(review.timeline([{ tick: 110, action: 'calm', target: 5 }]),
+    ['11.0 s · Reassured person 5']);
+  const sim = require('../public/simulation');
+  const state = sim.createState({ hazardTick: 100 });
+  while (state.tick <= 100) sim.step(state);
+  const id = state.people.find(p => p.panic).id;
+  for (let i = 0; i < 20 && state.people.find(p => p.id === id).panic; i++) {
+    sim.act(state, 'calm', id);
+    sim.step(state);
+  }
+  assert.equal(state.people.find(p => p.id === id).panic, false);
+  const r = review.result(state);
+  assert.ok(r.calmed >= 1);
+  assert.ok(r.panicking >= 0);
+  assert.match(review.outcome(r), /Calmed/);
+});
