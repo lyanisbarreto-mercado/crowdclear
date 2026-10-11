@@ -128,10 +128,22 @@ function alarm() {
     tone.stop(at + 0.22);
   }
 }
-function announce(text) {
-  if (!soundOn || !window.speechSynthesis) return;
+// Announcements play the ElevenLabs clips from scripts/generate-voice.js when present, else the browser's voice.
+const voiceClips = Object.fromEntries((window.CrowdVoiceClips || []).map(id => [id, null]));
+let playingClip = null;
+function speak(text) {
+  if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(new window.SpeechSynthesisUtterance(text));
+}
+function announce(id) {
+  if (!soundOn) return;
+  const text = window.CrowdAnnouncements[id];
+  if (!(id in voiceClips)) return speak(text);
+  playingClip?.pause();
+  playingClip = voiceClips[id] ??= new window.Audio(`/audio/${id}.mp3`);
+  playingClip.currentTime = 0;
+  playingClip.play().catch(() => speak(text));
 }
 function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null) {
   // Browsers only start audio after a user gesture; practice and drills begin from a click.
@@ -183,7 +195,7 @@ function perform(action, target = 'B') {
     el('feedback').textContent = mode === 'drill'
       ? `Well done! Part of the crowd is now heading to Exit ${target}. Staff can give the next direction in ${sim.REDIRECT_COOLDOWN * sim.DT} seconds.`
       : `Well done! Part of the crowd is now heading to Exit ${target}. Watch them take the new route.`;
-    announce(`Attention please. Proceed to Exit ${target}.`);
+    announce(`redirect-${target}`);
     if (mode === 'practice' && practiceStep === 1 && state.redirected) {
       practiceStep = 2;
       instructions('PRACTICE COMPLETE', 'You have tried both actions', 'Opening an exit makes a route available; redirecting sends people toward it. Watch the response, then start a fresh timed drill when ready.');
@@ -292,7 +304,7 @@ el('stop-btn').addEventListener('click', () => fresh('practice'));
 el('drill-btn').addEventListener('click', () => fresh('drill'));
 el('sound-btn').addEventListener('click', () => {
   soundOn = !soundOn;
-  if (!soundOn) window.speechSynthesis?.cancel();
+  if (!soundOn) { window.speechSynthesis?.cancel(); playingClip?.pause(); }
   el('sound-btn').textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
   el('sound-btn').setAttribute('aria-pressed', String(soundOn));
 });
@@ -409,7 +421,7 @@ function tick() {
     instructions('HAZARD DETECTED', `Exit ${state.hazard} is blocked`, 'Clear the yellow obstruction, then reopen the red door. You can also direct people to another open exit.');
     el('feedback').textContent = `Stay focused: Exit ${state.hazard} needs your attention. Choose a route to keep the crowd moving.`;
     alarm();
-    announce(`Attention. Exit ${state.hazard} is blocked. Staff, respond now.`);
+    announce(`hazard-${state.hazard}`);
   }
   if (mode === 'drill' && sim.isDone(state)) finish();
 }

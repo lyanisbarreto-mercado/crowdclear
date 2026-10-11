@@ -15,6 +15,10 @@ npm start
 
 Open http://localhost:3000. Set `PORT` to change the port. Set `DATABASE_URL` to a Postgres connection string to save drills; without it the game still runs and each finished drill says it was not saved. The server creates its table from `schema.sql` at startup. VR needs HTTPS, so test headsets against the deployed Render URL.
 
+## Voice announcements (ElevenLabs)
+
+The hazard and redirect announcements live in `public/announcements.js`. To replace the browser's built-in voice with ElevenLabs clips, put `ELEVENLABS_API_KEY=...` in `.env` (gitignored) and run `npm run voice`. It writes one MP3 per line to `public/audio/` plus `public/audio/clips.js`; commit those. The key is only used by the script, never by the browser. `ELEVENLABS_VOICE_ID` and `ELEVENLABS_MODEL_ID` override the defaults. Lines without a clip fall back to the browser voice.
+
 ## Test
 
 ```sh

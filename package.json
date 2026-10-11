@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test test/*.test.js tests/*.test.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "voice": "node --env-file-if-exists=.env scripts/generate-voice.js"
   },
   "repository": {
     "type": "git",

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const sim = require('../public/simulation');
 const review = require('../public/review');
 // random picks the drill's blocked exit: 0 → A, 0.4 → B, 0.9 → C.
-function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }), random = 0.4 } = {}) {
+function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }), random = 0.4, clips } = {}) {
   const elements = new Map();
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
@@ -22,10 +22,12 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   const requests = [];
   const urls = [];
   const spoken = [];
+  const played = [];
   let tones = 0;
   const node = { connect: next => next || node, gain: { setValueAtTime() {} }, frequency: {}, start() { tones++; }, stop() {} };
   const context = vm.createContext({
-    window: { CrowdSimulation: sim, CrowdReview: review, dispatchEvent() {},
+    window: { CrowdSimulation: sim, CrowdReview: review, CrowdAnnouncements: require('../public/announcements'), CrowdVoiceClips: clips, dispatchEvent() {},
+      Audio: class { constructor(src) { this.src = src; } play() { played.push(this.src); return Promise.resolve(); } pause() {} },
       speechSynthesis: { cancel() {}, speak: u => spoken.push(u.text) }, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
       AudioContext: class { currentTime = 0; destination = {}; resume() {} createOscillator() { return { ...node }; } createGain() { return node; } } },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
@@ -39,7 +41,7 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
   vm.runInContext(fs.readFileSync('public/game.js', 'utf8'), context);
   const value = expression => vm.runInContext(expression, context);
   let clock = 0;
-  return { element, context, value, requests, urls, scene, spoken, tones: () => tones, click: id => element(id).listeners.click(),
+  return { element, context, value, requests, urls, scene, spoken, played, tones: () => tones, click: id => element(id).listeners.click(),
     play: whileMode => { while (value('mode') === whileMode) value('frame')(clock += 250); },
     playTicks: ticks => { while (value('state.tick') < ticks) value('frame')(clock += 250); } };
 }
@@ -237,3 +239,13 @@ test('the hazard sounds an alarm and both it and redirects are announced, unless
   ui.click(`redirect-${hazard.toLowerCase()}`);
   assert.equal(ui.spoken.length, 2, 'nothing more is spoken with sound off');
 });
+test('generated ElevenLabs clips play instead of the browser voice, with the browser voice for missing ones', () => {
+  const ui = setup({ clips: ['redirect-B'] });
+  practice(ui);
+  assert.deepEqual(ui.played, ['/audio/redirect-B.mp3']);
+  assert.deepEqual(ui.spoken, [], 'the clip replaces the browser voice');
+  ui.click('drill-btn');
+  ui.playTicks(ui.value('state.hazardTick') + 1);
+  assert.equal(ui.spoken.at(-1), `Attention. Exit ${ui.value('state.hazard')} is blocked. Staff, respond now.`, 'no clip for this line, so the browser voice reads it');
+});
+
