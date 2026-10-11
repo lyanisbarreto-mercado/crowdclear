@@ -6,19 +6,23 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>CrowdClear</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Overpass:wght@600;800;900&display=swap" />
 		<link rel="stylesheet" href="/styles.css" />
 		<link rel="icon" href="data:," />
 		<script src="/aframe/aframe-v1.8.0.min.js"></script>
 	</head>
 
 	<body>
-		<header class="gafata-regular">
+		<header>
 			<h1>CrowdClear</h1>
 			<p>Emergency Evacuation Training</p>
 		</header>
 
 		<main>
 			<section id="intro">
+				<div class="intro-gates" aria-hidden="true"><span class="gate-letter">A</span><span class="gate-letter closed">B</span><span class="gate-letter">C</span></div>
 				<h2>Stadium Evacuation Drill</h2>
 				<p>
 					You are coordinating a stadium evacuation. Practice opening an exit
@@ -49,9 +53,9 @@
 				</div>
 
 				<div class="exit-status" aria-label="Exit status">
-					<span id="status-a">Exit A · OPEN</span
-					><span id="status-b">Exit B · CLOSED</span
-					><span id="status-c">Exit C · OPEN</span>
+					<div class="gate" id="status-a" data-state="open"><span class="gate-letter" aria-hidden="true">A</span><span class="gate-text"><span class="visually-hidden">Exit A: </span><strong id="state-a">Open</strong><span id="count-a"></span></span></div>
+					<div class="gate" id="status-b" data-state="open"><span class="gate-letter" aria-hidden="true">B</span><span class="gate-text"><span class="visually-hidden">Exit B: </span><strong id="state-b">Open</strong><span id="count-b"></span></span></div>
+					<div class="gate" id="status-c" data-state="open"><span class="gate-letter" aria-hidden="true">C</span><span class="gate-text"><span class="visually-hidden">Exit C: </span><strong id="state-c">Open</strong><span id="count-c"></span></span></div>
 				</div>
 				<div class="play-layout">
 					<aside id="instruction" aria-label="Current task">

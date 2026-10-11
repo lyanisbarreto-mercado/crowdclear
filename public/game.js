@@ -74,8 +74,9 @@ function refresh() {
     const suffix = exit.toLowerCase();
     el(`exit-controls-${suffix}`).hidden = mode === 'practice' && exit !== 'B';
     const hazard = state.hazard === exit;
-    const status = hazard ? 'HAZARD · clear before opening' : state.open[exit] ? 'OPEN' : 'CLOSED';
-    el(`status-${suffix}`).textContent = `Exit ${exit} · ${status} · ${stats.queues[exit]} heading here`;
+    el(`status-${suffix}`).setAttribute('data-state', hazard ? 'hazard' : state.open[exit] ? 'open' : 'closed');
+    el(`state-${suffix}`).textContent = hazard ? 'Hazard: clear first' : state.open[exit] ? 'Open' : 'Closed';
+    el(`count-${suffix}`).textContent = `${stats.queues[exit]} heading here`;
     el(`exit-${suffix}`).setAttribute('color', state.open[exit] && !hazard ? '#2ecc71' : '#e74c3c');
     const available = active && (mode !== 'practice' || exit === 'B');
     const clear = el(`clear-hazard-${suffix}`);
