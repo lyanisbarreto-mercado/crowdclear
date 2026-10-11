@@ -11,9 +11,12 @@
   const PERSONAL_SPACE = 0.55; // metres; closer pairs step apart instead of walking through each other
   const CALM_QUEUE = 10; // beyond this many waiting, each extra person slows the exit
   const CRUSH_DELAY = 0.05; // seconds added to the release interval per extra waiting person
-  function createState({ blockedExit = null, hazardTick = null } = {}) {
+  function createState({ blockedExit = null, hazardTick = null, incidentCount = 1, fixedIncidents = [] } = {}) {
     if (hazardTick !== null && (!Number.isInteger(hazardTick) || hazardTick < 100 || hazardTick > 200)) throw new Error("Hazard must occur between 10 and 20 seconds");
     if (blockedExit !== null && !Object.hasOwn(EXIT_X, blockedExit)) throw new Error("Unknown exit");
+    if (![1, 2, 3].includes(incidentCount)) throw new Error("Invalid incident count");
+    const incidentTicks = hazardTick === null ? [] : [hazardTick];
+    for (let i = 1; i < incidentCount && hazardTick !== null; i++) incidentTicks.push(incidentTicks[i - 1] + 100 + ((hazardTick * 37 + i * 17) % 61));
     // The hazard tick doubles as the scenario seed: it also picks the exit most people head for, so the
     // hazard (which hits the busiest exit) lands on different exits across drills while replays stay exact.
     const familiar = hazardTick === null ? 'A' : EXITS[hazardTick % EXITS.length];
@@ -21,7 +24,7 @@
     let seed = (hazardTick ?? 0) + 1;
     const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
     return {
-      tick: 0, blockedExit, hazardTick, hazard: hazardTick === null ? blockedExit : null,
+      tick: 0, blockedExit, hazardTick, incidentCount, incidentTicks, fixedIncidents, incidents: [], hazards: hazardTick === null && blockedExit ? [blockedExit] : [], clearingExit: null, hazard: hazardTick === null ? blockedExit : null,
       open: hazardTick !== null ? { A: true, B: true, C: true } : blockedExit ? Object.fromEntries(Object.keys(EXIT_X).map(e => [e, e !== blockedExit])) : { A: true, B: false, C: true }, redirected: false, lastRedirect: null,
       cooldown: { A: 0, B: 0, C: 0 }, commands: [], redirectReady: 0, clearingUntil: null, peak: { size: 0, exit: null },
       people: Array.from({ length: POPULATION }, (_, id) => ({
@@ -34,11 +37,12 @@
   }
   function act(state, action, target = 'B') {
     if (!Object.hasOwn(EXIT_X, target)) return false;
-    if (action === 'clear-hazard' && state.hazard === target && state.clearingUntil === null) {
+    if (action === 'clear-hazard' && state.hazards.includes(target) && state.clearingUntil === null) {
       state.clearingUntil = state.tick + CLEAR_DURATION;
-    } else if (action === 'open-exit' && !state.open[target] && state.hazard !== target) {
+      state.clearingExit = target;
+    } else if (action === 'open-exit' && !state.open[target] && !state.hazards.includes(target)) {
       state.open[target] = true;
-    } else if (action === 'redirect' && state.open[target] && state.hazard !== target && state.lastRedirect !== target && state.tick >= state.redirectReady) {
+    } else if (action === 'redirect' && state.open[target] && !state.hazards.includes(target) && state.lastRedirect !== target && state.tick >= state.redirectReady) {
       const candidates = state.people.filter(p => !p.evacuated && p.exit !== target && (state.hazardTick !== null || state.blockedExit !== null || p.exit === 'A'));
       if (!candidates.length) return false;
       candidates.filter((_, i) => i % 2 === 0).forEach(p => { p.exit = target; });
@@ -52,10 +56,15 @@
   function step(state, schedule = []) {
     // Live input at this tick precedes the incident, so scheduled input must too.
     schedule.filter(c => c.tick === state.tick).forEach(c => act(state, c.action, c.target));
-    if (state.hazardTick !== null && state.tick === state.hazardTick) {
+    if (state.incidentTicks.includes(state.tick)) {
       const queues = stats(state).queues;
-      const exit = state.blockedExit || Object.keys(EXIT_X).reduce((best, e) => queues[e] > queues[best] ? e : best, 'A');
-      state.blockedExit = exit;
+      const candidates = EXITS.filter(e => !state.hazards.includes(e));
+      const fixed = state.fixedIncidents.find(e => e.tick === state.tick);
+      const exit = fixed?.exit || (state.incidents.length === 0 ? state.blockedExit : null) || candidates.reduce((best, e) => queues[e] > queues[best] ? e : best, candidates[0]);
+      if (!exit) return state;
+      state.incidents.push({ tick: state.tick, exit });
+      if (!state.hazards.includes(exit)) state.hazards.push(exit);
+      if (state.incidents.length === 1) state.blockedExit = exit;
       state.hazard = exit;
       state.open[exit] = false;
       state.lastRedirect = null;
@@ -64,7 +73,9 @@
     }
     state.tick++;
     if (state.clearingUntil !== null && state.tick >= state.clearingUntil) {
-      state.hazard = null;
+      state.hazards = state.hazards.filter(e => e !== state.clearingExit);
+      state.hazard = state.hazards.at(-1) || null;
+      state.clearingExit = null;
       state.clearingUntil = null;
     }
     for (const exit of EXITS) {
@@ -77,7 +88,7 @@
       // People standing at their place in the line, as opposed to still walking toward it.
       const crowd = slots.filter(({ p, x, z }) => Math.hypot(x - p.x, z - p.z) < 0.5).length;
       if (crowd > state.peak.size) state.peak = { size: crowd, exit };
-      if (!state.open[exit] || state.hazard === exit) continue;
+      if (!state.open[exit] || state.hazards.includes(exit)) continue;
       slots.forEach(({ p, x, z }) => {
         if (state.tick <= p.pauseUntil) return;
         const dx = x - p.x;
@@ -121,7 +132,7 @@
     return state.tick >= DURATION / DT || state.people.every(p => p.evacuated);
   }
   // Bump when step/act behavior changes so saved runs are not replayed against different rules.
-  const VERSION = 7;
+  const VERSION = 8;
   const api = { VERSION, DT, DURATION, REDIRECT_COOLDOWN, CLEAR_DURATION, POPULATION, createState, act, step, stats, isDone };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CrowdSimulation = api;

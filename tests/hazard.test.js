@@ -186,3 +186,15 @@ test('people keep a body width apart instead of walking through each other', () 
   assert.ok(closest >= 0.45, `closest pair ${closest.toFixed(2)} m`);
   assert.equal(sim.stats(state).remaining, 0);
 });
+
+test('multi-incident drills schedule two or three spaced hazards and keep uncleared exits blocked', () => {
+  for (const incidentCount of [2, 3]) {
+    const state = sim.createState({ hazardTick: 150, incidentCount });
+    assert.equal(state.incidentTicks.length, incidentCount);
+    for (let i = 1; i < incidentCount; i++) assert.ok(state.incidentTicks[i] - state.incidentTicks[i - 1] >= 100);
+    while (!sim.isDone(state)) sim.step(state);
+    assert.equal(state.incidents.length, incidentCount);
+    assert.equal(state.hazards.length, incidentCount);
+    for (const e of state.hazards) assert.equal(state.open[e], false);
+  }
+});

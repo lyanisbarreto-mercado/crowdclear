@@ -10,3 +10,5 @@ CREATE TABLE IF NOT EXISTS runs (
 
 -- Preserve existing saved rows; timed incidents add their schedule alongside the exit.
 ALTER TABLE runs ADD COLUMN IF NOT EXISTS hazard_tick integer CHECK (hazard_tick BETWEEN 100 AND 200);
+
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS incident_count integer NOT NULL DEFAULT 1 CHECK (incident_count BETWEEN 1 AND 3);

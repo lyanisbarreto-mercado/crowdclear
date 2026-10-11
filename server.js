@@ -23,12 +23,13 @@ app.get("/api/health", (req, res) => {
 
 // Replays the submitted commands with the shared simulation. Returns the final state only if every
 // command was accepted at its recorded tick, so a stored run always replays exactly.
-function replay(blockedExit, commands, hazardTick = null) {
+function replay(blockedExit, commands, hazardTick = null, incidentCount = 1) {
+    if (![1, 2, 3].includes(incidentCount)) return null;
     if (hazardTick !== null && (!Number.isInteger(hazardTick) || hazardTick < 100 || hazardTick > 200)) return null;
     if (!["A", "B", "C"].includes(blockedExit)) return null;
     // Redirects can repeat between exits, so cap the list to bound replay cost.
     if (!Array.isArray(commands) || commands.length > 100 || !commands.every((c) => c && typeof c === "object")) return null;
-    const state = sim.createState({ blockedExit: hazardTick === null ? blockedExit : null, hazardTick });
+    const state = sim.createState({ blockedExit: hazardTick === null ? blockedExit : null, hazardTick, incidentCount });
     while (!sim.isDone(state)) sim.step(state, commands);
     const sent = commands.map(({ tick, action, target }) => ({ tick, action, target }));
     return state.blockedExit === blockedExit && JSON.stringify(state.commands) === JSON.stringify(sent) ? state : null;
@@ -40,23 +41,23 @@ app.use("/api/runs", (req, res, next) => {
 });
 
 app.post("/api/runs", async (req, res) => {
-    const { id, version, blockedExit, hazardTick = null, commands, result } = req.body ?? {};
-    const state = typeof id === "string" && UUID.test(id) && version === sim.VERSION ? replay(blockedExit, commands, hazardTick) : null;
+    const { id, version, blockedExit, hazardTick = null, incidentCount = 1, commands, result } = req.body ?? {};
+    const state = typeof id === "string" && UUID.test(id) && version === sim.VERSION ? replay(blockedExit, commands, hazardTick, incidentCount) : null;
     if (!state) return res.status(400).json({ error: "This is not a valid drill record." });
     const actual = review.result(state);
     if (!Object.keys(actual).every((key) => result?.[key] === actual[key])) {
         return res.status(422).json({ error: "The server's replay did not reproduce this result." });
     }
     // The client picks the id, so a retried save hits the conflict instead of storing a duplicate.
-    const values = [id, version, blockedExit, hazardTick, JSON.stringify(state.commands), JSON.stringify(actual)];
+    const values = [id, version, blockedExit, hazardTick, JSON.stringify(state.commands), JSON.stringify(actual), incidentCount];
     const { rows } = await req.app.locals.db.query(
-        "INSERT INTO runs (id, version, blocked_exit, hazard_tick, commands, result) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb) ON CONFLICT (id) DO NOTHING RETURNING id",
+        "INSERT INTO runs (id, version, blocked_exit, hazard_tick, commands, result, incident_count) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7) ON CONFLICT (id) DO NOTHING RETURNING id",
         values,
     );
     if (rows.length) return res.status(201).json({ id });
     // A separate query sees the winning insert even when the conflicting request was concurrent.
     const existing = await req.app.locals.db.query(
-        "SELECT id FROM runs WHERE id = $1 AND version = $2 AND blocked_exit = $3 AND hazard_tick IS NOT DISTINCT FROM $4 AND commands = $5::jsonb AND result = $6::jsonb",
+        "SELECT id FROM runs WHERE id = $1 AND version = $2 AND blocked_exit = $3 AND hazard_tick IS NOT DISTINCT FROM $4 AND commands = $5::jsonb AND result = $6::jsonb AND incident_count = $7",
         values,
     );
     if (!existing.rows.length) return res.status(409).json({ error: "This id already belongs to a different drill record." });
@@ -65,10 +66,11 @@ app.post("/api/runs", async (req, res) => {
 
 app.get("/api/runs/:id", async (req, res) => {
     const { rows } = UUID.test(req.params.id)
-        ? await req.app.locals.db.query(`SELECT id, version, blocked_exit AS "blockedExit", hazard_tick AS "hazardTick", commands, result FROM runs WHERE id = $1`, [req.params.id])
+        ? await req.app.locals.db.query(`SELECT id, version, blocked_exit AS "blockedExit", hazard_tick AS "hazardTick", incident_count AS "incidentCount", commands, result FROM runs WHERE id = $1`, [req.params.id])
         : { rows: [] };
     if (!rows.length) return res.status(404).json({ error: "No saved drill matches this link." });
     if (rows[0].hazardTick === null) delete rows[0].hazardTick;
+    if (rows[0].incidentCount === 1) delete rows[0].incidentCount;
     res.json(rows[0]);
 });
 

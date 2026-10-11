@@ -84,6 +84,7 @@ function practice(ui) {
 function drillWithActions(ui) {
   practice(ui);
   ui.click('drill-btn');
+  ui.value('fresh("drill", null, 140, 1)'); // Single-incident fixture for the original flow checks.
   ui.playTicks(ui.value('state.hazardTick') + 1);
   const exit = ui.value('state.hazard').toLowerCase();
   ui.click(`clear-hazard-${exit}`);
@@ -163,7 +164,7 @@ test('a finished drill records only drill decisions and opens the review and res
   const run = ui.value('lastRun');
   assert.equal(ui.value('mode'), 'review');
   assert.equal(run.version, sim.VERSION);
-  assert.equal(JSON.stringify(run.initial), JSON.stringify(sim.createState({ blockedExit: 'C', hazardTick: 140 })));
+  assert.equal(JSON.stringify(run.initial), JSON.stringify(sim.createState({ blockedExit: 'C', hazardTick: 140, fixedIncidents: [{ tick: 140, exit: 'C' }] })));
   assert.equal(run.commands.map(c => `${c.action}-${c.target}`).join(), 'clear-hazard-C,open-exit-C,redirect-B');
   assert.ok(run.commands[0].tick >= 140);
   assert.ok(run.commands[2].tick >= 50);
@@ -186,7 +187,7 @@ test('a blocked main exit left alone runs out of time and the review says so', (
   assert.equal(ui.element('compare-form').hidden, true);
   assert.equal(ui.element('review-timeline').children[0].textContent, 'No actions taken.');
   assert.ok(ui.value('lastRun.result.remaining') > 0);
-  assert.equal(ui.value('state.hazard'), 'B', 'random 0 gives hazard tick 100, whose crowd heads for Exit B');
+  assert.ok(ui.value('state.hazards.includes("B")'), 'the first blocked exit remains inaccessible');
   assert.equal(ui.element('result-message').textContent, 'Try again');
   assert.match(ui.element('task-copy').textContent, /Longest line: \d+ people at Exit B\./);
 });
@@ -217,7 +218,7 @@ test('a finished drill is saved once with its scenario and the page address then
   const [url, options] = ui.requests[0];
   assert.equal(url, '/api/runs');
   assert.equal(options.method, 'POST');
-  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, blockedExit: "C", hazardTick: 140, commands: lastRun.commands, result: lastRun.result })'));
+  assert.equal(options.body, ui.value('JSON.stringify({ id: lastRun.id, version: lastRun.version, blockedExit: "C", hazardTick: 140, incidentCount: 1, commands: lastRun.commands, result: lastRun.result })'));
   assert.deepEqual(ui.urls, [`?run=${ui.value('lastRun.id')}`]);
   assert.match(ui.element('save-status').textContent, /^Saved\./);
 });
@@ -294,6 +295,7 @@ test('clicking the doors plays practice and handles a hazard through the same bu
   door('B');
   assert.equal(ui.value('practiceStep'), 2, 'second click on the open door redirects people there');
   ui.click('drill-btn');
+  ui.value('fresh("drill", null, 140, 1)'); // Single-incident fixture for the original flow checks.
   ui.playTicks(ui.value('state.hazardTick') + 1);
   const hazard = ui.value('state.hazard');
   const visual = ui.element(`exit-${hazard.toLowerCase()}`);
@@ -347,6 +349,7 @@ test('generated ElevenLabs clips play instead of the browser voice, with the bro
   assert.deepEqual(ui.played, ['/audio/redirect-B.mp3']);
   assert.deepEqual(ui.spoken, [], 'the clip replaces the browser voice');
   ui.click('drill-btn');
+  ui.value('fresh("drill", null, 140, 1)'); // Single-incident fixture for the original flow checks.
   ui.playTicks(ui.value('state.hazardTick') + 1);
   assert.equal(ui.spoken.at(-1), `Attention. Exit ${ui.value('state.hazard')} is blocked. Staff, respond now.`, 'no clip for this line, so the browser voice reads it');
 });
@@ -494,6 +497,59 @@ test('XR keeps rendering results and exiting XR restores the hidden laptop resul
   assert.equal(ui.scene.renderer.loop, null);
 });
 
+test('entering VR after a completed laptop round starts fresh practice', () => {
+  const ui = setup(); drillWithActions(ui);
+  assert.equal(ui.value('mode'), 'review');
+  ui.value('scoreExpanded = true');
+  ui.scene.xrSession = { visibilityState: 'visible' };
+  ui.scene.listeners['enter-vr']();
+  assert.equal(ui.value('mode'), 'practice');
+  assert.equal(ui.value('state.tick'), 0);
+  assert.equal(ui.value('sim.stats(state).evacuated'), 0);
+  assert.equal(ui.value('state.commands.length'), 0);
+  assert.equal(ui.value('state.hazards.length'), 0);
+  assert.equal(ui.value('practiceStep'), 0);
+  assert.equal(ui.value('lastRun'), null);
+  assert.equal(ui.element('results').hidden, true);
+  assert.equal(ui.element('review').hidden, true);
+  assert.equal(ui.element('vr-score-details').getAttribute('visible'), false);
+  assert.equal(ui.scene.isPlaying, true);
+  assert.equal(ui.element('open-exit-b').disabled, false);
+  assert.equal(ui.value('figures.every(item => item.figure.getAttribute("visible"))'), true);
+  // The headset's actual restart control must reset a completed immersive round too.
+  ui.click('open-exit-b'); ui.click('redirect-b'); ui.click('drill-btn');
+  ui.play('drill');
+  assert.equal(ui.element('results').hidden, false);
+  ui.value('vrButtons[1].button.click()');
+  assert.equal(ui.value('mode'), 'practice');
+  assert.equal(ui.value('state.tick'), 0);
+  assert.equal(ui.element('results').hidden, true);
+  assert.equal(ui.element('review').hidden, true);
+});
+
+test('entering VR directly after page load starts interactive practice and unlocks the drill through doors', () => {
+  const ui = setup();
+  assert.equal(ui.value('mode'), 'intro');
+  assert.equal(ui.scene.isPlaying, false);
+  ui.scene.xrSession = { visibilityState: 'visible' };
+  ui.scene.listeners['enter-vr']();
+  assert.equal(ui.value('mode'), 'practice');
+  assert.equal(ui.scene.hidden, false);
+  assert.equal(ui.scene.isPlaying, true);
+  assert.equal(ui.scene.renderer.loop, ui.scene.render);
+  assert.equal(ui.element('open-exit-b').disabled, false);
+  ui.element('door-target-b').listeners.click({ timeStamp: 1000 });
+  assert.equal(ui.value('practiceStep'), 1);
+  ui.element('door-target-b').listeners.click({ timeStamp: 2000 });
+  assert.equal(ui.value('practiceStep'), 2);
+  assert.equal(ui.value('vrButtons[0].button.getAttribute("visible")'), true);
+  ui.value('vrButtons[1].button.click()');
+  assert.equal(ui.value('practiceStep'), 0);
+  assert.equal(ui.value('state.open.B'), false);
+  assert.equal(ui.element('open-exit-b').disabled, false);
+  assert.equal(ui.scene.isPlaying, true);
+});
+
 test('walking survives same-tick refresh and action but stationary ticks and new states return to idle', () => {
   const ui = setup(); practice(ui);
   ui.componentTick(0); ui.componentTick(250);
@@ -618,4 +674,16 @@ test('headset mirrors actual captions with sound off and only visible breathing 
   reading = { available: true, rate: 40, confidence: 20 };
   await ui.value('pollBreathing()');
   assert.equal(ui.value('breathingLog.practice.length'), 1, 'low confidence is not averaged');
+});
+
+test('new drills choose two or three incidents and retain all events for comparison', () => {
+  for (const random of [0.1, 0.9]) {
+    const ui = setup({ random }); practice(ui); ui.click('drill-btn');
+    assert.equal(ui.value('state.incidentCount'), random < 0.5 ? 2 : 3);
+    ui.play('drill');
+    assert.equal(ui.value('lastRun.initial.fixedIncidents.length'), random < 0.5 ? 2 : 3);
+    const replay = sim.createState({ hazardTick: ui.value('lastRun.initial.hazardTick'), incidentCount: ui.value('state.incidentCount'), fixedIncidents: ui.value('lastRun.initial.fixedIncidents') });
+    while (!sim.isDone(replay)) sim.step(replay);
+    assert.equal(JSON.stringify(replay.incidents), ui.value('JSON.stringify(state.incidents)'));
+  }
 });

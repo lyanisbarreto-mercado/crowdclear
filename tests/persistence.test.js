@@ -133,3 +133,15 @@ test('timed incident saves and reopens with its fixed exit and onset', async () 
   assert.equal((await post({ ...timed, hazardTick: 50 })).status, 400);
   assert.equal((await post({ ...timed, blockedExit: 'C' })).status, 400);
 });
+
+test('multiple-incident scenario saves and reloads its count without losing blockages', async () => {
+  const state = sim.createState({ hazardTick: 140, incidentCount: 3 });
+  while (!sim.isDone(state)) sim.step(state);
+  const record = { id: '3c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f', version: sim.VERSION,
+    blockedExit: state.blockedExit, hazardTick: 140, incidentCount: 3, commands: [], result: review.result(state) };
+  assert.equal((await post(record)).status, 201);
+  assert.equal((await post(record)).status, 200);
+  const reopened = await (await fetch(`${base}/api/runs/${record.id}`)).json();
+  assert.deepEqual(reopened, record);
+  assert.equal((await post({ ...record, incidentCount: 4 })).status, 400);
+});

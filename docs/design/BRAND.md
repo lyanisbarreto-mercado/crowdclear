@@ -101,3 +101,9 @@ Scatter starting positions and vary individual speeds; one quarter of the crowd 
 In the emulator/headset, remove the mirrored per-exit button grid. Single-select a closed door to open it, or an open door to redirect the crowd. Two selections on the same blocked door within 450 ms start four seconds of clearing; reopening remains a separate selection. Available doors highlight on pointer hover; navigation and score controls change color on hover.
 
 Instructions occupy their own panel. Start/restart sits below it; View score expands a separate panel on the other side, with the actual score, completion message, and metrics. Desktop buttons and results/review remain available. Emulator panel spacing still requires visual verification.
+
+## Repeated incidents and raised immersive panels
+
+Each new timed drill chooses two or three incidents. The first strikes between 10 and 20 seconds; later incidents use the same scenario seed to choose times at least 10 seconds apart. Each incident targets the busiest route that is not already blocked. Multiple uncleared hazards persist independently; one clearing operation can be underway at a time. Comparison retains the original incident times and exits.
+
+Instruction and score panel centres are raised from 1.35 m to 2.3 m relative to the command post. Navigation is raised from 0.55 m to 1.5 m. The expanded score panel now reaches the top of the railing instead of descending behind it. Emulator/device visibility remains to be checked by Carol.

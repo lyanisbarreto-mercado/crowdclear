@@ -157,8 +157,8 @@ function refresh() {
   for (const exit of EXITS) {
     const suffix = exit.toLowerCase();
     el(`exit-controls-${suffix}`).hidden = mode === 'practice' && exit !== 'B';
-    const hazard = state.hazard === exit;
-    const clearing = hazard && state.clearingUntil !== null;
+    const hazard = state.hazards.includes(exit);
+    const clearing = hazard && state.clearingExit === exit;
     const seconds = clearing ? ((state.clearingUntil - state.tick) * sim.DT).toFixed(1) : null;
     el(`status-${suffix}`).setAttribute('data-state', hazard ? 'hazard' : state.open[exit] ? 'open' : 'closed');
     el(`state-${suffix}`).textContent = clearing ? `Clearing: ${seconds} s` : hazard ? 'Blocked' : state.open[exit] ? 'Open' : 'Closed';
@@ -167,7 +167,7 @@ function refresh() {
     const available = active && (mode !== 'practice' || exit === 'B');
     const clear = el(`clear-hazard-${suffix}`);
     clear.hidden = mode === 'practice';
-    clear.disabled = !available || !hazard || clearing;
+    clear.disabled = !available || !hazard || state.clearingUntil !== null;
     clear.textContent = clearing ? `Clearing: ${seconds} s` : `Clear ${exit} · 4 s`;
     const open = el(`open-exit-${suffix}`);
     const redirect = el(`redirect-${suffix}`);
@@ -183,12 +183,13 @@ function refresh() {
       el(`${kind}-${suffix}`).setAttribute('aria-label', `${kind === 'open-exit' ? 'Open Exit' : 'Send people to Exit'} ${exit}${complete ? ', completed' : ''}`);
     }
   }
+  for (const exit of EXITS) el(`multi-hazard-${exit.toLowerCase()}`).setAttribute('visible', state.hazards.includes(exit));
   el('hazard-marker').setAttribute('visible', !!state.hazard);
   el('hazard-label').setAttribute('visible', !!state.hazard);
   el('hazard-smoke').setAttribute('visible', !!state.hazard);
   el('floor-effects').setAttribute('visible', !!state.hazard);
   if (state.hazard) {
-    el('hazard-label').setAttribute('value', state.clearingUntil === null ? 'BLOCKED - CLEAR FIRST'
+    el('hazard-label').setAttribute('value', state.clearingExit !== state.hazard ? 'BLOCKED - CLEAR FIRST'
       : `CLEARING - ${((state.clearingUntil - state.tick) * sim.DT).toFixed(1)} s`);
     const x = { A: -8, B: 0, C: 8 }[state.hazard];
     el('hazard-marker').setAttribute('position', `${x} 0 -11`);
@@ -282,7 +283,7 @@ function announce(id) {
     if (soundOn && generation === audioGeneration && sequence === voiceSequence) speak(text);
   });
 }
-function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null) {
+function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ? 100 + Math.floor(Math.random() * 101) : null, incidentCount = nextMode === 'drill' ? 2 + Math.floor(Math.random() * 2) : 1) {
   // Browsers only start audio after a user gesture; practice and drills begin from a click.
   sessionGeneration++;
   stopAudio();
@@ -295,7 +296,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
   if (mode === 'practice') breathingLog.practice = [];
   breathingLog.drill = [];
   el('pa-caption').textContent = '';
-  state = sim.createState({ blockedExit, hazardTick });
+  state = sim.createState({ blockedExit, hazardTick, incidentCount });
   initial = clone(state);
   ghost = null;
   lastRun = null;
@@ -315,7 +316,7 @@ function fresh(nextMode, blockedExit = null, hazardTick = nextMode === 'drill' ?
     instructions('STEP 1 OF 2', 'Open Exit B', [{ word: 'Open', tone: 'open' }, ' the middle door, Exit B.']);
     el('feedback').textContent = 'Take your time. There is no timer.';
   } else {
-    instructions(`${sim.DURATION}-SECOND DRILL`, 'Help people get out', ['An exit will become ', { word: 'blocked', tone: 'clear' }, ' after 10 to 20 seconds. ', { word: 'Clear', tone: 'clear' }, ' it, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
+    instructions(`${sim.DURATION}-SECOND DRILL`, 'Help people get out', [`${incidentCount} blockages can strike during the drill. The first exit becomes `, { word: 'blocked', tone: 'clear' }, ' after 10 to 20 seconds. ', { word: 'Clear', tone: 'clear' }, ' it, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
     el('feedback').textContent = 'All exits are open. Watch for a blocked door.';
     if (mode === 'drill') announce('drill-start');
   }
@@ -406,7 +407,7 @@ async function save(run) {
   try {
     run.id = crypto.randomUUID();
     const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: run.id, version: run.version, blockedExit: run.initial.blockedExit, hazardTick: run.initial.hazardTick, commands: run.commands, result: run.result }) });
+      body: JSON.stringify({ id: run.id, version: run.version, blockedExit: run.initial.blockedExit, hazardTick: run.initial.hazardTick, incidentCount: run.initial.incidentCount, commands: run.commands, result: run.result }) });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Server error ${res.status}.`);
     if (lastRun !== run) return;
     history.replaceState(null, '', `?run=${run.id}`);
@@ -425,7 +426,8 @@ async function reopen(id) {
     if (!res.ok) throw new Error(saved.error || `Server error ${res.status}.`);
     if (saved.version !== sim.VERSION) throw new Error('It was recorded with a different simulation version, so it cannot be replayed.');
     const hazardTick = saved.hazardTick ?? null;
-    const probe = sim.createState({ blockedExit: hazardTick === null ? saved.blockedExit : null, hazardTick });
+    const incidentCount = saved.incidentCount ?? 1;
+    const probe = sim.createState({ blockedExit: hazardTick === null ? saved.blockedExit : null, hazardTick, incidentCount });
     while (!sim.isDone(probe)) sim.step(probe, saved.commands || []);
     const sent = (saved.commands || []).map(({ tick, action, target }) => ({ tick, action, target }));
     const actual = review.result(probe);
@@ -436,10 +438,11 @@ async function reopen(id) {
       throw new Error('The saved drill could not be reproduced.');
     }
     if (generation !== sessionGeneration) return;
-    fresh('review', saved.blockedExit, hazardTick);
+    fresh('review', saved.blockedExit, hazardTick, incidentCount);
     const start = clone(initial);
     while (!sim.isDone(state)) sim.step(state, saved.commands);
     start.blockedExit = state.blockedExit;
+    start.fixedIncidents = clone(state.incidents);
     showResults(state);
     showReview({ ...saved, initial: start });
     el('save-status').textContent = 'Opened from the database. Replay checks that it reproduces its saved result.';
@@ -530,7 +533,11 @@ function syncHeadset() {
   const breathingText = el('breathing').hidden ? '' : el('breathing').textContent;
   const instructions = hasResults
     ? ['Drill done', 'Select View score, or try another drill.', breathingText]
-    : ['Select a door to open it or send people. For blocked doors, select twice. Wait 4 seconds, then open.',
+    : [mode === 'practice'
+      ? practiceStep === 0 ? 'Select the middle door, Exit B, to open it.'
+        : practiceStep === 1 ? 'Select Exit B again to send people through it.'
+          : 'Practice complete. Select Start timed drill below.'
+      : 'Select a door to open it or send people. For blocked doors, select twice. Wait 4 seconds, then open.',
       ...['task-title', 'feedback'].map(id => el(id).textContent), caption, breathingText];
   el('vr-text').setAttribute('value', [...instructions, el('evacuated').textContent, el('timer').textContent].filter(Boolean).join('\n\n').replace(/·/g, '-'));
   el('vr-score-toggle').setAttribute('visible', hasResults);
@@ -585,7 +592,7 @@ function buzz(evt) {
 }
 function pressDoor(exit, evt) {
   const x = exit.toLowerCase();
-  const action = state.hazard === exit ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
+  const action = state.hazards.includes(exit) ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
   const button = el(`${action}-${x}`);
   if (!shown(button) || button.disabled) return;
   if (laptopPose && action === 'clear-hazard') {
@@ -606,7 +613,7 @@ for (const exit of EXITS) {
   const target = el(`door-target-${exit.toLowerCase()}`);
   target.addEventListener('click', evt => pressDoor(exit, evt));
   target.addEventListener('mouseenter', () => {
-    const action = state.hazard === exit ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
+    const action = state.hazards.includes(exit) ? 'clear-hazard' : state.open[exit] ? 'redirect' : 'open-exit';
     const button = el(`${action}-${exit.toLowerCase()}`);
     if (shown(button) && !button.disabled) door.setAttribute('stadium-door', 'hovered', true);
   });
@@ -664,6 +671,9 @@ scene.addEventListener('enter-vr', () => {
   laptopPose = { position: camera.position.clone(), rotation: camera.rotation.clone() };
   el('rig').setAttribute('position', VR_POST);
   el('vr-post').setAttribute('visible', true);
+  // The intro and a completed laptop run are not interactive starting points for a headset test.
+  // Set the XR pose first so fresh() keeps the current session instead of offering another one.
+  if (mode === 'intro' || !el('results').hidden) fresh('practice');
   syncSceneLifecycle();
   syncHeadset();
 });
@@ -683,7 +693,7 @@ function tick() {
     if (sim.isDone(state) && sim.isDone(ghost)) finishCompare();
     return;
   }
-  const incidentNow = mode === 'drill' && state.hazardTick !== null && state.tick === state.hazardTick;
+  const incidentNow = mode === 'drill' && state.incidentTicks.includes(state.tick);
   const clearingExit = state.clearingUntil !== null ? state.hazard : null;
   sim.step(state);
   if (clearingExit && !state.hazard) {
@@ -693,6 +703,7 @@ function tick() {
   if (incidentNow) {
     // Fix the original incident in the initial snapshot; alternatives face the same event.
     initial.blockedExit = state.blockedExit;
+    initial.fixedIncidents = clone(state.incidents);
     instructions('BLOCKED EXIT', `Exit ${state.hazard} is blocked`, [{ word: 'Clear', tone: 'clear' }, ' it. Wait 4 seconds, then ', { word: 'open', tone: 'open' }, ' it. Or ', { word: 'send people', tone: 'send' }, ' to another open exit.']);
     el('feedback').textContent = `Exit ${state.hazard} is blocked. Other open exits still work.`;
     alarm();
