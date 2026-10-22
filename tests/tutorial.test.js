@@ -5,8 +5,9 @@ const fs = require('node:fs');
 const sim = require('../public/simulation');
 const review = require('../public/review');
 // random picks the drill's blocked exit: 0 → A, 0.4 → B, 0.9 → C.
-function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }), random = 0.4, clips } = {}) {
+function setup({ search = '', fetch = async () => ({ ok: true, json: async () => ({}) }), random = 0.4, clips, playback = () => Promise.resolve(), renderStarted = true } = {}) {
   const elements = new Map();
+  const components = {};
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
       style: {}, hidden: id === 'drill-btn', disabled: false, _textContent: '', value: '',
@@ -17,39 +18,60 @@ function setup({ search = '', fetch = async () => ({ ok: true, json: async () =>
       click() { if (!this.disabled) this.listeners.click?.(); },
       setAttribute(name, key, value) {
         this.attributes[name] = arguments.length === 3 ? { ...this.attributes[name], [key]: value } : key;
+        if (components[name]) this.components[name] = { ...components[name], el: this };
       },
       getAttribute(name) { return this.attributes[name]; },
-      append() {}, replaceChildren(...items) { this.children = items; },
+      components: {}, append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; },
       addEventListener(event, listener) { this.listeners[event] = listener; }
     });
     return elements.get(id);
   }
   const scene = element('scene'); scene.hasLoaded = true;
+  scene.renderStarted = renderStarted;
+  scene.isPlaying = true;
+  scene.play = () => { scene.isPlaying = true; };
+  scene.pause = () => { scene.isPlaying = false; };
+  scene.render = time => {
+    if (scene.isPlaying) Object.values(scene.components).forEach(component => component.tick?.(time, 250));
+  };
+  scene.renderer = { loop: scene.render, setAnimationLoop(callback) { this.loop = callback; } };
+  const pose = () => ({ clone: pose, copy() {} });
+  element('camera').object3D = { position: pose(), rotation: pose() };
   const requests = [];
   const urls = [];
   const spoken = [];
   const played = [];
+  const audioClips = [];
+  const oscillators = [];
+  const callbacks = [];
+  let canceled = 0;
   let tones = 0;
   const node = { connect: next => next || node, gain: { setValueAtTime() {} }, frequency: {}, start() { tones++; }, stop() {} };
   const context = vm.createContext({
     window: { CrowdSimulation: sim, CrowdReview: review, CrowdAnnouncements: require('../public/announcements'), CrowdAudioClips: clips, dispatchEvent() {},
-      Audio: class { constructor(src) { this.src = src; } play() { played.push(this.src); return Promise.resolve(); } pause() { played.push(`paused ${this.src}`); } },
-      speechSynthesis: { cancel() {}, speak: u => spoken.push(u.text) }, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
-      AudioContext: class { currentTime = 0; destination = {}; resume() {} createOscillator() { return { ...node }; } createGain() { return node; } } },
+      AFRAME: { registerComponent(name, definition) { components[name] = definition; } },
+      Audio: class { constructor(src) { this.src = src; this.currentTime = 0; this.paused = true; audioClips.push(this); } play() { played.push(this.src); this.paused = false; return playback(this.src); } pause() { this.paused = true; played.push(`paused ${this.src}`); } },
+      speechSynthesis: { cancel() { canceled++; }, speak: u => spoken.push(u.text) }, SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
+      AudioContext: class { currentTime = 0; destination = {}; resume() {} createOscillator() { const tone = { ...node, stops: [], stop(at) { this.stops.push(at); } }; oscillators.push(tone); return tone; } createGain() { return node; } } },
     document: { hidden: false, getElementById: element, querySelector: () => scene,
       createElement: () => element(Symbol()), createTextNode: text => ({ textContent: text }) },
-    requestAnimationFrame() {}, Event: class {},
+    requestAnimationFrame(callback) { callbacks.push(callback); }, Event: class {},
     fetch: (...args) => { requests.push(args); return fetch(...args); },
     crypto: { randomUUID: () => '0b9f6c1e-4a57-4d7e-9a8b-2f1c3d4e5f60' },
     location: { search }, URLSearchParams, history: { replaceState: (...args) => { urls.push(args[2]); } }
   });
   vm.runInContext(`Math.random = () => ${random};`, context);
   vm.runInContext(fs.readFileSync('public/game.js', 'utf8'), context);
+  if (renderStarted) scene.listeners.renderstart?.();
   const value = expression => vm.runInContext(expression, context);
   let clock = 0;
-  return { element, context, value, requests, urls, scene, spoken, played, tones: () => tones, click: id => element(id).listeners.click(),
-    play: whileMode => { while (value('mode') === whileMode) value('frame')(clock += 250); },
-    playTicks: ticks => { while (value('state.tick') < ticks) value('frame')(clock += 250); } };
+  const componentTick = time => {
+    assert.ok(Object.values(scene.components).some(component => component.tick), 'the scene has a simulation tick component');
+    scene.renderer.loop?.(time);
+  };
+  return { element, context, value, requests, urls, scene, spoken, played, audioClips, oscillators, callbacks, canceled: () => canceled, tones: () => tones, componentTick, click: id => element(id).listeners.click(),
+    play: whileMode => { while (value('mode') === whileMode) componentTick(clock += 250); },
+    playTicks: ticks => { while (value('state.tick') < ticks) componentTick(clock += 250); } };
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 function practice(ui) {
@@ -68,7 +90,7 @@ function drillWithActions(ui) {
 }
 test('practice waits indefinitely for its task and rejected redirect cannot advance it', () => {
   const ui = setup(); ui.click('start-btn');
-  vm.runInContext('frame(0); frame(30000);', ui.context);
+  ui.componentTick(0); ui.componentTick(30000);
   assert.equal(ui.value('practiceStep'), 0);
   assert.equal(ui.value('state.tick'), 0);
   ui.click('redirect-b');
@@ -220,6 +242,16 @@ test('a saved link opens the review in its scenario and its replay reproduces th
   assert.equal(ui.value('mode'), 'review');
   assert.equal(ui.value('lastRun.initial.blockedExit'), 'A');
   assert.equal(ui.element('review-timeline').children.length, 3);
+  assert.equal(ui.value('state.tick'), state.tick);
+  assert.equal(ui.element('evacuated').textContent, `People out: ${saved.result.evacuated} / ${state.people.length}`);
+  assert.equal(ui.element('timer').textContent, `Time left: ${Math.ceil(sim.stats(state).seconds)} s`);
+  const score = review.score(sim.stats(state), state.open);
+  assert.equal(ui.element('result-time').textContent, `${score.seconds} seconds`);
+  assert.equal(ui.element('result-score').textContent, String(score.score));
+  assert.equal(ui.element('result-exits').textContent, String(score.exits));
+  assert.equal(ui.element('results').hidden, false);
+  assert.equal(ui.scene.hidden, true);
+  assert.equal(ui.value('lastRun.initial.tick'), 0, 'comparison retains the starting snapshot');
   ui.element('compare-action').value = '2';
   ui.element('compare-time').value = '20';
   ui.element('compare-form').listeners.submit({ preventDefault() {} });
@@ -393,4 +425,194 @@ test('immersive score can expand and collapse after the drill and resets for pra
   assert.equal(ui.value('scoreExpanded'), false);
   ui.click('vr-score-toggle');
   assert.equal(ui.value('scoreExpanded'), false, 'no stale score opens during practice');
+});
+
+function savedRecord(commands = []) {
+  const state = sim.createState({ hazardTick: 100 });
+  while (!sim.isDone(state)) sim.step(state, commands);
+  return { version: sim.VERSION, blockedExit: state.blockedExit, hazardTick: 100, commands: state.commands, result: review.result(state) };
+}
+
+test('A-Frame ticks advance visible XR while Window callbacks and the document are suspended', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.scene.xrSession = { visibilityState: 'visible' };
+  ui.scene.listeners['enter-vr']();
+  ui.context.document.hidden = true;
+  ui.componentTick(0); ui.componentTick(1000);
+  assert.ok(ui.value('state.tick') > 0);
+  assert.equal(ui.callbacks.some(callback => callback.name === 'frame'), false, 'no Window simulation loop');
+  const tick = ui.value('state.tick');
+  ui.scene.xrSession.visibilityState = 'hidden';
+  ui.componentTick(2000); ui.componentTick(3000);
+  assert.equal(ui.value('state.tick'), tick);
+  ui.scene.xrSession.visibilityState = 'visible';
+  ui.componentTick(5000);
+  assert.equal(ui.value('state.tick'), tick, 'resuming discards time spent hidden');
+  ui.componentTick(5250);
+  assert.ok(ui.value('state.tick') > tick);
+});
+
+test('hidden laptop scenes stop components and rendering, then restore the existing loop for comparison', () => {
+  const ui = setup({ renderStarted: false });
+  assert.equal(ui.scene.hidden, true, 'intro hides the scene before render startup');
+  ui.scene.renderStarted = true;
+  ui.scene.isPlaying = true;
+  ui.scene.renderer.setAnimationLoop(ui.scene.render);
+  ui.scene.listeners.renderstart();
+  assert.equal(ui.scene.isPlaying, false);
+  assert.equal(ui.scene.renderer.loop, null);
+  drillWithActions(ui);
+  const tick = ui.value('state.tick');
+  ui.componentTick(100000);
+  assert.equal(ui.value('state.tick'), tick);
+  assert.equal(ui.scene.isPlaying, false);
+  assert.equal(ui.scene.renderer.loop, null);
+  ui.value('compare(0, 20)');
+  assert.equal(ui.scene.isPlaying, true);
+  assert.equal(ui.scene.renderer.loop, ui.scene.render);
+  ui.playTicks(2);
+});
+
+test('XR keeps rendering results and exiting XR restores the hidden laptop results state', () => {
+  const ui = setup();
+  practice(ui); ui.click('drill-btn');
+  ui.scene.xrSession = { visibilityState: 'visible' };
+  ui.scene.listeners['enter-vr']();
+  ui.play('drill');
+  assert.equal(ui.element('results').hidden, false);
+  assert.equal(ui.scene.hidden, false);
+  assert.equal(ui.scene.isPlaying, true);
+  assert.equal(ui.scene.renderer.loop, ui.scene.render);
+  ui.scene.xrSession = null;
+  ui.scene.listeners['exit-vr']();
+  assert.equal(ui.scene.hidden, true);
+  assert.equal(ui.scene.isPlaying, false);
+  assert.equal(ui.scene.renderer.loop, null);
+});
+
+test('walking survives same-tick refresh and action but stationary ticks and new states return to idle', () => {
+  const ui = setup(); practice(ui);
+  ui.componentTick(0); ui.componentTick(250);
+  assert.equal(ui.value('figures.some(item => item.model.moving)'), true);
+  const moving = ui.value('figures.map(item => item.model.moving).join()');
+  ui.value('refresh()'); ui.value('refresh()');
+  assert.equal(ui.value('figures.map(item => item.model.moving).join()'), moving);
+  ui.value('state.tick++; refresh()');
+  assert.equal(ui.value('figures.some(item => item.model.moving)'), false, 'unchanged positions at a new tick are idle');
+  ui.click('drill-btn');
+  ui.componentTick(500); ui.componentTick(750);
+  const walking = ui.value('figures.map(item => item.model.moving).join()');
+  ui.click('redirect-b');
+  assert.equal(ui.value('figures.map(item => item.model.moving).join()'), walking, 'action refresh preserves movement');
+  ui.click('stop-btn');
+  assert.equal(ui.value('figures.some(item => item.model.moving)'), false, 'a new state has no previous movement');
+});
+
+test('saved zero-action links restore the final HUD and results without offering comparison', async () => {
+  const saved = savedRecord();
+  const ui = setup({ search: '?run=zero', fetch: async () => ({ ok: true, json: async () => saved }) });
+  await settle();
+  assert.equal(ui.value('state.tick'), saved.result.ticks);
+  assert.equal(ui.element('evacuated').textContent, `People out: ${saved.result.evacuated} / ${sim.POPULATION}`);
+  assert.equal(ui.element('timer').textContent, 'Time left: 0 s');
+  assert.equal(ui.element('result-score').textContent, String(saved.result.evacuated));
+  assert.equal(ui.element('results').hidden, false);
+  assert.equal(ui.element('compare-form').hidden, true);
+  assert.equal(ui.requests.length, 1);
+});
+
+test('saved results and accepted commands must match before a link is presented as reopened', async () => {
+  for (const corrupt of [saved => saved.result.evacuated++, saved => saved.commands.push({ tick: 0, action: 'open-exit', target: 'A' })]) {
+    const saved = savedRecord(); corrupt(saved);
+    const ui = setup({ search: '?run=bad', fetch: async () => ({ ok: true, json: async () => saved }) });
+    await settle();
+    assert.equal(ui.value('lastRun'), null);
+    assert.match(ui.element('load-status').textContent, /Could not open/);
+    assert.equal(ui.element('results').hidden, true);
+  }
+});
+
+test('a new drill invalidates pending saved-link successes and failures', async () => {
+  for (const fail of [false, true]) {
+    let resolve;
+    const response = new Promise(done => { resolve = done; });
+    const ui = setup({ search: '?run=slow', fetch: () => response });
+    practice(ui); ui.click('drill-btn'); ui.click('redirect-b');
+    const state = ui.value('state');
+    const status = ui.element('load-status').textContent;
+    resolve({ ok: !fail, status: 404, json: async () => fail ? { error: 'Gone' } : savedRecord() });
+    await settle();
+    assert.equal(ui.value('state'), state);
+    assert.equal(ui.value('mode'), 'drill');
+    assert.equal(ui.value('state.commands.length'), 1);
+    assert.equal(ui.element('load-status').textContent, status, 'stale error and success leave status alone');
+  }
+});
+
+test('mute and restart pause and rewind every cached clip and cancel scheduled alarm oscillators', () => {
+  const ui = setup({ clips: ['alarm', 'ambience', 'drill-start'] });
+  practice(ui); ui.click('drill-btn'); ui.playTicks(ui.value('state.hazardTick') + 1);
+  ui.audioClips.forEach(clip => { clip.currentTime = 2; });
+  ui.click('sound-btn');
+  assert.ok(ui.audioClips.every(clip => clip.paused && clip.currentTime === 0));
+  ui.click('sound-btn');
+  ui.value('alarm(); announce("drill-start")');
+  ui.click('stop-btn');
+  assert.ok(ui.audioClips.every(clip => clip.paused && clip.currentTime === 0));
+  const synth = setup(); practice(synth); synth.click('drill-btn');
+  synth.playTicks(synth.value('state.hazardTick') + 1);
+  assert.equal(synth.oscillators.length, 6);
+  const cancels = synth.canceled();
+  synth.click('sound-btn');
+  assert.ok(synth.oscillators.every(tone => tone.stops.includes(undefined)), 'scheduled tones are canceled immediately');
+  assert.ok(synth.canceled() > cancels);
+});
+
+test('rejected playback cannot revive speech or beeps after mute-unmute, restart, or a newer announcement', async () => {
+  const pending = [];
+  const ui = setup({ clips: ['alarm', 'redirect-A', 'redirect-B'], playback: src => new Promise((resolve, reject) => pending.push({ src, reject })) });
+  ui.click('start-btn');
+  ui.value('announce("redirect-A"); alarm()');
+  ui.click('sound-btn'); ui.click('sound-btn');
+  pending.splice(0).forEach(item => item.reject(new Error('no audio')));
+  await settle();
+  assert.deepEqual(ui.spoken, []);
+  assert.equal(ui.tones(), 0);
+  ui.value('announce("redirect-A"); announce("redirect-B"); announce("redirect-A")');
+  pending[0].reject(new Error('obsolete A')); pending[1].reject(new Error('obsolete B'));
+  await settle();
+  assert.deepEqual(ui.spoken, [], 'cached A identity cannot revive its first announcement');
+  pending[2].reject(new Error('current A'));
+  await settle();
+  assert.deepEqual(ui.spoken, ['Attention please. Proceed to Exit A.']);
+  ui.value('announce("redirect-B"); alarm()');
+  const canceled = ui.canceled();
+  ui.click('stop-btn');
+  assert.ok(ui.canceled() > canceled, 'restart cancels synthesized speech too');
+  pending.slice(3).forEach(item => item.reject(new Error('old session')));
+  await settle();
+  assert.equal(ui.spoken.length, 1);
+  assert.equal(ui.tones(), 0);
+});
+
+test('headset mirrors actual captions with sound off and only visible breathing text', async () => {
+  let reading = { available: false };
+  const ui = setup({ fetch: async () => ({ ok: true, json: async () => reading }) });
+  ui.click('start-btn');
+  ui.scene.xrSession = { visibilityState: 'visible' }; ui.scene.listeners['enter-vr']();
+  ui.click('sound-btn'); ui.click('open-exit-b'); ui.click('redirect-b');
+  assert.ok(ui.element('vr-text').getAttribute('value').includes(ui.element('pa-caption').textContent));
+  await ui.value('pollBreathing()');
+  assert.doesNotMatch(ui.element('vr-text').getAttribute('value'), /Breathing:/);
+  reading = { available: true, rate: 18, confidence: 85 };
+  await ui.value('pollBreathing()');
+  assert.match(ui.element('vr-text').getAttribute('value'), /Breathing: 18 \/min/);
+  reading = { available: true, rate: null, confidence: 0, hint: 'Face not visible' };
+  await ui.value('pollBreathing()');
+  assert.match(ui.element('vr-text').getAttribute('value'), /Breathing: Face not visible/);
+  assert.equal(ui.value('breathingLog.practice.length'), 1, 'invalid sample is not averaged');
+  reading = { available: true, rate: 40, confidence: 20 };
+  await ui.value('pollBreathing()');
+  assert.equal(ui.value('breathingLog.practice.length'), 1, 'low confidence is not averaged');
 });
